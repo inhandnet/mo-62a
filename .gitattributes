@@ -1,0 +1,2 @@
+linux-devkit filter=lfs diff=lfs merge=lfs -text
+k3r5-devkit filter=lfs diff=lfs merge=lfs -text
