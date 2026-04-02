@@ -1,0 +1,12 @@
+# cryptodev-module-1.14 kernel module build artifacts
+cryptodev-module-1.14/*.o
+cryptodev-module-1.14/*.ko
+cryptodev-module-1.14/*.mod
+cryptodev-module-1.14/*.mod.c
+cryptodev-module-1.14/*.mod.o
+cryptodev-module-1.14/.*.cmd
+cryptodev-module-1.14/modules.order
+cryptodev-module-1.14/modules.builtin
+cryptodev-module-1.14/modules.builtin.modinfo
+cryptodev-module-1.14/Module.symvers
+cryptodev-module-1.14/.tmp_versions/

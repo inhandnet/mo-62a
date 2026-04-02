@@ -1,0 +1,4 @@
+ImagePos    Offset      Size  Name
+00000000  00000000  000076b3  tifsstub-fs
+00000000   00000000  00000693  tifsstub-fs-cert.bin
+00000693   00000693  00007020  tifsstub-fs-enc.bin

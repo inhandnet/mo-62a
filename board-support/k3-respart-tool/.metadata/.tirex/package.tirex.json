@@ -1,0 +1,25 @@
+[
+	{
+		"description": "Tool for partitioning various system level resources to different software components in a multi-core SoC",
+		"devices": [
+			"AM62Ax"
+		],
+		"id": "K3-RESOURCE-CONFIGURATION",
+		"image": "./sysconfig.ico",
+		"metadataVersion": "3.1.0",
+		"name": "Resource partitioning tool for Multi-Core SoCs",
+		"tags": [
+			"K3-RESOURCE-CONFIGURATION",
+			"Resource Configuration",
+			"Respart",
+			"K3-Respart-Tool",
+			"Resource Partitioning",
+			"QoS",
+			"Firewall",
+			"Resource Sharing",
+			"AM62Ax"
+		],
+		"type": "software",
+		"version": "1.0.0"
+	}
+]

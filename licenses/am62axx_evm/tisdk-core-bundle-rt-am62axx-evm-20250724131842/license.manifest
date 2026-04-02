@@ -1,0 +1,135 @@
+PACKAGE NAME: arm-benchmarks-src
+PACKAGE VERSION: 1.3
+RECIPE NAME: arm-benchmarks
+LICENSE: BSD-3-Clause
+
+PACKAGE NAME: cryptodev-module-src
+PACKAGE VERSION: 1.14
+RECIPE NAME: cryptodev-module
+LICENSE: GPL-2.0-only
+
+PACKAGE NAME: glibc
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: glibc-locale-en-gb
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc-locale
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: ldconfig
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: libacl
+PACKAGE VERSION: 2.3.2
+RECIPE NAME: acl
+LICENSE: LGPL-2.1-or-later
+
+PACKAGE NAME: libarchive
+PACKAGE VERSION: 3.7.9
+RECIPE NAME: libarchive
+LICENSE: BSD-2-Clause
+
+PACKAGE NAME: libattr
+PACKAGE VERSION: 2.5.1
+RECIPE NAME: attr
+LICENSE: LGPL-2.1-or-later
+
+PACKAGE NAME: libbz2
+PACKAGE VERSION: 1.0.8
+RECIPE NAME: bzip2
+LICENSE: bzip2-1.0.6
+
+PACKAGE NAME: liblzma
+PACKAGE VERSION: 5.4.7
+RECIPE NAME: xz
+LICENSE: PD
+
+PACKAGE NAME: libopkg
+PACKAGE VERSION: 0.6.3
+RECIPE NAME: opkg
+LICENSE: GPL-2.0-or-later
+
+PACKAGE NAME: libsolv
+PACKAGE VERSION: 0.7.28
+RECIPE NAME: libsolv
+LICENSE: BSD-3-Clause
+
+PACKAGE NAME: libzstd
+PACKAGE VERSION: 1.5.5
+RECIPE NAME: zstd
+LICENSE: BSD-3-Clause | GPL-2.0-only
+
+PACKAGE NAME: linux-ti-staging-rt-src
+PACKAGE VERSION: 6.12.35+git
+RECIPE NAME: linux-ti-staging-rt
+LICENSE: GPL-2.0-only
+
+PACKAGE NAME: locale-base-c
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc-locale
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: locale-base-en-gb
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc-locale
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: locale-base-en-us
+PACKAGE VERSION: 2.39+git
+RECIPE NAME: glibc-locale
+LICENSE: GPL-2.0-only & LGPL-2.1-or-later
+
+PACKAGE NAME: opkg
+PACKAGE VERSION: 0.6.3
+RECIPE NAME: opkg
+LICENSE: GPL-2.0-or-later
+
+PACKAGE NAME: opkg-arch-config
+PACKAGE VERSION: 1.0
+RECIPE NAME: opkg-arch-config
+LICENSE: MIT
+
+PACKAGE NAME: optee-os-src
+PACKAGE VERSION: 4.6.0+git
+RECIPE NAME: optee-os
+LICENSE: BSD-2-Clause
+
+PACKAGE NAME: packagegroup-arago-tisdk-amsdk-sdk-host
+PACKAGE VERSION: 1.0
+RECIPE NAME: packagegroup-arago-tisdk-amsdk-sdk-host
+LICENSE: MIT
+
+PACKAGE NAME: packagegroup-arago-tisdk-sourceipks-sdk-host
+PACKAGE VERSION: 1.0
+RECIPE NAME: packagegroup-arago-tisdk-sourceipks-sdk-host
+LICENSE: MIT
+
+PACKAGE NAME: tisdk-uenv
+PACKAGE VERSION: 1.0
+RECIPE NAME: tisdk-uenv
+LICENSE: MIT
+
+PACKAGE NAME: trusted-firmware-a-src
+PACKAGE VERSION: 2.13+git
+RECIPE NAME: trusted-firmware-a
+LICENSE: BSD-3-Clause & MIT
+
+PACKAGE NAME: u-boot-ti-staging-src
+PACKAGE VERSION: 2025.01+git
+RECIPE NAME: u-boot-ti-staging
+LICENSE: GPL-2.0-or-later
+
+PACKAGE NAME: update-alternatives-opkg
+PACKAGE VERSION: 0.6.3
+RECIPE NAME: opkg-utils
+LICENSE: GPL-2.0-or-later
+
+PACKAGE NAME: zlib
+PACKAGE VERSION: 1.3.1
+RECIPE NAME: zlib
+LICENSE: Zlib
+

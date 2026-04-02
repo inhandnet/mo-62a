@@ -1,0 +1,17 @@
+%%{
+	var utils = system.getScript("/.meta/scripts/utils.js");
+	const deviceSelected = utils.deviceSelected;
+	const devData = utils.devData;
+	const socName = utils.socName;
+	const bwlimiter = utils.bwlimiter;
+%%}
+
+/*
+ * `socName` Bandwidth Limiter Base address definitions
+ * Auto generated from K3 Resource Partitioning tool
+ */
+
+%_.each(bwlimiter,(l) => {
+#define `l.deviceName` `l.baseAddress`
+%});
+

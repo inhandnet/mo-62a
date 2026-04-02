@@ -1,0 +1,24 @@
+config DMABUF_HEAPS_SYSTEM
+	bool "DMA-BUF System Heap"
+	depends on DMABUF_HEAPS
+	help
+	  Choose this option to enable the system dmabuf heap. The system heap
+	  is backed by pages from the buddy allocator. If in doubt, say Y.
+
+config DMABUF_HEAPS_CMA
+	bool "DMA-BUF CMA Heap"
+	depends on DMABUF_HEAPS && DMA_CMA
+	help
+	  Choose this option to enable dma-buf CMA heap. This heap is backed
+	  by the Contiguous Memory Allocator (CMA). If your system has these
+	  regions, you should say Y here.
+
+config DMABUF_HEAPS_CARVEOUT
+	bool "DMA-BUF Carveout Heap"
+	depends on DMABUF_HEAPS && HAS_IOMEM
+	depends on OF_RESERVED_MEM
+	select GENERIC_ALLOCATOR
+	help
+	  Choose this option to enable dma-buf Carveout heap. This heap is
+	  backed by the a carved-out of memory. If your system has these
+	  regions, you should say Y here.

@@ -1,0 +1,109 @@
+%%{
+	var utils = system.getScript("/.meta/scripts/utils.js");
+	const deviceSelected = utils.deviceSelected;
+	const devData = utils.devData;
+	const socName = utils.socName;
+	const qos = utils.qos;
+	const bwlimiter = utils.bwlimiter;
+	const year = new Date().getFullYear();
+	var uniqueEndPoint = _.uniq(utils.endPoint());
+%%}
+// SPDX-License-Identifier: GPL-2.0+
+/*
+ * `socName` Quality of Service (QoS) Configuration Data
+ * Auto generated from K3 Resource Partitioning tool
+ *
+ * Copyright (C) 2022-`year` Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include <asm/arch/k3-qos.h>
+#include "`socName`_qos.h"
+
+struct k3_qos_data qos_data[] = {
+%if (system.modules["/modules/qosConfig"]) {
+%	for (let inst of system.modules["/modules/qosConfig"].$instances) {
+	/* `inst.$name` - `inst.qosdev.length` endpoints, `inst.chan.length` channels */
+%		_.each(inst.qosdev,(e) => {
+%			var n = inst.deviceName + "_" + e;
+%			for (var c = 0; c < inst.chan.length; c++) {
+%				var channel = inst.chan[c];
+	{
+		.reg = K3_QOS_REG(`qos[n].endpointName`, `channel`),
+		.val = K3_QOS_VAL(`utils.getQosValueUboot(inst)`),
+	},
+%			}
+%		})
+%	}
+%}
+
+	/* Following registers set 1:1 mapping for orderID MAP1/MAP2
+	 * remap registers. orderID x is remapped to orderID x again
+	 * This is to ensure orderID from MAP register is unchanged
+	 */
+%_.each(uniqueEndPoint,(u) => {
+%	var grp_cnt = qos[u].groupCount;
+
+	/* `qos[u].endpointName` - `grp_cnt` groups */
+%	for(var g = 0 ; g < grp_cnt ; g++ ){
+%		var map1_offset = 0 + (g * 2);
+%		var map2_offset = 1 + (g * 2);
+	{
+		.reg = K3_QOS_GROUP_REG(`qos[u].endpointName`, `map1_offset`),
+		.val = K3_QOS_GROUP_DEFAULT_VAL_LOW,
+	},
+	{
+		.reg = K3_QOS_GROUP_REG(`qos[u].endpointName`, `map2_offset`),
+		.val = K3_QOS_GROUP_DEFAULT_VAL_HIGH,
+	},
+%	}
+%})
+%if (system.modules["/modules/bwlimitersConfig"]) {
+
+	/*
+	 * Following sections program the BW limiters
+	 */
+%	for (let inst of system.modules["/modules/bwlimitersConfig"].$instances) {
+%		if (bwlimiter[inst.deviceName].readLimiter) {
+
+	/* `inst.$name` : RD_BW_ENABLE = `inst.bw_enable`, RD_TXN_ENABLE = `inst.txn_enable` */
+%			var offset = 0;
+%			var ctrl_unit = 1;
+%		}
+%		if (bwlimiter[inst.deviceName].writeLimiter) {
+
+	/* `inst.$name` : WR_BW_ENABLE = `inst.bw_enable`, WR_TXN_ENABLE = `inst.txn_enable` */
+%			var offset = 0x100;
+%			var ctrl_unit = 2;
+%		}
+%		var ctrl = 0;
+%		if (inst.bw_enable) {
+%			ctrl = ctrl + 1 * ctrl_unit;
+	{
+		.reg = `inst.deviceName` + 0x100 + `utils.decimalToHexadecimal(offset)`,
+		.val = `inst.limitCIR`,
+	},
+	{
+		.reg = `inst.deviceName` + 0x104 + `utils.decimalToHexadecimal(offset)`,
+		.val = `inst.limitPIR`,
+	},
+	{
+		.reg = `inst.deviceName` + 0x108 + `utils.decimalToHexadecimal(offset)`,
+		.val = `inst.limitBurst`,
+	},
+%		}
+%		if (inst.txn_enable) {
+%			ctrl = ctrl + 4 * ctrl_unit;
+	{
+		.reg = `inst.deviceName` + 0x300 + `utils.decimalToHexadecimal(offset)`,
+		.val = `inst.limitTxn`,
+	},
+%		}
+	{
+		.reg = `inst.deviceName` + 0x4,
+		.val = `utils.decimalToHexadecimal(ctrl)`,
+	},
+%	}
+%}
+};
+
+u32 qos_count = ARRAY_SIZE(qos_data);

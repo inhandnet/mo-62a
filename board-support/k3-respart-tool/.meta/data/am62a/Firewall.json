@@ -1,0 +1,162 @@
+[
+	{
+		"end_address": "0x000FFFFFFFFF",
+		"ids": [
+			0,
+			1
+		],
+		"memory": false,
+		"name": "ZZZZ_0",
+		"num_regions": 8,
+		"protected_inst": [
+			"sam62a_ddr_wrap_main_0",
+			"sam62a_ddr_wrap_main_0"
+		],
+		"start_address": "0x000080000000"
+	},
+	{
+		"end_address": "0x00007F03FFFF",
+		"ids": [
+			4
+		],
+		"memory": false,
+		"name": "ZZZZ_1",
+		"num_regions": 8,
+		"protected_inst": [
+			"sam62a_c7xv_wrap_main_0_c7xv_corepac_0"
+		],
+		"start_address": "0x00007C000000"
+	},
+	{
+		"end_address": "0x00004301FFFF",
+		"ids": [
+			34
+		],
+		"memory": false,
+		"name": "ZZZZ_10",
+		"num_regions": 16,
+		"protected_inst": [
+			"gtc_r10_wkup_0"
+		],
+		"start_address": "0x000000A80000"
+	},
+	{
+		"end_address": "0x00004092FFFF",
+		"ids": [
+			66
+		],
+		"memory": false,
+		"name": "ZZZZ_11",
+		"num_regions": 4,
+		"protected_inst": [
+			"am62a_main_fw_cbass_main_0"
+		],
+		"start_address": "0x000000220000"
+	},
+	{
+		"end_address": "0x00007107FFFF",
+		"ids": [
+			5,
+			37
+		],
+		"memory": false,
+		"name": "ZZZZ_2",
+		"num_regions": 4,
+		"protected_inst": [
+			"sam62a_vpac_wrap_main_0",
+			"sam62a_vpac_wrap_main_0"
+		],
+		"start_address": "0x00002B604000"
+	},
+	{
+		"end_address": "0x000057FFFFFF",
+		"ids": [
+			6
+		],
+		"memory": false,
+		"name": "ZZZZ_3",
+		"num_regions": 8,
+		"protected_inst": [
+			"gpmc_main_0"
+		],
+		"start_address": "0x00003B000000"
+	},
+	{
+		"end_address": "0x0005FFFFFFFF",
+		"ids": [
+			7
+		],
+		"memory": false,
+		"name": "ZZZZ_4",
+		"num_regions": 8,
+		"protected_inst": [
+			"fss_ul_main_0_fsas_0"
+		],
+		"start_address": "0x000060000000"
+	},
+	{
+		"end_address": "0x00003F1103FF",
+		"ids": [
+			10
+		],
+		"memory": false,
+		"name": "ZZZZ_5",
+		"num_regions": 16,
+		"protected_inst": [
+			"am62a_main_dbg_cbass_main_0"
+		],
+		"start_address": "0x000000200000"
+	},
+	{
+		"end_address": "0x00003F0043FF",
+		"ids": [
+			11
+		],
+		"memory": false,
+		"name": "ZZZZ_6",
+		"num_regions": 16,
+		"protected_inst": [
+			"am62a_main_mcasp_cbass_main_0"
+		],
+		"start_address": "0x000000240000"
+	},
+	{
+		"end_address": "0x000030300FFF",
+		"ids": [
+			13
+		],
+		"memory": false,
+		"name": "ZZZZ_7",
+		"num_regions": 1,
+		"protected_inst": [
+			"mcrc64_main_0"
+		],
+		"start_address": "0x000030300000"
+	},
+	{
+		"end_address": "0x00007000FFFF",
+		"ids": [
+			15
+		],
+		"memory": false,
+		"name": "ZZZZ_8",
+		"num_regions": 16,
+		"protected_inst": [
+			"msram2kx256e_main_0"
+		],
+		"start_address": "0x000043C40000"
+	},
+	{
+		"end_address": "0x000078107FFF",
+		"ids": [
+			32
+		],
+		"memory": false,
+		"name": "ZZZZ_9",
+		"num_regions": 4,
+		"protected_inst": [
+			"pulsar_ul_wkup_0_R5_0"
+		],
+		"start_address": "0x000074000000"
+	}
+]

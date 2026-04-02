@@ -1,0 +1,113 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Common AM62Px EVM dts file for SPLs
+ * Copyright (C) 2022 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include "k3-am62p-sk-binman.dtsi"
+
+/ {
+	chosen {
+		stdout-path = "serial2:115200n8";
+		tick-timer = &main_timer0;
+	};
+
+	reserved-memory {
+		bootph-pre-ram;
+	};
+
+	panel_lvds: panel-lvds {
+		bootph-pre-ram;
+		compatible = "simple-panel";
+		status= "okay";
+		width-mm = <217>;
+		height-mm = <136>;
+		data-mapping = "vesa-24";
+		panel-timing {
+				bootph-pre-ram;
+				clock-frequency = <150274>;
+				hactive = <1920>;
+				vactive = <1200>;
+				hback-porch = <32>;
+				hfront-porch = <52>;
+				vback-porch = <24>;
+				vfront-porch = <8>;
+				hsync-len = <24>;
+				vsync-len = <3>;
+				de-active = <1>;
+		};
+	};
+};
+
+&dss0 {
+	compatible = "ti,am625-dss";
+	clocks = <&k3_clks 186 6>,
+		 <&k3_clks 186 0>,
+		 <&k3_clks 186 2>;
+	ti,am65x-oldi-io-ctrl = <&dss_oldi_io_ctrl>;
+};
+
+&wkup_r5fss0_core0_memory_region {
+	bootph-pre-ram;
+};
+
+&cbass_wakeup {
+	bootph-pre-ram;
+};
+
+&dmsc {
+	bootph-pre-ram;
+};
+
+/* Required for USB DFU Boot */
+&usb0 {
+	bootph-all;
+};
+
+&ddr_pmctrl {
+	bootph-pre-ram;
+};
+
+&canuart_wake {
+	bootph-pre-ram;
+};
+
+&wkup_r5fss0 {
+	bootph-pre-ram;
+};
+
+&wkup_r5fss0_core0 {
+	bootph-pre-ram;
+};
+
+&cpsw_mac_syscon {
+	bootph-all;
+};
+
+&cpsw_port1 {
+	bootph-all;
+};
+
+&main_pktdma {
+	bootph-all;
+};
+
+&main_rgmii1_pins_default {
+	bootph-all;
+};
+
+&main_mdio1_pins_default {
+	bootph-all;
+};
+
+&cpsw3g_phy0 {
+	bootph-all;
+};
+
+&cpsw3g_mdio {
+	bootph-all;
+};
+
+&phy_gmii_sel {
+	bootph-all;
+};

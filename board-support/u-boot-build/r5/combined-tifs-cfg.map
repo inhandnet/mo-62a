@@ -1,0 +1,7 @@
+ImagePos    Offset      Size  Name
+00000000  00000000  00000674  combined-tifs-cfg
+00000000   00000000  00000674  ti-board-config
+<none>      00000000  0000001d  board-cfg
+<none>      0000001d  0000015d  sec-cfg
+<none>      0000017a  00000002  pm-cfg
+<none>      0000017c  000004d6  rm-cfg

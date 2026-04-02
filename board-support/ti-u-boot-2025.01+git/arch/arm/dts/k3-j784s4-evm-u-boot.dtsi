@@ -1,0 +1,190 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2023 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#define SPL_BOARD_DTB "spl/dts/ti/k3-j784s4-evm.dtb"
+#define BOARD_DESCRIPTION "k3-j784s4-evm"
+#define UBOOT_BOARD_DESCRIPTION "U-Boot for J784S4 board"
+
+#include "k3-j784s4-binman.dtsi"
+
+#if defined(CONFIG_CPU_V7R)
+
+&binman {
+	tiboot3-j784s4-hs {
+		insert-template = <&tiboot3_j784s4_hs>;
+		filename = "tiboot3-j784s4-hs-evm.bin";
+	};
+
+	tiboot3-j784s4-hs-fs {
+		insert-template = <&tiboot3_j784s4_hs_fs>;
+		filename = "tiboot3-j784s4-hs-fs-evm.bin";
+	};
+
+	tiboot3-j784s4-gp {
+		insert-template = <&tiboot3_j784s4_gp>;
+		filename = "tiboot3-j784s4-gp-evm.bin";
+		symlink = "tiboot3.bin";
+	};
+};
+
+&ti_fs_gp {
+	filename = "ti-sysfw/ti-fs-firmware-j784s4-gp.bin";
+};
+
+&ti_fs_enc {
+	filename = "ti-sysfw/ti-fs-firmware-j784s4-hs-enc.bin";
+};
+
+&sysfw_inner_cert {
+	filename = "ti-sysfw/ti-fs-firmware-j784s4-hs-cert.bin";
+};
+
+&ti_fs_enc_fs {
+	filename = "ti-sysfw/ti-fs-firmware-j784s4-hs-fs-enc.bin";
+};
+
+&sysfw_inner_cert_fs {
+	filename = "ti-sysfw/ti-fs-firmware-j784s4-hs-fs-cert.bin";
+};
+
+#else // CONFIG_ARM64
+
+&binman {
+	tispl {
+		insert-template = <&ti_spl>;
+
+		fit {
+			images {
+				dm {
+					ti-dm {
+						filename = "ti-dm/j784s4/ipc_echo_testb_mcu1_0_release_strip.xer5f";
+					};
+				};
+			};
+		};
+	};
+
+	u-boot {
+		insert-template = <&u_boot>;
+	};
+
+	tispl-unsigned {
+		insert-template = <&ti_spl_unsigned>;
+
+		fit {
+			images {
+				dm {
+					ti-dm {
+						filename = "ti-dm/j784s4/ipc_echo_testb_mcu1_0_release_strip.xer5f";
+					};
+				};
+			};
+		};
+	};
+
+	u-boot-unsigned {
+		insert-template = <&u_boot_unsigned>;
+	};
+};
+
+#endif
+
+/ {
+	memory@80000000 {
+		bootph-all;
+	};
+};
+
+&mcu_udmap {
+	reg =   <0x0 0x285c0000 0x0 0x100>,
+		<0x0 0x284c0000 0x0 0x4000>,
+		<0x0 0x2a800000 0x0 0x40000>,
+		<0x0 0x284a0000 0x0 0x4000>,
+		<0x0 0x2aa00000 0x0 0x40000>,
+		<0x0 0x28400000 0x0 0x2000>;
+	reg-names = "gcfg", "rchan", "rchanrt", "tchan",
+		    "tchanrt", "rflow";
+	bootph-pre-ram;
+};
+
+&wkup_gpio_pins_default {
+	bootph-pre-ram;
+};
+
+&wkup_gpio0 {
+	bootph-pre-ram;
+};
+
+&wkup_pmx0 {
+	bootph-pre-ram;
+};
+
+&fss {
+	bootph-pre-ram;
+};
+
+&mcu_fss0_ospi0_pins_default {
+	bootph-pre-ram;
+};
+
+&mcu_fss0_ospi0_1_pins_default {
+	bootph-pre-ram;
+};
+
+&ospi0 {
+	bootph-pre-ram;
+
+	ospi0_nor: flash@0 {
+		bootph-pre-ram;
+
+		partitions {
+			bootph-pre-ram;
+
+			partition@3fc0000 {
+				bootph-pre-ram;
+			};
+		};
+	};
+};
+
+&ospi0_nand {
+	bootph-pre-ram;
+};
+
+&ospi1 {
+	bootph-pre-ram;
+};
+
+&ospi1_nor {
+	bootph-pre-ram;
+};
+
+/* Required for USB DFU boot */
+&serdes0_usb_link {
+	bootph-all;
+};
+
+/*
+ * Since OTG is not supported with a Type-C USB interface, it is not possible
+ * to determine the role at runtime. Therefore, to support USB DFU boot, it
+ * is necessary to set 'dr_mode' to "peripheral".
+ */
+&usb0 {
+	dr_mode = "peripheral";
+};
+
+&cbass_main {
+	bist_main14: bist@33c0000 {
+		compatible = "ti,j784s4-bist";
+		reg-names = "cfg", "ctrl_mmr";
+		reg = <0x00 0x033c0000 0x00 0x400>,
+			  <0x00 0x0010c1a0 0x00 0x01c>;
+		clocks = <&k3_clks 237 7>;
+		power-domains = <&k3_pds 237 TI_SCI_PD_EXCLUSIVE>;
+		bootph-pre-ram;
+		ti,bist-instance = <14>;
+		cores-under-test = <&main_r5fss2_core0>, <&main_r5fss2_core1>;
+	};
+};

@@ -1,0 +1,16 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#include "k3-am62l3-evm-binman.dtsi"
+
+/ {
+	aliases {
+		mmc1 = &sdhci1;
+	};
+};
+
+&scmi {
+	bootph-all;
+};

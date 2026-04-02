@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0+
+#
+# Copyright (C) 2025 Texas Instruments Incorporated - https://www.ti.com/
+#
+
+if SOC_K3_AM62L3
+
+choice
+	prompt "TI K3 AM62Lx based boards"
+	optional
+
+config TARGET_AM62L3_EVM
+	bool "TI K3 based AM62L5 EVM"
+	select ARM64
+	select BINMAN
+	select OF_UPSTREAM
+	select OF_SYSTEM_SETUP
+
+endchoice
+
+source "board/ti/am62lx/Kconfig"
+
+endif

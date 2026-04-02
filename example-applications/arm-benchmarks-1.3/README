@@ -1,0 +1,29 @@
+
+ARM Microprocessor (AM) Benchmarks project build instructions:
+
+If building the project outside the ti-sdk environment that contains a rules.make, the user must modify the "DIRS" file.
+
+These variables must be defined in the DIRS config file:
+DESTDIR ?= < Must point to the install directory of the target file system >
+
+NOTE:When setting paths, do not have any leading or trailing spaces in the path i.e. LINUX_DEVKIT_PATH=/home/user/fs/opt/arago-sdk
+
+Below are the command line build options.
+To Build: make all
+
+This will build both the debug and release versions of the Matrix TUI project.
+
+To Install: make install
+
+This will install the binaries into DESTDIR defined in the makefile.init.
+
+To clean: make clean
+
+This will remove the objects and executables in the respective Debug and Release directories
+
+To Build Debug only: make debug
+
+To Build Release only: make release
+
+To Install Debug only: make install_debug
+

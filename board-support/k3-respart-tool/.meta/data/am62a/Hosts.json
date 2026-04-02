@@ -1,0 +1,126 @@
+[
+	{
+		"Description": "TI Foundational Security",
+		"Security": "Secure",
+		"displayName": "TI Foundational Security",
+		"hostId": 0,
+		"hostName": "TIFS"
+	},
+	{
+		"Description": "Cortex A53 context 0 on Main island",
+		"Security": "Secure",
+		"displayName": "A53_0 Secure host",
+		"hostId": 10,
+		"hostName": "A53_0",
+		"privId": 1
+	},
+	{
+		"Description": "Cortex A53 context 1 on Main island",
+		"Security": "Secure",
+		"displayName": "A53_1 Secure host",
+		"hostId": 11,
+		"hostName": "A53_1",
+		"privId": 1
+	},
+	{
+		"Description": "Cortex A53 context 2 on Main island",
+		"Security": "Non Secure",
+		"displayName": "A53_2 NonSecure host",
+		"hostId": 12,
+		"hostName": "A53_2",
+		"privId": 1
+	},
+	{
+		"Description": "Cortex A53 context 3 on Main island",
+		"Security": "Non Secure",
+		"displayName": "A53_3 NonSecure host",
+		"hostId": 13,
+		"hostName": "A53_3",
+		"privId": 1
+	},
+	{
+		"Description": "Cortex A53 context 4 on Main island",
+		"Security": "Non Secure",
+		"displayName": "A53_4 NonSecure host",
+		"hostId": 14,
+		"hostName": "A53_4",
+		"privId": 1
+	},
+	{
+		"Description": "C7x_0 Context 0 on Main island",
+		"Security": "Non Secure",
+		"displayName": "C7X_0_0",
+		"hostId": 20,
+		"hostName": "C7X_0_0",
+		"privId": 32
+	},
+	{
+		"Description": "MCU R5",
+		"Security": "Non Secure",
+		"displayName": "MCU R5F0 core0 NonSecure host",
+		"hostId": 30,
+		"hostName": "MCU_0_R5_0",
+		"privId": 96
+	},
+	{
+		"Description": "Cortex R5_0 context 0 on Main island(BOOT)",
+		"Security": "Secure",
+		"displayName": "Main R5F0 core0 Secure host",
+		"hostId": 35,
+		"hostName": "MAIN_0_R5_0",
+		"privId": 212
+	},
+	{
+		"Description": "Cortex R5_0 context 1 on Main island",
+		"Security": "Non Secure",
+		"displayName": "Main R5F0 core0 NonSecure host",
+		"hostId": 36,
+		"hostName": "MAIN_0_R5_1",
+		"privId": 212
+	},
+	{
+		"Description": "Cortex R5_0 context 2 on Main island",
+		"Security": "Secure",
+		"displayName": "Main R5F0 core0 Secure host",
+		"hostId": 37,
+		"hostName": "MAIN_0_R5_2",
+		"privId": 212
+	},
+	{
+		"Description": "Cortex R5_0 context 3 on Main island",
+		"Security": "Non Secure",
+		"displayName": "Main R5F0 core0 NonSecure host",
+		"hostId": 38,
+		"hostName": "MAIN_0_R5_3",
+		"privId": 212
+	},
+	{
+		"Description": "DM to TIFS communication",
+		"Security": "Secure",
+		"displayName": "DM to TIFS communication",
+		"hostId": 250,
+		"hostName": "DM2TIFS"
+	},
+	{
+		"Description": "TIFS to DM communication",
+		"Security": "Non Secure",
+		"displayName": "TIFS to DM communication",
+		"hostId": 251,
+		"hostName": "TIFS2DM"
+	},
+	{
+		"Description": "HSM Controller",
+		"Security": "Secure",
+		"displayName": "HSM",
+		"hostId": 253,
+		"hostName": "HSM",
+		"privId": 204
+	},
+	{
+		"Description": "Device Management",
+		"Security": "Non Secure",
+		"displayName": "Device Management",
+		"hostId": 254,
+		"hostName": "DM"
+	}
+]

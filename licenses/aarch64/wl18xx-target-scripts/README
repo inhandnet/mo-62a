@@ -1,0 +1,21 @@
+The scripts for TI wireless solution,
+based on the wl12xx and wl18xx drivers.
+
+Set of scripts and configurations to easily use the wlan drivers and tools
+for different modes and configuration.
+
+General
+Driver Load/Unload
+Change board configuration
+
+STA 
+Start/Stop 
+Connection 
+
+AP
+Start/Stop
+DHCP 
+
+P2P
+Start/Stop
+

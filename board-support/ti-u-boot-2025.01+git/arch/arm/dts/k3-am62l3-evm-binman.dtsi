@@ -1,0 +1,193 @@
+// SPDX-License-Identifier: GPL-2.0-only or MIT
+/*
+ * Copyright (C) 2025 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+/ {
+	binman: binman {
+		multiple-images;
+	};
+};
+
+&binman {
+	custMpk {
+		filename = "custMpk.pem";
+
+		custmpk_pem: blob-ext {
+			filename = "arch/arm/mach-k3/keys/custMpk.pem";
+		};
+	};
+
+	board-cfg {
+		filename = "board-cfg.bin";
+		bcfg_yaml: ti-board-config {
+			config = "board-cfg.yaml";
+			schema = "arch/arm/mach-k3/am62l-schema.yaml";
+		};
+	};
+
+	sec-cfg {
+		filename = "sec-cfg.bin";
+		sec_yaml: ti-board-config {
+			config = "sec-cfg.yaml";
+			schema = "arch/arm/mach-k3/am62l-schema.yaml";
+		};
+	};
+
+	combined-tifs-cfg {
+		filename = "combined-tifs-cfg.bin";
+
+		ti-board-config {
+			bcfg_yaml_tifs: board-cfg {
+				config = "board-cfg.yaml";
+				schema = "arch/arm/mach-k3/am62l-schema.yaml";
+			};
+
+			sec_yaml_tifs: sec-cfg {
+				config = "sec-cfg.yaml";
+				schema = "arch/arm/mach-k3/am62l-schema.yaml";
+			};
+		};
+	};
+
+	tiboot3.bin {
+		filename = "tiboot3.bin";
+
+		ti-secure-rom {
+			content = <&bl1>, <&tifs_enc>, <&tifs_data>, <&tifs_cert>;
+			combined;
+			sysfw-inner-cert;
+			keyfile = "custMpk.pem";
+			sw-rev = <1>;
+			content-sbl = <&bl1>;
+			content-sysfw = <&tifs_enc>;
+			content-sysfw-data = <&tifs_data>;
+			content-sysfw-inner-cert = <&tifs_cert>;
+			load = <0x70800000>;
+			load-sysfw = <CONFIG_K3_TIFS_LOAD_ADDR>;
+			load-sysfw-data = <CONFIG_K3_TIFS_DATA_LOAD_ADDR>;
+			core-opts = <160>;
+		};
+
+		bl1: atf-bl1 {
+		};
+
+		tifs_enc: tifs-enc.bin {
+			filename = "ti-sysfw/ti-fs-firmware-am62lx-hs-enc.bin";
+			type = "blob-ext";
+		};
+
+		/*
+		 * TODO: this doesn't need to be here
+		 */
+		tifs_data: sysfw-data.bin {
+			filename = "combined-tifs-cfg.bin";
+			type = "blob-ext";
+		};
+
+		tifs_cert: tifs-cert.bin {
+			filename = "ti-sysfw/ti-fs-firmware-am62lx-hs-cert.bin";
+			type = "blob-ext";
+		};
+	};
+
+	tispl.bin {
+		filename = "tispl.bin";
+
+		ti-secure-rom {
+			content = <&atf>, <&tifs_enc2>, <&tifs_data2>, <&tifs_cert2>, <&spl>;
+			combined;
+			sysfw-inner-cert;
+			dm-data;
+			keyfile = "custMpk.pem";
+			sw-rev = <1>;
+			content-sbl = <&atf>;
+			content-sysfw = <&tifs_enc2>;
+			content-sysfw-data = <&tifs_data2>;
+			content-sysfw-inner-cert = <&tifs_cert2>;
+			content-dm-data = <&spl>;
+			load = <CONFIG_K3_ATF_LOAD_ADDR>;
+			load-sysfw = <CONFIG_K3_TIFS_LOAD_ADDR>;
+			load-sysfw-data = <CONFIG_K3_TIFS_DATA_LOAD_ADDR>;
+			load-dm-data = <CONFIG_SPL_TEXT_BASE>;
+		};
+
+		atf: atf-bl31 {
+		};
+
+		tifs_enc2: tifs-enc2.bin {
+			filename = "ti-sysfw/ti-fs-firmware-am62lx-hs-enc.bin";
+			type = "blob-ext";
+		};
+
+		tifs_data2: sysfw-data2.bin {
+			filename = "combined-tifs-cfg.bin";
+			type = "blob-ext";
+		};
+
+		tifs_cert2: tifs-cert2.bin {
+			filename = "ti-sysfw/ti-fs-firmware-am62lx-hs-cert.bin";
+			type = "blob-ext";
+		};
+
+		spl: u-boot-spl {
+			no-expanded;
+		};
+
+	};
+
+	u-boot.img {
+		filename = "u-boot.img";
+		pad-byte = <0xff>;
+
+		fit {
+			description = "U-Boot fitImage for AM62Lx SK";
+
+			images {
+				uboot {
+					description = "U-Boot for AM62Lx SK";
+					type = "firmware";
+					os = "u-boot";
+					arch = "arm";
+					compression = "none";
+					load = <CONFIG_TEXT_BASE>;
+
+					blob {
+						filename = "u-boot-nodtb.bin";
+					};
+
+					hash {
+						algo = "crc32";
+					};
+				};
+
+				fdt-0 {
+					description = "k3-am62lx-evm";
+					type = "flat_dt";
+					arch = "arm";
+					compression = "none";
+
+					am62lx_evm_dtb: blob-ext {
+						filename = "u-boot.dtb";
+					};
+
+					hash {
+						algo = "crc32";
+					};
+				};
+			};
+
+			configurations {
+				default = "conf-0";
+
+				conf-0 {
+					description = "k3-am62lx-evm";
+					firmware = "uboot";
+					loadables = "uboot";
+					fdt = "fdt-0";
+				};
+
+			};
+		};
+	};
+};

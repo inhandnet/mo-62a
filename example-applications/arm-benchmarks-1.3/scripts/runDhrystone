@@ -1,0 +1,83 @@
+#!/bin/sh
+# Module: runDhrystone
+#
+# Description: This script is used to list the memory partition information
+# 
+# Copyright (C) 2010 Texas Instruments Incorporated - http://www.ti.com/
+#
+#  Redistribution and use in source and binary forms, with or withou
+#  modification, are permitted provided that the following conditions
+#  are met:
+#
+#  Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#  
+#  Redistributions in binary form must reproduce the above copyright
+#  notice, this list of conditions and the following disclaimer in the
+#  documentation and/or other materials provided with the
+#  distribution.
+#
+#  Neither the name of Texas Instruments Incorporated nor the names of
+#  its contributors may be used to endorse or promote products derived
+#  from this software without specific prior written permission.
+#
+#  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+#  "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+#  LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+#  A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+#  OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+#  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+#  LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+#  DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+#  THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+#  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+#  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+echo ""
+echo ""
+echo ""
+echo "Dhrystone running ..."
+echo ""
+echo "Execution time 10 seconds or longer depending on your CPU clock speed"
+
+function k3conf_get_cpu_freq()
+{
+    if test -x /usr/bin/k3conf; then
+    # When available, use k3conf to find the core frequency. Output is expected in the following format,
+    # logic parses the frequency value in the first row of the printed frequncies table.
+    # |--------------------------------------------------------------------------------|
+    # | VERSION INFO                                                                   |
+    # |--------------------------------------------------------------------------------|
+    # | K3CONF | (version v0.1-45-g79f007c built Mon Nov 15 18:31:13 UTC 2021)         |
+    # | SoC    | AM64x SR1.0                                                           |
+    # | SYSFW  | ABI: 3.1 (firmware version 0x0015 '21.9.1--v2021.09a (Terrific Lla)') |
+    # |--------------------------------------------------------------------------------|
+
+    # |--------------------------------------------------------|
+    # | Processor Name | Processor State | Processor Frequency |
+    # |--------------------------------------------------------|
+    # | A53SS0_CORE_0  | DEVICE_STATE_ON | 1000000000          |
+    # | A53SS0_CORE_1  | DEVICE_STATE_ON | 1000000000          |
+    # |--------------------------------------------------------|
+        k3conf_freq=(`/usr/bin/k3conf --cpuinfo 2>&1 | grep 'Processor Frequency' -A 2 | tail -1 | awk '{ print $6}'`)
+        if [ -n "$k3conf_freq" ] && [[ $k3conf_freq =~ ^[0-9]+$ ]]; then
+            # use the value only if it is numeric
+            let CPUFREQ=k3conf_freq/1000  # CPU frequency in KHz
+        fi
+    fi
+}
+
+if  test -e /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq; then
+    CPUFREQ=`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_cur_freq`
+else
+    k3conf_get_cpu_freq
+fi
+
+if [ -z ${CPUFREQ} ] && test -e /proc/cpuinfo; then
+    a=(`cat /proc/cpuinfo | grep Bogo | awk '{print $3}'`)
+    b=`echo "($a+5)/10*10" | bc`
+    let CPUFREQ=b*1000
+fi
+
+dhrystone 200000000 $CPUFREQ
+echo ""

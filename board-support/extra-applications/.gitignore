@@ -1,0 +1,3 @@
+# rtk_hciattach build artifacts
+rtk_hciattach/*.o
+rtk_hciattach/rtk_hciattach

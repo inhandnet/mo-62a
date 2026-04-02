@@ -1,0 +1,40 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (C) 2024 Texas Instruments Incorporated - https://www.ti.com/
+ */
+/dts-v1/;
+
+#include "k3-j742s2-evm.dts"
+#include "k3-j742s2-ddr-evm-lp4-4266.dtsi"
+#include "k3-j784s4-j742s2-ddr.dtsi"
+#include "k3-j742s2-evm-u-boot.dtsi"
+#include "k3-j784s4-r5.dtsi"
+
+&tps659413 {
+	esm: esm {
+		compatible = "ti,tps659413-esm";
+		bootph-pre-ram;
+	};
+};
+
+&bucka12 {
+	bootph-all;
+};
+
+&wkup_pmx2 {
+	bootph-pre-ram;
+	wkup_gpio_pins_default: wkup_gpio_pins_default {
+		pinctrl-single,pins = <
+			J784S4_WKUP_IOPAD(0x070, PIN_INPUT, 7) /* (L37) WKUP_GPIO0_6 */
+		>;
+	};
+};
+
+&wkup_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_gpio_pins_default>;
+};
+
+&ospi0_nand {
+	status = "okay";
+};

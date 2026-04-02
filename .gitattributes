@@ -1,2 +1,8 @@
+# Git LFS tracking for large rootfs artifacts
+filesystem/**/*.tar.xz filter=lfs diff=lfs merge=lfs -text
+filesystem/**/*.tar.gz filter=lfs diff=lfs merge=lfs -text
+# Optional: if tarballs are ever stored at repo root
+*.tar.xz filter=lfs diff=lfs merge=lfs -text
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
 linux-devkit filter=lfs diff=lfs merge=lfs -text
 k3r5-devkit filter=lfs diff=lfs merge=lfs -text

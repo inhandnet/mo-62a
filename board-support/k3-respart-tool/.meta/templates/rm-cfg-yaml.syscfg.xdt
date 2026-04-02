@@ -1,0 +1,114 @@
+%%{
+    const utils = system.getScript("/.meta/scripts/utils.js");
+    const {allocateAndSort} = system.getScript("/.meta/scripts/allocation.js");
+
+    const deviceSelected = utils.deviceSelected;
+    const devData = utils.devData;
+    const socName = utils.socName;
+    const resources = utils.resources;
+    const hosts = utils.hosts;
+    const remRes = utils.tifsResRem;
+    const year = new Date().getFullYear();
+
+    var allocation = allocateAndSort(true,true);
+    var rmConfigEntries = 0; //BOARDCFG_RM_RESASG_ENTRIES
+    var tifsConfigEntries = 0; //BOARDCFG_TIFS_RM_RESASG_ENTRIES
+
+    _.each(allocation, a => {
+        rmConfigEntries += a.length;
+        var utype = a[0].utype;
+        if(!(resources[utype].subtypeName in remRes))
+        {
+            tifsConfigEntries += a.length;
+        }
+    })
+
+    var BOARDCFG_RM_HOST_CFG_MAGIC_NUM = 0x4C41
+    var BOARDCFG_RM_HOST_CFG_SIZE = 356
+
+    var BOARDCFG_RM_RESASG_MAGIC_NUM = 0x7B25
+    var BOARDCFG_RM_RESASG_SIZE = 8
+
+    var BOARDCFG_RM_RESASG_ENTRY_SIZE = 8
+
+    var RESASG_TYPE_SHIFT = 0x6
+    var RESASG_TYPE_MASK = 0xFFC0
+    var RESASG_SUBTYPE_SHIFT = 0x0
+    var RESASG_SUBTYPE_MASK = 0x3F
+
+    function resasg_utype(type, subtype) {
+        return (((type << RESASG_TYPE_SHIFT) & RESASG_TYPE_MASK) | ((subtype << RESASG_SUBTYPE_SHIFT) & RESASG_SUBTYPE_MASK))
+    }
+%%}
+# SPDX-License-Identifier: GPL-2.0+
+# Copyright (C) 2022-`year` Texas Instruments Incorporated - https://www.ti.com/
+#
+# Resource management configuration for `socName.toUpperCase()`
+#
+
+---
+
+rm-cfg:
+    rm_boardcfg:
+        rev:
+            boardcfg_abi_maj: 0x0
+            boardcfg_abi_min: 0x1
+        host_cfg:
+            subhdr:
+                magic: `utils.decimalToHexadecimal(BOARDCFG_RM_HOST_CFG_MAGIC_NUM)`
+                size: `BOARDCFG_RM_HOST_CFG_SIZE`
+            host_cfg_entries:
+%       var count = 1
+%		_.each(hosts, (host) => {
+%			var moduleName = "/modules/" + socName + "/" + host.hostName;
+%			if (system.modules[moduleName]) {
+                -  # `count`
+%               count += 1
+%				var inst = system.modules[moduleName].$static;
+                    host_id: `host.hostId`
+                    allowed_atype: `utils.decimalToHexadecimal(utils.setBit(inst.allowedAtype,3))`
+                    allowed_qos: `utils.decimalToHexadecimal(utils.setBit(inst.allowedqos,8))`
+                    allowed_orderid: `utils.toHexa(utils.unsignedToBinary(inst.allowedorderid))`
+                    allowed_priority: `utils.decimalToHexadecimal(utils.setBit(inst.allowedpriority,8))`
+                    allowed_sched_priority: `utils.decimalToHexadecimal(utils.setBit(inst.allowedschedpriority,4))`
+%			}
+%		})
+%       while (count <= 32) {
+                -  # `count`
+%               count += 1
+                    host_id: 0
+                    allowed_atype: 0
+                    allowed_qos: 0
+                    allowed_orderid: 0
+                    allowed_priority: 0
+                    allowed_sched_priority: 0
+%       }
+        resasg:
+            subhdr:
+                magic: `utils.decimalToHexadecimal(BOARDCFG_RM_RESASG_MAGIC_NUM)`
+                size: `BOARDCFG_RM_RESASG_SIZE`
+%       var RESASG_ENTRIES_SIZE = rmConfigEntries * BOARDCFG_RM_RESASG_ENTRY_SIZE
+            resasg_entries_size: `RESASG_ENTRIES_SIZE`
+            reserved: 0
+    resasg_entries:
+%	var allocation = allocateAndSort(true,true);
+%	_.each(allocation,(all) => {
+%	var utype = all[0].utype;
+%	_.each(all,(entry) => {
+        -
+            start_resource: `entry.start`
+            num_resource: `entry.count`
+%       var dev = resources[utype].deviceId
+%       var subtype = resources[utype].subtypeId
+%       var type =  resasg_utype(resources[utype].deviceId, resources[utype].subtypeId)
+            type: `type`
+%       var host_id = 128
+%       _.each(hosts, (host) => {
+%           if (host.hostName == entry.hostName) {
+%               host_id = host.hostId
+%           }
+%       })
+            host_id: `host_id`
+            reserved: 0
+%		})
+%	})

@@ -1,0 +1,12 @@
+# mo-62a U-Boot environment overrides loaded by TI's envboot (FAT uEnv.txt).
+#
+# Required for booting a compressed Linux kernel (Image.gz) via extlinux/bootflow:
+# U-Boot needs a temporary buffer to relocate/decompress the kernel image.
+#
+# Reference sources:
+# - TI default env layout uses: kernel_addr_r=0x82000000, fdtaddr=0x88000000, addr_fit=0x90000000
+#   (see: board-support/ti-u-boot-2025.01+git/include/env/ti/ti_common.env)
+# - A known AM62 board sets: kernel_comp_size=0x08000000 (128MiB)
+#   (see: board-support/ti-u-boot-2025.01+git/include/configs/verdin-am62.h)
+#
+# Choose a buffer region that does NOT overlap with kernel_addr_r/fdtaddr/addr_fit.

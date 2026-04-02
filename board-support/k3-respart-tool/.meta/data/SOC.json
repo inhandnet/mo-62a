@@ -1,0 +1,15 @@
+[
+	{
+		"main_isolation_hostid": "TISCI_HOST_ID_MAIN_0_R5_0",
+		"mcusdkDeviceFolder": "am62ax",
+		"mcusdkUsage": true,
+		"pdkUsage": true,
+		"sRAMSize": 0,
+		"sRamGranularity": 1,
+		"sciClientPrefixReplacement": "TISCI_",
+		"sciClientSocVersion": "V7",
+		"shortName": "am62a",
+		"soc": "AM62Ax",
+		"wildCardPrivId": 195
+	}
+]

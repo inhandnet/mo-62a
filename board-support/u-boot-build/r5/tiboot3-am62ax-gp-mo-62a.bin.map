@@ -1,0 +1,7 @@
+ImagePos    Offset      Size  Name
+00000000  00000000  0004f4e1  tiboot3-am62ax-gp-mo-62a.bin
+00000000   00000000  000004f3  ti-secure-rom
+000004f3   000004f3  0002e3d0  u-boot-spl
+0002e8c3   0002e8c3  00020000  ti-fs-gp.bin
+0004e8c3   0004e8c3  00000674  combined-tifs-cfg-gp.bin
+0004ef37   0004ef37  000005aa  combined-dm-cfg-gp.bin
