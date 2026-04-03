@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #include <linux/io.h>
 #include <linux/thermal.h>
+#include "thermal_hwmon.h"
 #include <linux/of.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
@@ -513,6 +514,10 @@ static int k3_j72xx_bandgap_probe(struct platform_device *pdev)
 			ret = PTR_ERR(ti_thermal);
 			goto err_free_ref_table;
 		}
+
+		ret = devm_thermal_add_hwmon_sysfs(bgp->dev, ti_thermal);
+		if (ret)
+			dev_warn(bgp->dev, "failed to add hwmon sysfs for zone %d\n", id);
 	}
 
 	platform_set_drvdata(pdev, bgp);

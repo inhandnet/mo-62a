@@ -31,6 +31,23 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
 - [6. Partition Layout](#6-partition-layout)
   - [6.1 BOOT Partition Contents](#boot-partition-contents)
   - [6.2 Boot Configuration](#boot-configuration)
+- [7. Hardware Reference](#7-hardware-reference)
+  - [7.1 Block Diagram Overview](#71-block-diagram-overview)
+  - [7.2 Power System](#72-power-system)
+  - [7.3 I2C Device Map](#73-i2c-device-map)
+  - [7.4 Memory](#74-memory)
+  - [7.5 Storage](#75-storage)
+  - [7.6 Display — Micro HDMI](#76-display--micro-hdmi)
+  - [7.7 Networking — Gigabit Ethernet + PoE](#77-networking--gigabit-ethernet--poe)
+  - [7.8 USB](#78-usb)
+  - [7.9 Wireless — Wi-Fi / Bluetooth](#79-wireless--wi-fi--bluetooth)
+  - [7.10 Audio](#710-audio)
+  - [7.11 RTC](#711-rtc)
+  - [7.12 Expansion Interfaces](#712-expansion-interfaces)
+  - [7.13 Debug Interface](#713-debug-interface)
+  - [7.14 Boot Configuration](#714-boot-configuration)
+  - [7.15 JTAG Interface](#715-jtag-interface)
+  - [7.16 Hardware Revision Straps](#716-hardware-revision-straps)
 
 ---
 
@@ -558,3 +575,324 @@ The kernel command line sets:
 - Root filesystem type: `ext4`
 
 To apply a device tree overlay, uncomment the `fdtoverlays` line and specify the `.dtbo` file path relative to the BOOT partition root.
+
+---
+
+## 7. Hardware Reference
+
+> Source: `doc/Mo_62a_s_mb_v10-260203.pdf` (schematic Rev V1.0, 22 sheets)
+
+### 7.1 Block Diagram Overview
+
+The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram connects the following subsystems:
+
+| Subsystem | Key IC | SoC Interface |
+|-----------|--------|---------------|
+| Power Management | TPS65931211 (PMIC) | SOC_I2C0 |
+| eMMC Storage | — | MMC0 |
+| LPDDR4 Memory | MT53E1G32D2FW-046 | DDR32 (32-bit) |
+| Micro SD Card | — | MMC1 |
+| RGB-to-HDMI Transmitter | SiI9022ACNU | RGB888 + MCASP0 + SOC_I2C1 |
+| Gigabit Ethernet PHY | DP83867IR | RGMII1 + MDIO |
+| USB Hub (4-port) | USB2514 | USB1 |
+| Wi-Fi / BT | FG6221ASRC-0L | MMC2 (SDIO) + SOC_UART6 |
+| RTC | PCF85263ATL | SOC_I2C0 |
+| Audio Codec | TLV320AIC3106 | MCASP1 + SOC_I2C1 |
+| EEPROM | BL24C02 (M24M02E) | SOC_I2C1 |
+| CSI Camera | — | CSI0 (4-lane MIPI) + SOC_I2C2 |
+| 40-Pin Expansion | — | GPIO / I2C / SPI / UART / PWM / MCASP |
+| Fan Controller | TXB0104RUTR (voltage translation) | PWM + TIMER |
+| Debug UART | SN74LVC2G24DCUR (isolation) | SOC_UART0 |
+
+---
+
+### 7.2 Power System
+
+**Input:** USB Type-C, 5 V, maximum 6.38 A total.
+
+**Power rails and distribution:**
+
+| Rail | Source | Typical Current | Consumers |
+|------|--------|-----------------|-----------|
+| VCC_3V3_MAIN | DCDC 6 A (TPS62A63RLR) | 6 A max | System 3.3 V backbone |
+| VCC_3V3_SYS | LDSW 4 A (TPS22965) | 957 mA | USB Hub, Wi-Fi/BT, Audio Codec, Ethernet PHY, HDMI TX, RTC |
+| VSYS_3V3_EXP | Load Switch 4 A (TPS22965) | — | 40-pin, CSI FPC, Micro SD |
+| VDD_CORE | PMIC Buck (3.5 A) | — | SoC core |
+| VDD_LPDDR4 | PMIC Buck (3.5 A) | — | LPDDR4 |
+| SOC_DVDD1V8 | PMIC Buck (4 A) | — | SoC 1.8 V I/O |
+| VCC1V8_SYS_SW | PMIC Buck (2 A) | 200 mA | LPDDR4 auxiliary |
+| VDD_2V5 | LDO (TPS74801DRCR, 1.5 A) | 325 mA | Ethernet PHY VDDA2P5 |
+| VDD_1V0 | LDO (TLV75510PDQN) | 108 mA | Ethernet PHY VDD1P0 |
+| VDD_1V2 | LDO (TLV75512PDQN) | 80 mA | HDMI TX VDD1P2 |
+| VDD_CANUART | LDO (FLV70S07SYP) | 10 mA | CAN / UART I/O |
+
+**Status LEDs (driven by MCU GPIO):**
+
+| LED | Color | GPIO Signal |
+|-----|-------|-------------|
+| POWER | Red | B9 / MCU_GPIO0_16 / PWR_LED |
+| STATUS | Green | D7 / MCU_GPIO0_15 / ACT_LED |
+
+---
+
+### 7.3 I2C Device Map
+
+| SoC Bus | Device | Address(es) |
+|---------|--------|-------------|
+| SOC_I2C0 | PMIC TPS65931211 | 0x48 / 0x49 / 0x5A / 0x5B |
+| SOC_I2C0 | RTC PCF85263ATL | 0x51 |
+| SOC_I2C1 | Audio Codec TLV320AIC3106 | 0x1B |
+| SOC_I2C1 | HDMI TX SiI9022ACNU | 0x3B / 0x3F / 0x62 |
+| SOC_I2C1 | EEPROM BL24C02 | 0x50 |
+| SOC_I2C2 | CSI FPC | — |
+| SOC_I2C2 | EXP 40-Pin (SDA1/SCL1) | — |
+| MCU_I2C0 | PMIC (secondary I2C) | — |
+
+---
+
+### 7.4 Memory
+
+**LPDDR4 (MT53E1G32D2FW-046)**
+
+| Item | Value |
+|------|-------|
+| Bus width | 32-bit |
+| Configuration | Single channel, 32-bit |
+| SoC interface | DDR0 (full 32-bit data bus) |
+| Power | VDD_LPDDR4 (1.1 V), SOC_DVDD1V8 |
+| Reset pull-down | R120, 10 kΩ (populated) |
+
+**EEPROM (BL24C02F)**
+
+| Item | Value |
+|------|-------|
+| Package | SOT23-5 |
+| Interface | I2C (SOC_I2C1) |
+| Address | 0x50 |
+| Write protect | GPIO: C19/GPIO0_17/EEP_WC |
+
+---
+
+### 7.5 Storage
+
+**eMMC**
+
+- Interface: MMC0 (8-bit, JEDC eMMC electrical standard v5.1 / JESD84-B51)
+- I/O voltage: 1.8 V (VDDSHV4)
+
+**Micro SD Card**
+
+- Interface: MMC1 (4-bit, UHS-I capable with 3.3 V / 1.8 V switching)
+- I/O voltage: 3.3 V (VDDSHV5) / 1.8 V switched
+- Load switch with reset logic for UHS-I voltage switching
+- Connector: Micro SD (MUF-MB4)
+
+---
+
+### 7.6 Display — Micro HDMI
+
+**RGB-to-HDMI Transmitter: SiI9022ACNU**
+
+| Item | Value |
+|------|-------|
+| SoC video interface | VOUT0_DATA[0..15], VOUT0_PCLK, VSYNC, HSYNC, DE (parallel RGB) |
+| SoC audio interface | MCASP0 (ACLKX, AFSX, AXR2) |
+| I2C control | SOC_I2C1 (0x3B / 0x3F / 0x62) |
+| Reset GPIO | AA19/GPIO0_89/HDMI_RSTn |
+| Output connector | Micro HDMI (J7) |
+| ESD protection | ESD7304D (×2 groups) |
+| Power | VDD_1V2 (1.2 V), VCC_3V3_SYS |
+
+---
+
+### 7.7 Networking — Gigabit Ethernet + PoE
+
+**Ethernet PHY: DP83867CSRGZR**
+
+| Item | Value |
+|------|-------|
+| Interface | RGMII1 (1 Gbps) |
+| PHY address | 0x00 |
+| Auto-negotiation | Enabled, Auto-MDI-X |
+| TX clock skew | 0 ns |
+| RX clock skew | 2 ns |
+| MDIO | SoC_RGMII_MDC / MDO |
+| Crystal | Y8, 25 MHz / 2016 / 30 ppm / 12 pF |
+| Power | VDDA2P5 = 2.5 V, VDD1P0 = 1.0 V, VDD1P2 = 1.2 V |
+| Connector | RJ45 with integrated magnetics (LPJG4928HENL) |
+| PoE header | J5 (2×2, 2.54 mm pitch) |
+| Link LED | Left (green) |
+| Activity LED | Right (yellow) |
+
+---
+
+### 7.8 USB
+
+**USB Hub: USB2514 (USB2514BQFN36)**
+
+| Item | Value |
+|------|-------|
+| Upstream port | 1× USB 2.0 (from SoC USB1) |
+| Downstream ports | 4× USB 2.0 Type-A |
+| Power switch | TPS2561DRC, Ilimit = 2800 mA |
+| VBUS supply | VBUS_5V0_TYPEA (from 5 V input via SW 2 A) |
+| Current per port | Up to 2 A total for all 4 ports |
+
+**USB Type-C (J31)**
+
+- USB 2.0 only (USB0)
+- Powers the board (VIN-5V)
+- ESD protection: TVS05000RV
+
+---
+
+### 7.9 Wireless — Wi-Fi / Bluetooth
+
+**Module: FG6221ASRC-0L (6221A-SRC)**
+
+| Item | Value |
+|------|-------|
+| Wi-Fi interface | MMC2 (SDIO 4-bit, 1.8 V) |
+| BT interface | SOC_UART6 (with CTS/RTS, 1.8 V) |
+| Enable — Wi-Fi | EN_WLAN (F22/GPIO0_71/WLAN_EN/1V8) |
+| Enable — BT | EN_BT (K22/GPIO0_1/BT_EN/1V8) |
+| Interrupt | INT_WLAN (E21/GPIO0_72/WLAN_IRQ/1V8) |
+| Antenna connector | U.FL × 1 (CON1) |
+| Supply | SOC_DVDD1V8 (1.8 V), VCC_3V3_SYS (3.3 V) |
+
+---
+
+### 7.10 Audio
+
+**Audio Codec: TLV320AIC3106IRGZ**
+
+| Item | Value |
+|------|-------|
+| I2S interface | MCASP1 (ACLKX_BUF, AFSX_BUF, AXR0_BUF, AXR2_BUF) |
+| I2C control | SOC_I2C1, address 0x1B |
+| MCLK | 12.288 MHz crystal oscillator (25 ppm, 3.3 V) |
+| Reset GPIO | W18/GPIO0_1/AUD_RSTn |
+| Headphone output | HPLOUT / HPROUT (stereo) |
+| Microphone input | MIC_IN (LINE IN) |
+| 3.5 mm jack (J8) | Pin 1: L — Pin 2: MIC — Pin 3: GND — Pin 4/5: HPROUT/HPLOUT |
+| Wiring standard | 国标 (CTIA): L / R / GND / MIC |
+
+---
+
+### 7.11 RTC
+
+**RTC IC: PCF85263ATL**
+
+| Item | Value |
+|------|-------|
+| Interface | SOC_I2C0, I2C 7-bit address 0x51 (0b0101001) |
+| Crystal | Y1, SSP-T7-F, 32.768 kHz, 20 ppm, 12.5 pF load |
+| Battery connector | J2 (SH1.0-2p, 3 V button cell) |
+
+---
+
+### 7.12 Expansion Interfaces
+
+#### 7.12.1 40-Pin Header (J9 — USER EXPN)
+
+The 40-pin expansion header (silk: USER EXPN) exposes the following SoC signals:
+
+| Function | SoC Signal(s) |
+|----------|---------------|
+| GPIO | GPIO0..21 (multiple) |
+| I2C | SOC_I2C2 (SDA/SCL) — also accessible as EXP40 pin 3/6 |
+| UART | SOC_UART5 × 2 (TX/RX) |
+| SPI | SOC_SPI0 (CLK/D0/D1/CS0/CS1) |
+| PWM | PWM × 3 |
+| I2S | MCASP2 (ACLKX, AFSX, AXR) |
+| WAKEUP I2C | WUKP_I2C0 |
+
+#### 7.12.2 FPC 22-Pin CSI Camera (JP1)
+
+| Item | Value |
+|------|-------|
+| Connector | FPC22 / 0.5 mm pitch (JP1) |
+| Standard | Raspberry Pi Camera connector, 4-lane MIPI CSI-2 |
+| Lanes | CSI0_RXP/N[0..3] + CSI0_RXCLKP/N |
+| I2C | CSI_I2C2_SDA/SCL (from SOC_I2C2) |
+| Power | VSYS_3V3_EXP |
+| Enable / Power-down | CSI0_PWDN (Y19/GPIO0_87) |
+| Calibration | CSI0_RXRCALIB (499 Ω to GND) |
+
+#### 7.12.3 Fan Connector (J6)
+
+| Item | Value |
+|------|-------|
+| Connector | SH1.0-4p |
+| PWM control | FAN_PWM (via TXB0104RUTR voltage translation) |
+| Tach feedback | FAN_TACH |
+| SoC signals | PWM (D18/TIMER_IO7), TACH (D1/ID1_10/EHRPWM1_B) |
+
+---
+
+### 7.13 Debug Interface
+
+**Debug UART (J4 — SH1.0-3p)**
+
+UART0 is the MPU debug UART. A SN74LVC2G24DCUR provides voltage isolation.
+
+| Pin | Signal |
+|-----|--------|
+| 1 | UART0_RXD |
+| 2 | GND |
+| 3 | UART0_TXD |
+
+Baud rate: 115200 8N1 (matches kernel console on `ttyS2`).
+
+---
+
+### 7.14 Boot Configuration
+
+The MO-62A uses a fixed resistor boot mode configuration (BOOTMODE[15:0]).
+
+**Configured boot modes:**
+
+| Priority | Mode | Description |
+|----------|------|-------------|
+| Primary | SD CARD (MMC1) | 4-bit MMC SD card boot |
+| Backup | Ethernet | Network boot fallback |
+
+**BOOTMODE register settings (as configured by resistors):**
+
+| Bits | Value | Meaning |
+|------|-------|---------|
+| BOOTMODE[2:0] | 011 | 25 MHz PLL input frequency |
+| MCU_BOOTMODE[6:3] | 1000 | Primary boot = MMCSD (SD Card) |
+| MCU_BOOTMODE[9:7] | B8=1, B7=0 | MMC Port 1, 4-bit width |
+| MCU_BOOTMODE[12:10] | 100 | Backup boot = Ethernet |
+
+**All supported boot modes (per silicon):**
+
+1. OSPI
+2. MMC1 — SD Card
+3. UART
+4. eMMC
+5. Ethernet
+6. USB0 DFU
+7. USB0 MS
+
+---
+
+### 7.15 JTAG Interface
+
+| Signal | Description |
+|--------|-------------|
+| SoC_EMU0 / SoC_EMU1 | Emulation pins |
+| SoC_TCK | JTAG clock |
+| SoC_TMS | JTAG mode select |
+| SoC_TDI | JTAG data in |
+| SoC_TDO | JTAG data out |
+| SoC_TRSTN | JTAG reset |
+
+Pull-up resistors: 4.7 kΩ to VCC_3V3_SYS.
+
+---
+
+### 7.16 Hardware Revision Straps
+
+Three hardware revision pins (HW_REV0, HW_REV1, HW_REV2) are routed to the OSPI interface page (sheet 9). These PCB strap resistors (DNF by default) allow encoding the PCB revision and DDR model in hardware for software detection.
