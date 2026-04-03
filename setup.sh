@@ -1,195 +1,136 @@
 #!/bin/sh
 
-# This distribution contains contributions or derivatives under copyright
-# as follows:
-#
-# Copyright (c) 2023, Texas Instruments Incorporated
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted provided that the following conditions
-# are met:
-# - Redistributions of source code must retain the above copyright notice,
-#   this list of conditions and the following disclaimer.
-# - Redistributions in binary form must reproduce the above copyright
-#   notice, this list of conditions and the following disclaimer in the
-#   documentation and/or other materials provided with the distribution.
-# - Neither the name of Texas Instruments nor the names of its
-#   contributors may be used to endorse or promote products derived
-#   from this software without specific prior written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-# "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
-# TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-# PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDER OR
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-# EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-# PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-# PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-# LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
-# OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-# ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+# MO-62A SDK setup script
+# Initializes the development host for building the MO-62A SDK.
 
-platform=$1
+SDK_ROOT=$(cd "$(dirname "$0")"; pwd)
 
-entry_header() {
-cat << EOF
--------------------------------------------------------------------------------
-TISDK setup script
-This script will set up your development host for SDK development.
-Parts of this script require administrator priviliges (sudo access).
--------------------------------------------------------------------------------
-EOF
-}
+echo "-------------------------------------------------------------------------------"
+echo "MO-62A SDK setup script"
+echo "SDK root: $SDK_ROOT"
+echo "-------------------------------------------------------------------------------"
+echo
 
-exit_footer() {
-cat << EOF
--------------------------------------------------------------------------------
-TISDK setup completed!
-Please continue reading the Software Developer's Guide for more information on
-how to develop software on the EVM
--------------------------------------------------------------------------------
-EOF
-}
+# ----------------------------------------------------------------------------
+# Step 1: Verify host OS
+# ----------------------------------------------------------------------------
+echo "--------------------------------------------------------------------------------"
+echo "Verifying Linux host distribution"
 
-
-
-run_package_install() {
-	if [ -f $cwd/bin/setup-package-install.sh ]; then
-     		$cwd/bin/setup-package-install.sh
-     		check_status
-	else
-    		echo "setup-package-install.sh does not exist in the bin directory"
-    		exit 1
-	fi
-}
-
-run_target_nfs() {
-	if [ -f $cwd/bin/setup-targetfs-nfs.sh ]; then
-    		$cwd/bin/setup-targetfs-nfs.sh $platform
-    		check_status
-	else
-    		echo "setup-targetfs-nfs.sh does not exist in the bin directory"
-    		exit 1
-	fi
-}
-
-run_tftp() {
-	if [ -f $cwd/bin/setup-tftp.sh ]; then
-    		$cwd/bin/setup-tftp.sh $platform
-    		check_status
-	else
-    		echo "setup-tftp.sh does not exist in the bin directory"
-    		exit 1
-	fi
-}
-
-run_minicom() {
-	if [ -f $cwd/bin/setup-minicom.sh ]; then
-    		$cwd/bin/setup-minicom.sh
-    		check_status
-	else
-    		echo "setup-minicom.sh does not exist in the bin directory"
-    		exit 1
-	fi
-}
-
-run_uboot() {
-	if [ -f $cwd/bin/setup-uboot-env.sh ]; then
-    		$cwd/bin/setup-uboot-env.sh $platform
-    		check_status
-	else
-    		echo "setup-uboot-env.sh does not exist in the bin directory"
-    		exit 1
-	fi
-}
-
-cwd=`dirname $0`
-# Minimum major Linux version for running add-to-group script
-min_ver_upper=12
-
-# Publish the TISDK setup header
-entry_header
-
-# Make sure that the common.sh file exists
-if [ -f $cwd/bin/common.sh ]; then
-    . $cwd/bin/common.sh
-    get_host_type host
-    get_major_host_version host_upper
-else
-    echo "common.sh does not exist in the bin directory"
-    exit 1
-fi
-
-if [ -f $cwd/bin/setup-host-check.sh ]; then
-    $cwd/bin/setup-host-check.sh
-    check_status
-else
-    echo "setup-host-check.sh does not exist in the bin directory"
-    exit 1
-fi
-
-# Only execute if the Linux version is above 12.xx
-if [ "$host_upper" -gt "$min_ver_upper" -o "$host_upper" -eq "$min_ver_upper" ]; then
-    if [ -f $cwd/bin/add-to-group.sh ]; then
-        $cwd/bin/add-to-group.sh
-        check_status
+if [ -f /etc/lsb-release ]; then
+    . /etc/lsb-release
+    if [ "$DISTRIB_ID" = "Ubuntu" ] && [ "$DISTRIB_RELEASE" = "22.04" ]; then
+        echo "Ubuntu 22.04 LTS is being used, continuing.."
     else
-        echo "add-to-group.sh does not exist in the bin directory"
-        exit 1
+        echo "WARNING: This SDK has been verified on Ubuntu 22.04 LTS."
+        echo "Detected: $DISTRIB_ID $DISTRIB_RELEASE. Proceeding anyway."
+    fi
+else
+    echo "WARNING: Could not detect Linux distribution. Proceeding anyway."
+fi
+echo "--------------------------------------------------------------------------------"
+echo
+
+# ----------------------------------------------------------------------------
+# Step 2: Add user to dialout group (for serial port access)
+# ----------------------------------------------------------------------------
+# Determine the real username even when run via sudo
+if [ -n "$SUDO_USER" ]; then
+    REAL_USER="$SUDO_USER"
+else
+    REAL_USER="$USER"
+fi
+
+if groups "$REAL_USER" 2>/dev/null | grep -q '\bdialout\b'; then
+    echo "User '$REAL_USER' is already in the 'dialout' group."
+else
+    echo "Adding user '$REAL_USER' to the 'dialout' group (required for serial port access)..."
+    sudo usermod -a -G dialout "$REAL_USER"
+    if [ $? -eq 0 ]; then
+        echo "Done. Please log out and log back in for the change to take effect."
+    else
+        echo "WARNING: Failed to add '$REAL_USER' to 'dialout'. You may need to do this manually:"
+        echo "  sudo usermod -a -G dialout $REAL_USER"
     fi
 fi
+echo
 
-
+# ----------------------------------------------------------------------------
+# Step 3: Install required host packages (optional)
+# ----------------------------------------------------------------------------
 while true; do
-    read -p "Do you wish to install required host packages (Press (Y) to run, (n) to skip)? " -r response
-    case $response in
-        [Yy]* ) run_package_install; break;;
-        [Nn]* ) echo "host packages installation skipped"; break;;
-	   "" ) run_package_install; break;; 
-	    * )  echo "Enter Y/n";;
+    read -p "Do you wish to install required host packages? (Y/n) " response
+    case "$response" in
+        [Nn]*) echo "Host package installation skipped."; break ;;
+        *)
+            echo "Checking and installing required packages..."
+            $SDK_ROOT/bin/setup-package-install.sh
+            break ;;
     esac
 done
+echo
 
-while true; do
-    read -p "Do you wish to run nfs setup (Press (Y) to run, (n) to skip) ? " -r response
-    case $response in
-        [Yy]* ) run_target_nfs; break;;
-        [Nn]* ) echo "nfs setup skipped"; break;;
-	   "" ) run_target_nfs; break;;
-	    * )  echo "Enter Y/n";;
-    esac
-done
+# ----------------------------------------------------------------------------
+# Step 4: Set TI_SDK_PATH permanently in ~/.bashrc
+# ----------------------------------------------------------------------------
+BASHRC="$HOME/.bashrc"
+EXPORT_LINE="export TI_SDK_PATH=\"$SDK_ROOT\""
+MARKER="# MO-62A SDK"
 
-while true; do
-    read -p "Do you wish to run tftp setup (Press (Y) to run, (n) to skip) ? " -r response
-    case $response in
-        [Yy]* ) run_tftp; break;;
-        [Nn]* ) echo "tftp setup skipped"; break;;
-	   "" ) run_tftp; break;;
-	    * )  echo "Enter Y/n";;
-    esac
-done
+if grep -q "^export TI_SDK_PATH=" "$BASHRC" 2>/dev/null; then
+    OLD=$(grep "^export TI_SDK_PATH=" "$BASHRC")
+    if [ "$OLD" = "$EXPORT_LINE" ]; then
+        echo "TI_SDK_PATH is already set correctly in $BASHRC:"
+        echo "  $EXPORT_LINE"
+    else
+        echo "Updating TI_SDK_PATH in $BASHRC..."
+        sed -i "s|^export TI_SDK_PATH=.*|$EXPORT_LINE|" "$BASHRC"
+        echo "  Updated to: $EXPORT_LINE"
+    fi
+else
+    echo "Writing TI_SDK_PATH to $BASHRC..."
+    echo "" >> "$BASHRC"
+    echo "$MARKER" >> "$BASHRC"
+    echo "$EXPORT_LINE" >> "$BASHRC"
+    echo "  $EXPORT_LINE"
+fi
 
-while true; do
-    read -p "Do you wish to run minicom setup (Press (Y) to run, (n) to skip) ? " -r response
-    case $response in
-        [Yy]* ) run_minicom; break;;
-        [Nn]* ) echo "minicom setup skipped"; break;;
-	   "" ) run_minicom; break;;
-	    * )  echo "Enter Y/n";;
-    esac
-done
+# Apply to current shell session
+export TI_SDK_PATH="$SDK_ROOT"
+echo "TI_SDK_PATH is now set to: $TI_SDK_PATH"
+echo
 
-while true; do
-    read -p "Do you wish to run uboot setup (Press (Y) to run, (n) to skip) ? " -r response
-    case $response in
-        [Yy]* ) run_uboot; break;;
-        [Nn]* ) echo "uboot setup skipped"; break;;
-	   "" ) run_uboot; break;;
-	    * )  echo "Enter Y/n";;
-    esac
-done
+# ----------------------------------------------------------------------------
+# Step 5: Create /opt symlink for toolchain interpreter compatibility
+# ----------------------------------------------------------------------------
+# The cross-compilation toolchain binaries have a hardcoded ELF interpreter
+# path pointing to /opt/ti-processor-sdk-linux-rt-edgeai-am62a-evm-11.01.07.05/.
+# A symlink at that path ensures the toolchain works regardless of where this
+# repository is cloned.
+SYMLINK_TARGET="/opt/ti-processor-sdk-linux-rt-edgeai-am62a-evm-11.01.07.05"
 
-# Publish the TISDK exit header
-exit_footer
+if [ -L "$SYMLINK_TARGET" ]; then
+    CURRENT=$(readlink "$SYMLINK_TARGET")
+    if [ "$CURRENT" = "$SDK_ROOT" ]; then
+        echo "Toolchain symlink already points to the correct location:"
+        echo "  $SYMLINK_TARGET -> $SDK_ROOT"
+    else
+        echo "Updating toolchain symlink (was pointing to: $CURRENT)..."
+        sudo ln -sfn "$SDK_ROOT" "$SYMLINK_TARGET"
+        echo "  $SYMLINK_TARGET -> $SDK_ROOT"
+    fi
+elif [ -e "$SYMLINK_TARGET" ]; then
+    echo "WARNING: $SYMLINK_TARGET exists and is not a symlink. Skipping."
+    echo "  If you have a real TI SDK installed there, the toolchain will use it."
+else
+    echo "Creating toolchain symlink..."
+    sudo ln -s "$SDK_ROOT" "$SYMLINK_TARGET"
+    echo "  $SYMLINK_TARGET -> $SDK_ROOT"
+fi
+echo
+
+# ----------------------------------------------------------------------------
+echo "-------------------------------------------------------------------------------"
+echo "MO-62A SDK setup completed!"
+echo "You can now build the SDK from: $SDK_ROOT"
+echo "-------------------------------------------------------------------------------"

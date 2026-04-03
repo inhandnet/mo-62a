@@ -1,7 +1,0 @@
-ImagePos    Offset      Size  Name
-00000000  00000000  00000734  combined-sysfw-cfg
-00000000   00000000  00000734  ti-board-config
-<none>      00000000  0000001d  board-cfg
-<none>      0000001d  0000015d  sec-cfg
-<none>      0000017a  00000002  pm-cfg
-<none>      0000017c  00000596  rm-cfg
