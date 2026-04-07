@@ -130,14 +130,14 @@
 #define IMX219_REG_TP_WINDOW_WIDTH	CCI_REG16(0x0624)
 #define IMX219_REG_TP_WINDOW_HEIGHT	CCI_REG16(0x0626)
 
-/* External clock frequency is 24.0M */
-#define IMX219_XCLK_FREQ		24000000
+/* External clock frequency is 25.0M (AM62A CLKOUT0 from 25MHz HFOSC0) */
+#define IMX219_XCLK_FREQ		25000000
 
 /* Pixel rate is fixed for all the modes */
-#define IMX219_PIXEL_RATE		182400000
+#define IMX219_PIXEL_RATE		182000000
 #define IMX219_PIXEL_RATE_4LANE		281600000
 
-#define IMX219_DEFAULT_LINK_FREQ	456000000
+#define IMX219_DEFAULT_LINK_FREQ	455000000
 #define IMX219_DEFAULT_LINK_FREQ_4LANE_UNSUPPORTED	363000000
 #define IMX219_DEFAULT_LINK_FREQ_4LANE	364000000
 
@@ -196,14 +196,17 @@ static const struct cci_reg_sequence imx219_common_regs[] = {
 };
 
 static const struct cci_reg_sequence imx219_2lane_regs[] = {
-	/* PLL Clock Table */
+	/* PLL Clock Table for 25MHz XCLK → 455MHz link, 182Mpix/s
+	 * PREPLLCK=5 → ref=5MHz; PLL_OP_MPY=182 → VCO=910MHz → 455MHz link
+	 * PLL_VT_MPY=91 → VT_VCO=455MHz → pixel=91MHz → rate=182Mpix/s
+	 */
 	{ IMX219_REG_VTPXCK_DIV, 5 },
 	{ IMX219_REG_VTSYCK_DIV, 1 },
-	{ IMX219_REG_PREPLLCK_VT_DIV, 3 },	/* 0x03 = AUTO set */
-	{ IMX219_REG_PREPLLCK_OP_DIV, 3 },	/* 0x03 = AUTO set */
-	{ IMX219_REG_PLL_VT_MPY, 57 },
+	{ IMX219_REG_PREPLLCK_VT_DIV, 5 },
+	{ IMX219_REG_PREPLLCK_OP_DIV, 5 },
+	{ IMX219_REG_PLL_VT_MPY, 91 },
 	{ IMX219_REG_OPSYCK_DIV, 1 },
-	{ IMX219_REG_PLL_OP_MPY, 114 },
+	{ IMX219_REG_PLL_OP_MPY, 182 },
 
 	/* 2-Lane CSI Mode */
 	{ IMX219_REG_CSI_LANE_MODE, IMX219_CSI_2_LANE_MODE },
@@ -307,8 +310,8 @@ static const u32 imx219_mbus_formats[] = {
  * case of DT for regulator-fixed one should define the startup-delay-us
  * property.
  */
-#define IMX219_XCLR_MIN_DELAY_US	6200
-#define IMX219_XCLR_DELAY_RANGE_US	1000
+#define IMX219_XCLR_MIN_DELAY_US	50000
+#define IMX219_XCLR_DELAY_RANGE_US	5000
 
 /* Mode configs */
 static const struct imx219_mode supported_modes[] = {
@@ -1217,7 +1220,7 @@ static int imx219_probe(struct i2c_client *client)
 
 	/* Request optional enable pin */
 	imx219->reset_gpio = devm_gpiod_get_optional(dev, "reset",
-						     GPIOD_OUT_HIGH);
+						     GPIOD_OUT_LOW);
 
 	/*
 	 * The sensor must be powered for imx219_identify_module()

@@ -521,6 +521,86 @@ To flash the image with balenaEtcher:
 
 > **Note:** Image size must be at least as large as the expanded rootfs. The default `8` GiB is sufficient for the provided Debian rootfs (~6.9 GiB extracted). When using a custom rootfs, adjust the size accordingly.
 
+### 5.5 Customising the Rootfs Tarball (Adding apt Packages)
+
+The flash tool extracts the rootfs tarball as-is.  Additional Debian packages (e.g. `frei0r-plugins` required by `imx219-preview.sh`) must be pre-installed into the tarball **before** flashing so that they are available both after online and offline flashing without requiring network access on the target.
+
+The standard workflow is:
+
+1. **Install prerequisites on the host** (one-time, x86-64 Ubuntu/Debian):
+
+   ```bash
+   sudo apt-get install -y qemu-user-static binfmt-support
+   # Registers the arm64 binfmt handler so chroot can run aarch64 binaries directly.
+   sudo systemctl restart systemd-binfmt || sudo update-binfmts --enable
+   ```
+
+2. **Extract the tarball** into a temporary directory:
+
+   ```bash
+   ROOTFS_DIR=/tmp/mo-62a-rootfs
+   mkdir -p "$ROOTFS_DIR"
+   sudo tar -xpf filesystem/debian-13.2-xfce-v6.12-arm64-2026-01-13-12gb.tar.xz \
+       -C "$ROOTFS_DIR"
+   ```
+
+   > The `-p` flag preserves file permissions and ownership. Use `sudo` so that device nodes and suid bits are restored correctly.
+
+3. **Copy the qemu binary** into the extracted rootfs:
+
+   ```bash
+   sudo cp /usr/bin/qemu-aarch64-static "$ROOTFS_DIR/usr/bin/"
+   ```
+
+4. **Bind-mount pseudo-filesystems** and enter the chroot:
+
+   ```bash
+   sudo mount --bind /proc    "$ROOTFS_DIR/proc"
+   sudo mount --bind /sys     "$ROOTFS_DIR/sys"
+   sudo mount --bind /dev     "$ROOTFS_DIR/dev"
+   sudo mount --bind /dev/pts "$ROOTFS_DIR/dev/pts"
+
+   sudo chroot "$ROOTFS_DIR" /bin/bash
+   ```
+
+5. **Inside the chroot**, install the required packages:
+
+   ```bash
+   # (inside chroot)
+   apt-get update
+   apt-get install -y frei0r-plugins
+   apt-get clean          # remove downloaded .deb files to reduce tarball size
+   exit
+   ```
+
+6. **Clean up** bind mounts and the qemu binary:
+
+   ```bash
+   sudo umount "$ROOTFS_DIR/dev/pts"
+   sudo umount "$ROOTFS_DIR/dev"
+   sudo umount "$ROOTFS_DIR/sys"
+   sudo umount "$ROOTFS_DIR/proc"
+   sudo rm -f  "$ROOTFS_DIR/usr/bin/qemu-aarch64-static"
+   ```
+
+7. **Repack** the tarball (replace the original file):
+
+   ```bash
+   TARBALL=filesystem/debian-13.2-xfce-v6.12-arm64-2026-01-13-12gb.tar.xz
+   sudo tar -cpJf "$TARBALL" -C "$ROOTFS_DIR" .
+   sudo rm -rf "$ROOTFS_DIR"
+   ```
+
+   > Re-packing a ~7 GiB rootfs with `xz` compression takes several minutes.  Use `tar -cpzf` (`.tar.gz`) for a faster but larger archive if turnaround time matters during development.
+
+After repacking, re-run the flash tool as normal. The newly installed packages will be present on the target immediately after flashing, with no network access required.
+
+**Packages currently pre-installed via this workflow:**
+
+| Package | Required by | Purpose |
+|---------|-------------|---------|
+| `frei0r-plugins` | `imx219-preview.sh` | White-balance correction via `frei0r-filter-white-balance` GStreamer element |
+
 ---
 
 ## 6. Partition Layout

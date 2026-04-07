@@ -217,8 +217,9 @@
 		regulator-max-microvolt = <3300000>;
 		gpio = <&main_gpio0 88 GPIO_ACTIVE_HIGH>;
 		enable-active-high;
-		startup-delay-us = <5000>;
+		startup-delay-us = <20000>;
 		vin-supply = <&vcc_3v3_sys>;
+		regulator-always-on;
 	};
 
 	leds {
@@ -305,12 +306,6 @@
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "HDMI";
 		status = "disabled";
-	};
-
-	clk_imx219_fixed: imx219-xclk {
-		compatible = "fixed-clock";
-		#clock-cells = <0>;
-		clock-frequency = <24000000>;
 	};
 
 	/* Fan PWM via TIMER7 (J6 connector, D18/TIMER_IO7, via TXB0104RUTR) */
@@ -497,7 +492,27 @@
 	imx219: camera@10 {
 		compatible = "sony,imx219";
 		reg = <0x10>;
-		status = "disabled";
+		clocks = <&k3_clks 157 20>;
+		clock-names = "xclk";
+		assigned-clocks = <&k3_clks 157 20>;
+		assigned-clock-parents = <&k3_clks 157 22>;
+		assigned-clock-rates = <25000000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&csi0_mclk_pins_default>;
+		VANA-supply = <&vcc_cam>;   /* 3.3V VSYS_3V3_EXP via GPIO0_88/TPS22965 */
+		VDIG-supply = <&vcc_cam>;   /* FPC only has 3V3; module has internal 1.8V reg */
+		VDDL-supply = <&vcc_cam>;   /* FPC only has 3V3; module has internal 1.2V reg */
+		reset-gpios = <&main_gpio0 87 GPIO_ACTIVE_HIGH>; /* GPIO0_87/CSI0_XSHUTDOWN: HIGH=active, LOW=shutdown */
+		status = "okay";
+
+		port {
+			csi2_cam0: endpoint {
+				remote-endpoint = <&csi2rx0_in_sensor>;
+				link-frequencies = /bits/ 64 <455000000>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
 	};
 };
 
@@ -785,13 +800,30 @@
 };
 
 &cdns_csi2rx0 {
-	status = "disabled";
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		csi0_port0: port@0 {
+			reg = <0>;
+			status = "okay";
+
+			csi2rx0_in_sensor: endpoint {
+				remote-endpoint = <&csi2_cam0>;
+				bus-type = <4>; /* CSI2 DPHY */
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
 };
 
 &ti_csi2rx0 {
-	status = "disabled";
+	status = "okay";
 };
 
 &dphy0 {
-	status = "disabled";
+	status = "okay";
 };
