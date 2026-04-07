@@ -54,10 +54,16 @@ command -v v4l2-ctl >/dev/null 2>&1 || {
     echo "ERROR: v4l2-ctl not found. Install v4l-utils."
     exit 1
 }
-[[ -e /dev/video2 ]] || {
-    echo "ERROR: /dev/video2 not found — camera not detected or driver not loaded."
+# Auto-detect the CSI capture video device from the j721e-csi2rx driver.
+# The device number can shift depending on which other drivers are loaded
+# (e.g. wave5 codec, JPEG encoder), so we discover it dynamically.
+VIDEO_DEV=$(v4l2-ctl --list-devices 2>/dev/null \
+    | awk '/j721e-csi2rx/{found=1; next} found && /\/dev\/video/{print $1; exit}')
+[[ -n "$VIDEO_DEV" && -e "$VIDEO_DEV" ]] || {
+    echo "ERROR: CSI capture device not found (j721e-csi2rx) — camera not detected or driver not loaded."
     exit 1
 }
+echo "[imx219] CSI capture device: ${VIDEO_DEV}"
 [[ -e /dev/media0 ]] || {
     echo "ERROR: /dev/media0 not found — media controller not available."
     exit 1
@@ -125,17 +131,22 @@ media-ctl -d /dev/media0 --set-v4l2 \
     '"30102000.ticsi2rx":1 [fmt:SRGGB8_1X8/1920x1080]'
 
 # ── Sensor controls ────────────────────────────────────────────────────────────
+# Find the IMX219 subdev node dynamically via media-ctl.
+IMX219_SUBDEV=$(media-ctl -d /dev/media0 --print-topology 2>/dev/null \
+    | awk -F'[()"\"]' '/imx219/{for(i=1;i<=NF;i++) if($i ~ /\/dev\/v4l-subdev/) {print $i; exit}}')
+[[ -n "$IMX219_SUBDEV" ]] || IMX219_SUBDEV=/dev/v4l-subdev2
+echo "[imx219] Sensor subdev: ${IMX219_SUBDEV}"
 echo "[imx219] Sensor: exposure=${EXPOSURE} analogue_gain=${GAIN} digital_gain=${DGAIN}"
-v4l2-ctl -d /dev/v4l-subdev2 --set-ctrl=vertical_blanking="${VBLANK}"
-v4l2-ctl -d /dev/v4l-subdev2 --set-ctrl=exposure="${EXPOSURE}"
-v4l2-ctl -d /dev/v4l-subdev2 --set-ctrl=analogue_gain="${GAIN}"
-v4l2-ctl -d /dev/v4l-subdev2 --set-ctrl=digital_gain="${DGAIN}"
+v4l2-ctl -d "${IMX219_SUBDEV}" --set-ctrl=vertical_blanking="${VBLANK}"
+v4l2-ctl -d "${IMX219_SUBDEV}" --set-ctrl=exposure="${EXPOSURE}"
+v4l2-ctl -d "${IMX219_SUBDEV}" --set-ctrl=analogue_gain="${GAIN}"
+v4l2-ctl -d "${IMX219_SUBDEV}" --set-ctrl=digital_gain="${DGAIN}"
 
 # ── Launch GStreamer pipeline ──────────────────────────────────────────────────
 echo "[imx219] White-balance: WB_R=${WB_R}  WB_G=${WB_G}  WB_B=${WB_B}"
 echo "[imx219] Starting KMS preview — press Ctrl+C to exit"
 gst-launch-1.0 \
-    v4l2src device=/dev/video2 io-mode=mmap ! \
+    v4l2src device="${VIDEO_DEV}" io-mode=mmap ! \
     "video/x-bayer,format=rggb,width=1920,height=1080,framerate=${FPS}/1" ! \
     queue max-size-buffers=2 leaky=downstream ! \
     bayer2rgb ! \
