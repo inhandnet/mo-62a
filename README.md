@@ -601,6 +601,36 @@ After repacking, re-run the flash tool as normal. The newly installed packages w
 |---------|-------------|---------|
 | `frei0r-plugins` | `imx219-preview.sh` | White-balance correction via `frei0r-filter-white-balance` GStreamer element |
 
+**System configuration changes applied inside the chroot:**
+
+These changes are made directly to config files (no apt required) and must be applied after step 5 (inside the chroot) or by editing files directly in `$ROOTFS_DIR` after exiting the chroot.
+
+1. **Disable DPMS and screen blanking** — prevents the display from going dark and becoming unresponsive:
+
+   ```bash
+   mkdir -p /etc/X11/xorg.conf.d
+   cat > /etc/X11/xorg.conf.d/10-no-dpms.conf << 'EOF'
+   Section "ServerFlags"
+       Option "BlankTime"   "0"
+       Option "StandbyTime" "0"
+       Option "SuspendTime" "0"
+       Option "OffTime"     "0"
+   EndSection
+
+   Section "Monitor"
+       Identifier "Monitor0"
+       Option     "DPMS"    "false"
+   EndSection
+   EOF
+   ```
+
+2. **Pass `-s 0 -dpms` to the X server via lightdm** — disables the X server's built-in screen saver and DPMS at the server level:
+
+   ```bash
+   sed -i 's|^# xserver-command=X$|xserver-command=X -s 0 -dpms|' \
+       /etc/lightdm/lightdm.conf
+   ```
+
 ---
 
 ## 6. Partition Layout
