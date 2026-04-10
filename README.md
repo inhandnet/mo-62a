@@ -38,7 +38,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [7.4 Memory](#74-memory)
   - [7.5 Storage](#75-storage)
   - [7.6 Display — Micro HDMI](#76-display--micro-hdmi)
-  - [7.7 Networking — Gigabit Ethernet + PoE](#77-networking--gigabit-ethernet--poe)
+  - [7.7 Networking — Gigabit Ethernet](#77-networking--gigabit-ethernet)
   - [7.8 USB](#78-usb)
   - [7.9 Wireless — Wi-Fi / Bluetooth](#79-wireless--wi-fi--bluetooth)
   - [7.10 Audio](#710-audio)
@@ -815,7 +815,7 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 
 ---
 
-### 7.7 Networking — Gigabit Ethernet + PoE
+### 7.7 Networking — Gigabit Ethernet](#77-networking--gigabit-ethernet)
 
 **Ethernet PHY: DP83867CSRGZR**
 

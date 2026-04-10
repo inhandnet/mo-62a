@@ -336,6 +336,8 @@
 
 &mcu_gpio0 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_gpio0_pins_default>;
 };
 
 &main_i2c0 {
@@ -558,6 +560,8 @@
 
 &main_gpio1 {
 	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio1_pins_default>;
 };
 
 &main_gpio_intr {
@@ -573,10 +577,9 @@
 	interrupt-names = "irq", "wakeup";
 };
 
+/* Pins 8,10: UART5 disabled — pads default to GPIO1_24/GPIO1_25 (BCM_GPIO14/15) */
 &main_uart5 {
-	status = "okay";
-	pinctrl-names = "default";
-	pinctrl-0 = <&main_uart5_pins_default>;
+	status = "disabled";
 };
 
 &main_uart6 {
@@ -826,4 +829,32 @@
 
 &dphy0 {
 	status = "okay";
+};
+
+/* ── 40-pin expansion header peripherals ───────────────────────────────── */
+/*
+ * All expansion header pins default to GPIO mode.
+ * Enable the relevant peripheral node (and its pinctrl) to use the
+ * alternate function; the pinctrl subsystem will reclaim the pads.
+ *
+ *   Pins  3, 5: WKUP_I2C0  → MCU_GPIO0_19/20  (BCM GPIO3/2)
+ *   Pins  8,10: UART5      → GPIO1_24/25       (BCM GPIO14/15)
+ *   Pins 19,21,23,24,26: SPI0 → GPIO1_18/19/17/15/16 (BCM GPIO10/9/11/8/7)
+ *   Pins 32,33: EHRPWM1   → GPIO1_9/10        (BCM GPIO12/13)
+ *   Pins 27,28: main_i2c2 — kept ENABLED (camera dependency)
+ */
+
+/* Pins 3,5: WKUP_I2C0 disabled — pads default to MCU_GPIO0_19/20 (BCM_GPIO3/2) */
+&wkup_i2c0 {
+	status = "disabled";
+};
+
+/* Pins 19,21,23,24,26: SPI0 disabled — pads default to GPIO1_15–19 (BCM_GPIO7–11) */
+&main_spi0 {
+	status = "disabled";
+};
+
+/* Pins 32,33: EHRPWM1 disabled — pads default to GPIO1_9/10 (BCM_GPIO12/13) */
+&epwm1 {
+	status = "disabled";
 };
