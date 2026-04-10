@@ -98,6 +98,10 @@ MO-62A 是一款专为边缘 AI 推理、机器视觉和工业控制应用设计
 
 镜像文件格式为 `.img.zip`。
 
+完整 SDK 源码（内核、设备树、文件系统定制）可在以下地址获取：
+
+**GitHub：** [https://github.com/inhandnet/mo-62a](https://github.com/inhandnet/mo-62a)
+
 ### 3.2 使用 balenaEtcher 烧录（Windows）
 
 1. 下载并安装 [balenaEtcher](https://etcher.balena.io)。
@@ -321,26 +325,26 @@ sudo WB_R=0.4 WB_B=0.5 imx219-preview.sh 10
 | 15   | GPIO22      | GPIO（GPIO1\_22）         | gpiochip2 | 22   | —                    |
 | 16   | GPIO17      | GPIO（GPIO0\_38）         | gpiochip1 | 38   | —                    |
 | 17   | 3V3         | 3.3 V 电源                | —         | —    | —                    |
-| 18   | GPIO24      | GPIO（GPIO0\_14）         | gpiochip1 | 14   | —                    |
+| 18   | GPIO24      | GPIO（GPIO0\_40）         | gpiochip1 | 40   | —                    |
 | 19   | GPIO10      | GPIO（GPIO1\_18）         | gpiochip2 | 18   | SPI0\_D0（MOSI）     |
 | 20   | GND         | 地                        | —         | —    | —                    |
 | 21   | GPIO9       | GPIO（GPIO1\_19）         | gpiochip2 | 19   | SPI0\_D1（MISO）     |
-| 22   | GPIO25      | GPIO（GPIO0\_13）         | gpiochip1 | 13   | —                    |
+| 22   | GPIO25      | GPIO（GPIO0\_14）         | gpiochip1 | 14   | —                    |
 | 23   | GPIO11      | GPIO（GPIO1\_17）         | gpiochip2 | 17   | SPI0\_CLK            |
 | 24   | GPIO8       | GPIO（GPIO1\_15）         | gpiochip2 | 15   | SPI0\_CS0            |
 | 25   | GND         | 地                        | —         | —    | —                    |
 | 26   | GPIO7       | GPIO（GPIO1\_16）         | gpiochip2 | 16   | SPI0\_CS1            |
 | 27   | I2C2\_SDA   | I2C2 SDA（`i2c-2`）      | —         | —    | （摄像头总线，固定）  |
 | 28   | I2C2\_SCL   | I2C2 SCL（`i2c-2`）      | —         | —    | （摄像头总线，固定）  |
-| 29   | GPIO5       | GPIO（GPIO0\_33）         | gpiochip1 | 33   | —                    |
+| 29   | GPIO5       | GPIO（GPIO0\_36）         | gpiochip1 | 36   | —                    |
 | 30   | GND         | 地                        | —         | —    | —                    |
-| 31   | GPIO6       | GPIO（GPIO0\_36）         | gpiochip1 | 36   | —                    |
-| 32   | GPIO12      | GPIO（GPIO1\_10）         | gpiochip2 | 10   | EHRPWM1\_B           |
-| 33   | GPIO13      | GPIO（GPIO1\_9）          | gpiochip2 |  9   | EHRPWM1\_A           |
+| 31   | GPIO6       | GPIO（GPIO0\_33）         | gpiochip1 | 33   | —                    |
+| 32   | GPIO12      | GPIO（GPIO1\_14）         | gpiochip2 | 14   | EHRPWM0\_B           |
+| 33   | GPIO13      | GPIO（GPIO1\_13）         | gpiochip2 | 13   | EHRPWM0\_A           |
 | 34   | GND         | 地                        | —         | —    | —                    |
 | 35   | GPIO19      | GPIO（GPIO0\_91）         | gpiochip1 | 91   | MCASP2\_AFSX         |
-| 36   | GPIO16      | GPIO（GPIO0\_41）         | gpiochip1 | 41   | —                    |
-| 37   | GPIO26      | GPIO（GPIO0\_40）         | gpiochip1 | 40   | —                    |
+| 36   | GPIO16      | GPIO（GPIO1\_9）          | gpiochip2 |  9   | EHRPWM1\_A           |
+| 37   | GPIO26      | GPIO（GPIO0\_41）         | gpiochip1 | 41   | —                    |
 | 38   | GPIO20      | GPIO（GPIO1\_5）          | gpiochip2 |  5   | MCASP2\_AXR0         |
 | 39   | GND         | 地                        | —         | —    | —                    |
 | 40   | GPIO21      | GPIO（GPIO1\_2）          | gpiochip2 |  2   | MCASP2\_AXR1         |
@@ -398,7 +402,7 @@ gpioset --hold-period=2s -c gpiochip1 39=1
 gpioset -t 500ms,500ms,0 -c gpiochip1 39=1
 ```
 
-**监听引脚边沿（示例：引脚 11 → gpiochip1 line 38）：**
+**监听引脚边沿（示例：引脚 11 → gpiochip2 line 23）：**
 
 ```bash
 gpiomon -c gpiochip2 23               # 双边沿

@@ -98,6 +98,10 @@ Download the latest pre-built SD card image from the release page:
 
 The image is distributed as a `.img.zip` file.
 
+The full SDK source code (kernel, device tree, filesystem customisation) is available at:
+
+**GitHub:** [https://github.com/inhandnet/mo-62a](https://github.com/inhandnet/mo-62a)
+
 ### 3.2 Flash with balenaEtcher (Windows)
 
 1. Download and install [balenaEtcher](https://etcher.balena.io).
@@ -314,33 +318,33 @@ All 40 pins are listed below. Use `gpioset` / `gpioget` from the `gpiod` package
 |  8  | GPIO14      | GPIO (GPIO1\_25)        | gpiochip2 | 25   | UART5\_TXD           |
 |  9  | GND         | Ground                  | —         | —    | —                    |
 | 10  | GPIO15      | GPIO (GPIO1\_24)        | gpiochip2 | 24   | UART5\_RXD           |
-| 11  | GPIO23      | GPIO (GPIO1\_23)        | gpiochip2 | 23   | —                    |
+| 11  | GPIO17      | GPIO (GPIO1\_23)        | gpiochip2 | 23   | —                    |
 | 12  | GPIO18      | GPIO (GPIO1\_0)         | gpiochip2 |  0   | MCASP2\_ACLKX        |
 | 13  | GPIO27      | GPIO (GPIO0\_42)        | gpiochip1 | 42   | —                    |
 | 14  | GND         | Ground                  | —         | —    | —                    |
 | 15  | GPIO22      | GPIO (GPIO1\_22)        | gpiochip2 | 22   | —                    |
-| 16  | GPIO17      | GPIO (GPIO0\_38)        | gpiochip1 | 38   | —                    |
+| 16  | GPIO23      | GPIO (GPIO0\_38)        | gpiochip1 | 38   | —                    |
 | 17  | 3V3         | 3.3 V power             | —         | —    | —                    |
-| 18  | GPIO24      | GPIO (GPIO0\_14)        | gpiochip1 | 14   | —                    |
+| 18  | GPIO24      | GPIO (GPIO0\_40)        | gpiochip1 | 40   | —                    |
 | 19  | GPIO10      | GPIO (GPIO1\_18)        | gpiochip2 | 18   | SPI0\_D0 (MOSI)      |
 | 20  | GND         | Ground                  | —         | —    | —                    |
 | 21  | GPIO9       | GPIO (GPIO1\_19)        | gpiochip2 | 19   | SPI0\_D1 (MISO)      |
-| 22  | GPIO25      | GPIO (GPIO0\_13)        | gpiochip1 | 13   | —                    |
+| 22  | GPIO25      | GPIO (GPIO0\_14)        | gpiochip1 | 14   | —                    |
 | 23  | GPIO11      | GPIO (GPIO1\_17)        | gpiochip2 | 17   | SPI0\_CLK            |
 | 24  | GPIO8       | GPIO (GPIO1\_15)        | gpiochip2 | 15   | SPI0\_CS0            |
 | 25  | GND         | Ground                  | —         | —    | —                    |
 | 26  | GPIO7       | GPIO (GPIO1\_16)        | gpiochip2 | 16   | SPI0\_CS1            |
 | 27  | I2C2\_SDA   | I2C2 SDA (`i2c-2`)     | —         | —    | (camera bus, fixed)  |
 | 28  | I2C2\_SCL   | I2C2 SCL (`i2c-2`)     | —         | —    | (camera bus, fixed)  |
-| 29  | GPIO5       | GPIO (GPIO0\_33)        | gpiochip1 | 33   | —                    |
+| 29  | GPIO5       | GPIO (GPIO0\_36)        | gpiochip1 | 36   | —                    |
 | 30  | GND         | Ground                  | —         | —    | —                    |
-| 31  | GPIO6       | GPIO (GPIO0\_36)        | gpiochip1 | 36   | —                    |
-| 32  | GPIO12      | GPIO (GPIO1\_10)        | gpiochip2 | 10   | EHRPWM1\_B           |
-| 33  | GPIO13      | GPIO (GPIO1\_9)         | gpiochip2 |  9   | EHRPWM1\_A           |
+| 31  | GPIO6       | GPIO (GPIO0\_33)        | gpiochip1 | 33   | —                    |
+| 32  | GPIO12      | GPIO (GPIO1\_14)        | gpiochip2 | 14   | EHRPWM0\_B           |
+| 33  | GPIO13      | GPIO (GPIO1\_13)        | gpiochip2 | 13   | EHRPWM0\_A           |
 | 34  | GND         | Ground                  | —         | —    | —                    |
 | 35  | GPIO19      | GPIO (GPIO0\_91)        | gpiochip1 | 91   | MCASP2\_AFSX         |
-| 36  | GPIO16      | GPIO (GPIO0\_41)        | gpiochip1 | 41   | —                    |
-| 37  | GPIO26      | GPIO (GPIO0\_40)        | gpiochip1 | 40   | —                    |
+| 36  | GPIO16      | GPIO (GPIO1\_9)         | gpiochip2 |  9   | EHRPWM1\_A           |
+| 37  | GPIO26      | GPIO (GPIO0\_41)        | gpiochip1 | 41   | —                    |
 | 38  | GPIO20      | GPIO (GPIO1\_5)         | gpiochip2 |  5   | MCASP2\_AXR0         |
 | 39  | GND         | Ground                  | —         | —    | —                    |
 | 40  | GPIO21      | GPIO (GPIO1\_2)         | gpiochip2 |  2   | MCASP2\_AXR1         |

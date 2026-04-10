@@ -840,7 +840,8 @@
  *   Pins  3, 5: WKUP_I2C0  → MCU_GPIO0_19/20  (BCM GPIO3/2)
  *   Pins  8,10: UART5      → GPIO1_24/25       (BCM GPIO14/15)
  *   Pins 19,21,23,24,26: SPI0 → GPIO1_18/19/17/15/16 (BCM GPIO10/9/11/8/7)
- *   Pins 32,33: EHRPWM1   → GPIO1_9/10        (BCM GPIO12/13)
+ *   Pins 32,33: EHRPWM0   → GPIO1_13/14       (BCM GPIO13/12)
+ *   Pin  36:    EHRPWM1_A → GPIO1_9            (BCM GPIO16)
  *   Pins 27,28: main_i2c2 — kept ENABLED (camera dependency)
  */
 
@@ -854,7 +855,12 @@
 	status = "disabled";
 };
 
-/* Pins 32,33: EHRPWM1 disabled — pads default to GPIO1_9/10 (BCM_GPIO12/13) */
+/* Pins 32,33: EHRPWM0 disabled — pads default to GPIO1_13/14 (BCM_GPIO13/12) */
+&epwm0 {
+	status = "disabled";
+};
+
+/* Pin 36: EHRPWM1_A disabled — pad defaults to GPIO1_9 (BCM_GPIO16) */
 &epwm1 {
 	status = "disabled";
 };
