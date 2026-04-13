@@ -1,11 +1,1 @@
-# setup.sh generated files
-bin/setupBoard.minicom
-.targetfs
-.gdbinit
-
-# Build artifacts
-board-support/built-images/
-board-support/u-boot-build/
-
-# NFS target filesystem
-targetNFS/
+bin/out/
