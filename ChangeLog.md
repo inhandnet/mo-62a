@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.0.1 — 2026-04-15
+
+### Kernel & Device Tree
+
+#### Dual-Colour LED
+- Remove non-existent blue LED node (`MCU_GPIO0_2`) — schematic carries only
+  red (`MCU_GPIO0_16` / PWR_LED) and green (`MCU_GPIO0_15` / ACT_LED).
+- Fix LED pinmux: change `PIN_INPUT` → `PIN_OUTPUT` for both LED pads.
+- Fix LED polarity: change `GPIO_ACTIVE_HIGH` → `GPIO_ACTIVE_LOW` to match the
+  transistor-driven active-low circuit (GPIO LOW = LED ON).
+- Set `default-state = "on"` for the red LED so it lights immediately from
+  kernel gpio-leds initialisation, giving a clear boot-in-progress indication.
+
+### Rootfs
+
+#### Dual-Colour LED Status Controller
+- Add `led-status` Python service (`/usr/local/bin/led-status` +
+  `led-status.service`): holds the red LED on until `multi-user.target` is
+  reached, then turns red off and starts the green LED in breathing mode.
+  Breathing period is inversely proportional to the 4-core average CPU
+  utilisation — 0 % → 2 000 ms half-cycle (very slow), 100 % → 100 ms
+  half-cycle (fast).
+
+#### fancontrol — hwmon Index Drift Fix
+- Add `fancontrol-update-config` script (`/usr/local/bin/`): scans
+  `/sys/class/hwmon/hwmon*/name` at each service start, locates the current
+  hwmon indices for `pwmfan` and `main0_thermal`, and rewrites
+  `/etc/fancontrol` accordingly — eliminating the index-drift failures that
+  occurred after reboots.
+- Add `fancontrol.service.d/override.conf` drop-in: runs
+  `fancontrol-update-config` before the upstream `fancontrol --check` step,
+  and adds `ReadWritePaths=/etc/fancontrol` to permit writing under
+  `ProtectSystem=strict`.
+
+---
+
 ## v1.0.0 — 2026-04-15
 
 First public release of the MO-62A board support package.

@@ -1,5 +1,39 @@
 # 更新日志
 
+## v1.0.1 — 2026-04-15
+
+### 内核与设备树
+
+#### 双色 LED
+- 删除原理图中不存在的蓝色 LED 节点（`MCU_GPIO0_2`）——原理图仅包含红色
+  （`MCU_GPIO0_16` / PWR_LED）和绿色（`MCU_GPIO0_15` / ACT_LED）两个 LED。
+- 修复 LED 引脚复用：将两个 LED 引脚的配置从 `PIN_INPUT` 改为 `PIN_OUTPUT`。
+- 修复 LED 极性：将 `GPIO_ACTIVE_HIGH` 改为 `GPIO_ACTIVE_LOW`，以匹配
+  三极管驱动的低电平有效电路（GPIO 输出低电平 = LED 点亮）。
+- 将红色 LED 的 `default-state` 设为 `"on"`，使其在内核 gpio-leds 初始化时
+  立即点亮，清晰指示系统正在启动。
+
+### 根文件系统
+
+#### 双色 LED 状态控制器
+- 新增 `led-status` Python 服务（`/usr/local/bin/led-status` +
+  `led-status.service`）：在 `multi-user.target` 到达前保持红色 LED 常亮；
+  系统启动完成后关闭红色 LED，并将绿色 LED 切换为呼吸灯模式。
+  呼吸频率与四核平均 CPU 使用率正相关——0 % 时半周期约 2 000 ms（极慢），
+  100 % 时半周期约 100 ms（快速）。
+
+#### fancontrol — hwmon 编号漂移修复
+- 新增 `fancontrol-update-config` 脚本（`/usr/local/bin/`）：每次服务启动时
+  扫描 `/sys/class/hwmon/hwmon*/name`，动态定位 `pwmfan` 和 `main0_thermal`
+  的当前 hwmon 编号，并重新生成 `/etc/fancontrol`，从根本上解决重启后
+  hwmon 编号变化导致 fancontrol 启动失败的问题。
+- 新增 `fancontrol.service.d/override.conf` drop-in 配置：在上游
+  `fancontrol --check` 步骤之前先执行 `fancontrol-update-config`，并添加
+  `ReadWritePaths=/etc/fancontrol`，允许在 `ProtectSystem=strict` 保护下
+  写入配置文件。
+
+---
+
 ## v1.0.0 — 2026-04-15
 
 MO-62A 板级支持包首次公开发布。
