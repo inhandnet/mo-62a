@@ -37,9 +37,14 @@ DEVICE=""
 SD_MODE="full"
 
 # Etcher image globals
+# Image name format: mo-62a-debian-13-xfce-<date>-<version>
+# Only DATE and VERSION vary between releases; the rest is fixed.
+IMAGE_VERSION="v1.0.0"
+IMAGE_DATE="$(date +%Y-%m-%d)"
+IMAGE_PREFIX="mo-62a-debian-13-xfce"
 OUT_DIR=""
-NAME="mo-62a"
-IMG_SIZE_GIB=8
+NAME="${IMAGE_PREFIX}-${IMAGE_DATE}-${IMAGE_VERSION}"
+IMG_SIZE_GIB=12
 COMPRESS="zip"
 IMG_PATH=""
 LOOPDEV=""
@@ -698,7 +703,9 @@ run_image_flow() {
   ROOTFS_TARBALL="$(pick_rootfs_tarball_interactive)"
 
   OUT_DIR="$(prompt_with_default "Output directory" "$SCRIPT_DIR/out")"
-  NAME="$(prompt_with_default "Output image base name" "$NAME")"
+  IMAGE_VERSION="$(prompt_with_default "Version (e.g. v1.0.0)" "$IMAGE_VERSION")"
+  IMAGE_DATE="$(prompt_with_default "Date (YYYY-MM-DD)" "$IMAGE_DATE")"
+  NAME="${IMAGE_PREFIX}-${IMAGE_DATE}-${IMAGE_VERSION}"
   IMG_SIZE_GIB="$(prompt_with_default "Image size (GiB, integer)" "$IMG_SIZE_GIB")"
   COMPRESS="$(prompt_with_default "Compression (zip|xz|none)" "$COMPRESS")"
 
