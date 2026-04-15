@@ -60,7 +60,10 @@ MO-62A 板级支持包首次公开发布。
 ### 工具
 
 - `mo-62a-flash.sh`：统一烧录工具，支持在线模式（直接写入 `/dev/sdX`）和
-  离线模式（生成镜像文件供 balenaEtcher 使用）。
+  离线模式（生成镜像文件供 balenaEtcher 使用）。离线镜像命名规则为
+  `mo-62a-<os><ver>-<desktop>-<version>-<date>.img.zip`，
+  例如 `mo-62a-debian13.3-xfce-v1.0.0-2026-04-15.img.zip`。
+  交互式提示仅询问版本号和日期，其余字段固定不变。
 - `setup.sh`：精简的宿主机环境初始化脚本（系统检查、dialout 用户组、
   软件包安装、`~/.bashrc` 中写入 `TI_SDK_PATH`、`/opt` 工具链符号链接）。
 - WirePlumber 命名规则：将两个 PipeWire 音频输出的通用名称

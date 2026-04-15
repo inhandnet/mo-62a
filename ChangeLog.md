@@ -63,6 +63,10 @@ First public release of the MO-62A board support package.
 
 - `mo-62a-flash.sh`: unified flash tool supporting online SD card flash (direct
   write via `/dev/sdX`) and offline image generation for balenaEtcher.
+  Offline images follow the naming convention
+  `mo-62a-<os><ver>-<desktop>-<version>-<date>.img.zip`,
+  e.g. `mo-62a-debian13.3-xfce-v1.0.0-2026-04-15.img.zip`.
+  Only version and date are prompted interactively; the rest is fixed.
 - `setup.sh`: streamlined host setup (OS check, dialout group, package install,
   `TI_SDK_PATH` in `~/.bashrc`, `/opt` toolchain symlink).
 - WirePlumber naming rules: rename the two PipeWire audio sinks from the

@@ -1,3 +1,4 @@
 bin/out/
 board-support/built-images/
 board-support/u-boot-build/
+.claude/
