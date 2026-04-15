@@ -229,13 +229,13 @@
 
 		led-green {
 			label = "green";
-			gpios = <&mcu_gpio0 15 GPIO_ACTIVE_HIGH>;
+			gpios = <&mcu_gpio0 15 GPIO_ACTIVE_LOW>;
 			default-state = "off";
 		};
 
 		led-red {
 			label = "red";
-			gpios = <&mcu_gpio0 16 GPIO_ACTIVE_HIGH>;
+			gpios = <&mcu_gpio0 16 GPIO_ACTIVE_LOW>;
 			default-state = "on";
 		};
 	};
