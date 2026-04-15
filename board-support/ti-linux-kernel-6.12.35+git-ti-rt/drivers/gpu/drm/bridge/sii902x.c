@@ -491,8 +491,13 @@ static const struct drm_edid *sii902x_bridge_edid_read(struct drm_bridge *bridge
 						       struct drm_connector *connector)
 {
 	struct sii902x *sii902x = bridge_to_sii902x(bridge);
+	const struct drm_edid *drm_edid = sii902x_edid_read(sii902x, connector);
 
-	return sii902x_edid_read(sii902x, connector);
+	if (drm_edid)
+		sii902x->sink_is_hdmi =
+			drm_detect_hdmi_monitor(drm_edid_raw(drm_edid));
+
+	return drm_edid;
 }
 
 static u32 *sii902x_bridge_atomic_get_input_bus_fmts(struct drm_bridge *bridge,

@@ -305,7 +305,21 @@
 	hdmi_audio: sound-hdmi {
 		compatible = "simple-audio-card";
 		simple-audio-card,name = "HDMI";
-		status = "disabled";
+		status = "okay";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&hdmi_audio_master>;
+		simple-audio-card,frame-master = <&hdmi_audio_master>;
+		playback-only;
+
+		hdmi_audio_master: simple-audio-card,cpu {
+			sound-dai = <&mcasp0>;
+			system-clock-direction-out;
+			system-clock-frequency = <24576000>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&sii9022>;
+		};
 	};
 
 	/* Fan PWM via TIMER7 (J6 connector, D18/TIMER_IO7, via TXB0104RUTR) */
@@ -665,7 +679,38 @@
 };
 
 &mcasp0 {
-	status = "disabled";
+	status = "okay";
+	#sound-dai-cells = <0>;
+
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcasp0_pins_default>;
+
+	/*
+	 * AM62A manual section 6.6 specifies 24.576 MHz as the standard audio
+	 * clock for the 48 kHz family. The TISCI SysFW default is ~24.615 MHz
+	 * (~1601 PPM off), which is within acceptable range for HDMI audio.
+	 *
+	 * system-clock-frequency = <24576000> in the CPU DAI node tells the
+	 * simple-card driver to pass 24.576 MHz to set_sysclk, which the McASP
+	 * driver uses for BCLK divider calculation:
+	 *   48 kHz S16_LE: div=16 (single-stage, 0 PPM nominal)
+	 *   48 kHz S32_LE: div=8  (single-stage, 0 PPM nominal)
+	 * 44.1 kHz is correctly rejected (requires ~22.579 MHz clock).
+	 */
+	assigned-clocks = <&k3_clks 190 0>;
+	assigned-clock-rates = <24576000>;
+
+	op-mode = <0>;		/* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+
+	serial-dir = <		/* 0: INACTIVE, 1: TX, 2: RX */
+		0 0 1 0		/* AXR0=inactive, AXR1=inactive, AXR2=TX (→SiI9022), AXR3=inactive */
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+	tx-num-evt = <32>;
+	rx-num-evt = <8>;
 };
 
 &mcasp1 {

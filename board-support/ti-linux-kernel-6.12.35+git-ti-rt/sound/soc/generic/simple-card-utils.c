@@ -1147,13 +1147,11 @@ EXPORT_SYMBOL_GPL(graph_util_parse_dai);
 void graph_util_parse_link_direction(struct device_node *np,
 				    bool *playback_only, bool *capture_only)
 {
-	bool is_playback_only = of_property_read_bool(np, "playback-only");
-	bool is_capture_only  = of_property_read_bool(np, "capture-only");
-
-	if (playback_only)
-		*playback_only = is_playback_only;
-	if (capture_only)
-		*capture_only = is_capture_only;
+	/* Use OR semantics so any node in the chain can set the flag. */
+	if (playback_only && of_property_read_bool(np, "playback-only"))
+		*playback_only = true;
+	if (capture_only && of_property_read_bool(np, "capture-only"))
+		*capture_only = true;
 }
 EXPORT_SYMBOL_GPL(graph_util_parse_link_direction);
 
