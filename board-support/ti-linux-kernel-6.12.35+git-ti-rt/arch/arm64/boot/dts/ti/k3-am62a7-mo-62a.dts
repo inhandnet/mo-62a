@@ -227,12 +227,6 @@
 		pinctrl-names = "default";
 		pinctrl-0 = <&usr_led_pins_default>;
 
-		led-blue {
-			label = "blue";
-			gpios = <&mcu_gpio0 2 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
-		};
-
 		led-green {
 			label = "green";
 			gpios = <&mcu_gpio0 15 GPIO_ACTIVE_HIGH>;
@@ -242,7 +236,7 @@
 		led-red {
 			label = "red";
 			gpios = <&mcu_gpio0 16 GPIO_ACTIVE_HIGH>;
-			default-state = "off";
+			default-state = "on";
 		};
 	};
 
@@ -322,22 +316,20 @@
 		};
 	};
 
-	/* Fan PWM via TIMER7 (J6 connector, D18/TIMER_IO7, via TXB0104RUTR) */
-	main_pwm7: dmtimer-main-pwm-7 {
-		compatible = "ti,omap-dmtimer-pwm";
-		#pwm-cells = <3>;
-		ti,timers = <&main_timer7>;
-		pinctrl-names = "default";
-		pinctrl-0 = <&main_timer7_pins_default>;
-	};
-
 	fan0: pwm-fan {
 		compatible = "pwm-fan";
-		pwms = <&main_pwm7 0 40000 0>; /* 25 kHz */
+		/* EHRPWM1_B (B20/IO1_10) -> TXB0104 -> J6 FAN_PWM (5V) */
+		pwms = <&epwm1 1 40000 0>; /* channel 1 = EHRPWM1_B, 25 kHz */
 		#cooling-cells = <2>;
 		cooling-min-state = <0>;
 		cooling-max-state = <3>;
 		cooling-levels = <0 64 128 255>;
+		/* D18/GPIO1_49 <- TXB0104 <- J6 FAN_TACH (5V) */
+		interrupt-parent = <&main_gpio1>;
+		interrupts = <49 IRQ_TYPE_EDGE_BOTH>;
+		pulses-per-revolution = <2>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&fan_tach_pins_default>;
 	};
 };
 
@@ -612,9 +604,9 @@
 	status = "reserved";
 };
 
-/* main_timer7 is used for fan PWM output (J6 FAN connector) */
+/* main_timer7: FAN_TACH input is captured via GPIO1_49 interrupt, timer not needed */
 &main_timer7 {
-	status = "okay";
+	status = "disabled";
 };
 
 &usbss0 {
@@ -905,7 +897,9 @@
 	status = "disabled";
 };
 
-/* Pin 36: EHRPWM1_A disabled — pad defaults to GPIO1_9 (BCM_GPIO16) */
+/* EHRPWM1_B (B20/IO1_10) -> FAN_PWM; Pin 36 EHRPWM1_A stays as GPIO1_9 */
 &epwm1 {
-	status = "disabled";
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&fan_pwm_pins_default>;
 };

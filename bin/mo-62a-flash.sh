@@ -137,6 +137,18 @@ install_kernel_modules_into_rootfs() {
     INSTALL_MOD_DIR="usr/lib/modules" DEPMOD="$depmod_cmd" modules_install
 }
 
+install_rootfs_overlay() {
+  local overlay_dir="$SDK_ROOT/board-support/rootfs-overlay"
+  [[ -d "${ROOTFS_MNT:-}" ]] || die "ROOTFS_MNT not mounted; cannot install rootfs overlay"
+  [[ -d "$overlay_dir" ]] || { echo "No rootfs-overlay directory found, skipping."; return 0; }
+
+  echo "Installing rootfs overlay: $overlay_dir -> $ROOTFS_MNT"
+  cp -a "$overlay_dir"/. "$ROOTFS_MNT"/
+  # Ensure scripts are executable
+  find "$ROOTFS_MNT/usr/local/bin" -type f 2>/dev/null | xargs chmod +x 2>/dev/null || true
+  echo "Rootfs overlay installed."
+}
+
 install_external_apps_into_rootfs() {
   local ext_dir="$SDK_ROOT/board-support/extra-applications"
   [[ -d "${ROOTFS_MNT:-}" ]] || die "ROOTFS_MNT not mounted; cannot install external apps"
@@ -517,6 +529,7 @@ sd_extract_rootfs() {
   untar_progress "$ROOTFS_TARBALL" "$ROOTFS_MNT"
   install_kernel_modules_into_rootfs
   install_external_apps_into_rootfs
+  install_rootfs_overlay
   sync
 }
 
@@ -733,6 +746,7 @@ run_image_flow() {
   img_extract_rootfs_tarball "$ROOTFS_TARBALL"
   install_kernel_modules_into_rootfs
   install_external_apps_into_rootfs
+  install_rootfs_overlay
 
   sync
   umount "$BOOT_MNT";   rmdir "$BOOT_MNT"   || true; BOOT_MNT=""

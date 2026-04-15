@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+"""
+led-status — MO-62A dual-colour LED controller.
+
+Boot phase  : red LED solid on (set by DTS default-state="on"), green off.
+Running phase: red LED off, green LED breathing at a rate that tracks
+               average CPU utilisation across all four cores.
+
+CPU utilisation is read from /proc/stat's aggregate "cpu" line, giving
+a 0–100 % figure that is already the mean across all cores.  A 4-core
+system running flat out therefore reads 100 %, not 400 %.
+
+Breathing speed mapping (linear):
+  0 %  CPU  →  2 000 ms on + 2 000 ms off  (very slow, ~0.25 Hz)
+  100% CPU  →    100 ms on +   100 ms off  (fast,      ~5 Hz)
+"""
+
+import time
+import os
+
+RED_LED   = "/sys/class/leds/red"
+GREEN_LED = "/sys/class/leds/green"
+
+# Breathing speed limits (milliseconds for delay_on / delay_off each)
+DELAY_MAX_MS = 2000   # idle
+DELAY_MIN_MS = 100    # full load
+
+# How often to re-sample CPU and update the blink rate
+UPDATE_INTERVAL_S = 5
+
+# Sampling window for /proc/stat delta
+CPU_SAMPLE_S = 0.5
+
+
+def _write(path: str, value) -> None:
+    try:
+        with open(path, "w") as f:
+            f.write(str(value) + "\n")
+    except OSError:
+        pass
+
+
+def set_trigger(led: str, trigger: str) -> None:
+    _write(os.path.join(led, "trigger"), trigger)
+
+
+def set_brightness(led: str, value: int) -> None:
+    _write(os.path.join(led, "brightness"), value)
+
+
+def set_timer(led: str, delay_on_ms: int, delay_off_ms: int) -> None:
+    set_trigger(led, "timer")
+    _write(os.path.join(led, "delay_on"),  delay_on_ms)
+    _write(os.path.join(led, "delay_off"), delay_off_ms)
+
+
+def _read_stat():
+    """Return (total_jiffies, idle_jiffies) from /proc/stat aggregate cpu line."""
+    with open("/proc/stat") as f:
+        line = f.readline()          # 'cpu  user nice system idle iowait ...'
+    fields = line.split()[1:]        # drop the 'cpu' label
+    total  = sum(int(x) for x in fields)
+    idle   = int(fields[3]) + int(fields[4])   # idle + iowait
+    return total, idle
+
+
+def cpu_usage_percent() -> float:
+    """Sample CPU over CPU_SAMPLE_S seconds; return 0–100 average across all cores."""
+    t1, i1 = _read_stat()
+    time.sleep(CPU_SAMPLE_S)
+    t2, i2 = _read_stat()
+    delta_total = t2 - t1
+    if delta_total == 0:
+        return 0.0
+    usage = (1.0 - (i2 - i1) / delta_total) * 100.0
+    return max(0.0, min(100.0, usage))
+
+
+def cpu_to_delay_ms(cpu_pct: float) -> int:
+    """Map CPU 0–100 % to delay_on/off in ms (higher CPU → shorter delay)."""
+    delay = DELAY_MAX_MS - (cpu_pct / 100.0) * (DELAY_MAX_MS - DELAY_MIN_MS)
+    return max(DELAY_MIN_MS, min(DELAY_MAX_MS, int(delay)))
+
+
+def main() -> None:
+    # Ensure red is on, green is off at service start
+    # (DTS default-state="on" already turned red on during kernel init,
+    #  but re-apply in case the trigger was changed by something else.)
+    set_trigger(RED_LED,   "none")
+    set_brightness(RED_LED, 1)
+    set_trigger(GREEN_LED, "none")
+    set_brightness(GREEN_LED, 0)
+
+    # Brief pause so the red LED is visible even on fast boots
+    time.sleep(1)
+
+    # Switch to running state: red off, green breathing
+    set_brightness(RED_LED, 0)
+
+    while True:
+        cpu = cpu_usage_percent()
+        delay = cpu_to_delay_ms(cpu)
+        set_timer(GREEN_LED, delay, delay)
+        # Sleep for the rest of the update interval (CPU_SAMPLE_S already consumed)
+        time.sleep(max(0, UPDATE_INTERVAL_S - CPU_SAMPLE_S))
+
+
+if __name__ == "__main__":
+    main()

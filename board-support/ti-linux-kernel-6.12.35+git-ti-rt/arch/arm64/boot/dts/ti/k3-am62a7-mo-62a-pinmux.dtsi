@@ -226,9 +226,15 @@
 			AM62AX_IOPAD(0x0248, PIN_INPUT_PULLUP|PIN_DRIVE_STRENGTH_NOMINAL, 0) /* (E19) RESET_REQz */
 		>;
 	};
-	main_timer7_pins_default: main_timer7-default-pins {
+	fan_tach_pins_default: fan-tach-default-pins {
 		pinctrl-single,pins = <
-			AM62AX_IOPAD(0x0244, PIN_OUTPUT, 2) /* (D18) MMC1_SDWP.TIMER_IO7 -> FAN_PWM */
+			AM62AX_IOPAD(0x0244, PIN_INPUT, 7) /* (D18) MMC1_SDWP.GPIO1_49 -> FAN_TACH, pull-up via R79 4.7K on A-side */
+		>;
+	};
+
+	fan_pwm_pins_default: fan-pwm-default-pins {
+		pinctrl-single,pins = <
+			AM62AX_IOPAD(0x01a0, PIN_OUTPUT, 6) /* (B20) MCASP0_AXR0.EHRPWM1_B -> FAN_PWM */
 		>;
 	};
 	main_uart0_pins_default: main_uart0-default-pins {
@@ -306,9 +312,8 @@
 	};
 	usr_led_pins_default: usr_led-default-pins {
 		pinctrl-single,pins = <
-			AM62AX_MCU_IOPAD(0x0008, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* (B13) MCU_SPI0_CLK.MCU_GPIO0_2 */
-			AM62AX_MCU_IOPAD(0x003c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* (D7) MCU_MCAN1_TX.MCU_GPIO0_15 */
-			AM62AX_MCU_IOPAD(0x0040, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* (B9) MCU_MCAN1_RX.MCU_GPIO0_16 */
+			AM62AX_MCU_IOPAD(0x003c, PIN_OUTPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* (D7) MCU_MCAN1_TX.MCU_GPIO0_15 -> GREEN_LED */
+			AM62AX_MCU_IOPAD(0x0040, PIN_OUTPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* (B9) MCU_MCAN1_RX.MCU_GPIO0_16 -> RED_LED */
 		>;
 	};
 	mcu_i2c0_pins_default: mcu_i2c0-default-pins {

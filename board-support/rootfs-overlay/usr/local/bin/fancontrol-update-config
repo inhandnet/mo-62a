@@ -1,0 +1,50 @@
+#!/bin/bash
+# fancontrol-update-config: dynamically discover hwmon indices and rewrite /etc/fancontrol.
+# Run as ExecStartPre by fancontrol.service so the config is always correct regardless
+# of the hwmon numbering assigned by the kernel at boot time.
+
+set -e
+
+PWMFAN_NUM=""
+THERMAL_NUM=""
+THERMAL_PATH=""
+
+for d in /sys/class/hwmon/hwmon*; do
+    name=$(cat "$d/name" 2>/dev/null) || continue
+    num=${d##*/hwmon}
+    case "$name" in
+        pwmfan)
+            PWMFAN_NUM=$num
+            ;;
+        main0_thermal)
+            THERMAL_NUM=$num
+            # Resolve the real sysfs device path (strip leading /sys/)
+            THERMAL_PATH=$(readlink -f "$d/device" | sed 's|^/sys/||')
+            ;;
+    esac
+done
+
+if [[ -z "$PWMFAN_NUM" ]]; then
+    echo "fancontrol-update-config: ERROR: pwmfan hwmon device not found" >&2
+    exit 1
+fi
+if [[ -z "$THERMAL_NUM" ]]; then
+    echo "fancontrol-update-config: ERROR: main0_thermal hwmon device not found" >&2
+    exit 1
+fi
+
+cat > /etc/fancontrol << EOF
+INTERVAL=10
+DEVPATH=hwmon${PWMFAN_NUM}=devices/platform/pwm-fan hwmon${THERMAL_NUM}=${THERMAL_PATH}
+DEVNAME=hwmon${PWMFAN_NUM}=pwmfan hwmon${THERMAL_NUM}=main0_thermal
+FCTEMPS=hwmon${PWMFAN_NUM}/pwm1=hwmon${THERMAL_NUM}/temp1_input
+FCFANS=hwmon${PWMFAN_NUM}/pwm1=hwmon${PWMFAN_NUM}/fan1_input
+MINTEMP=hwmon${PWMFAN_NUM}/pwm1=40
+MAXTEMP=hwmon${PWMFAN_NUM}/pwm1=75
+MINSTART=hwmon${PWMFAN_NUM}/pwm1=50
+MINSTOP=hwmon${PWMFAN_NUM}/pwm1=30
+MINPWM=hwmon${PWMFAN_NUM}/pwm1=30
+MAXPWM=hwmon${PWMFAN_NUM}/pwm1=255
+EOF
+
+echo "fancontrol-update-config: wrote /etc/fancontrol (pwmfan=hwmon${PWMFAN_NUM}, main0_thermal=hwmon${THERMAL_NUM})"

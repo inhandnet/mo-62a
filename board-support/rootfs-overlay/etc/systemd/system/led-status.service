@@ -1,0 +1,13 @@
+[Unit]
+Description=MO-62A dual-colour LED status controller
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/led-status
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
