@@ -23,6 +23,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [4.3 Build Kernel](#43-build-kernel)
   - [4.4 Stage Build Artifacts](#44-stage-build-artifacts)
   - [4.5 Build Output](#45-build-output)
+  - [4.6 Build Checklist by Change Type](#46-build-checklist-by-change-type)
 - [5. Flashing the SD Card](#5-flashing-the-sd-card)
   - [5.1 Prerequisites](#51-prerequisites)
   - [5.2 Launch the Flash Tool](#52-launch-the-flash-tool)
@@ -357,6 +358,39 @@ After staging, the following files are added to `board-support/built-images/`:
 | `dtb/ti/*.dtb` / `dtb/ti/*.dtbo` | — | 62 device tree blobs and overlays |
 
 > **Note:** `fitImage` is signed with the `custMpk` key from the U-Boot source tree. The signing step also triggers a rebuild of `tispl.bin` so it embeds the MO-62A DTB (`k3-am62a7-mo-62a.dtb`) in the A53 SPL. This means `make linux` will always update both `fitImage` and `tispl.bin` in `built-images/`.
+
+### 4.6 Build Checklist by Change Type
+
+The flash tool always runs `make modules_install` during both online and offline flashing. This step **unconditionally overwrites** the entire `/lib/modules/<version>/` directory in the rootfs with whatever `.ko` files are currently present in the kernel source tree. If the kernel modules have not been fully compiled beforehand, all previously working modules (DRM/HDMI, Wi-Fi, PWM fan, thermal sensors, etc.) will be wiped from the rootfs, leaving only the modules that happen to exist in the tree at that moment.
+
+Use the table below to determine which build commands are required before running the flash tool:
+
+| Change type | Required build steps |
+|-------------|----------------------|
+| DTS / pinmux only | `make linux-dtbs` → `make linux-dtbs_stage` → **`make linux`** → `make linux_stage` |
+| Kernel source (`.c` / `.h`) | `make linux` → `make linux_stage` |
+| U-Boot source | `make u-boot` → `make u-boot_stage` |
+| rootfs overlay only (scripts, services) | No kernel rebuild required — flash tool copies the overlay automatically |
+
+> **Important:** Even when only DTS files change, `make linux` must be run (or the kernel module `.ko` files must be confirmed to be fully compiled in the source tree) before flashing. Running only `make linux-dtbs` is not sufficient because it does not compile kernel modules.
+
+The safe, complete build sequence for a new firmware release is:
+
+```bash
+# 1. Full kernel build — compiles Image, all modules, and FitImage
+make linux
+
+# 2. Stage Image and DTBs to built-images/
+make linux_stage
+make linux-dtbs_stage
+
+# 3. (Optional) Rebuild U-Boot if U-Boot sources changed
+make u-boot
+make u-boot_stage
+
+# 4. Flash
+sudo bash bin/mo-62a-flash.sh
+```
 
 ---
 

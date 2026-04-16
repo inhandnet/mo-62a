@@ -23,6 +23,7 @@ MO-62A 单板计算机 SDK，基于 TI AM62A7 平台，提供高达 2 TOPS AI �
   - [4.3 编译内核](#43-编译内核)
   - [4.4 归档编译产物](#44-归档编译产物)
   - [4.5 编译输出](#45-编译输出)
+  - [4.6 按变更类型选择编译步骤](#46-按变更类型选择编译步骤)
 - [5. 烧录 SD 卡](#5-烧录-sd-卡)
   - [5.1 前提条件](#51-前提条件)
   - [5.2 启动烧录工具](#52-启动烧录工具)
@@ -358,6 +359,39 @@ make linux_stage
 | `dtb/ti/*.dtb` / `dtb/ti/*.dtbo` | — | 62 个设备树 blob 和覆盖层 |
 
 > **注意：** `fitImage` 使用 U-Boot 源码树中的 `custMpk` 密钥签名。签名步骤同时触发 `tispl.bin` 的重新编译，使其嵌入 MO-62A DTB（`k3-am62a7-mo-62a.dtb`）。因此，`make linux` 始终会同时更新 `built-images/` 中的 `fitImage` 和 `tispl.bin`。
+
+### 4.6 按变更类型选择编译步骤
+
+烧录工具在在线和离线烧录时都会执行 `make modules_install`。该步骤会**无条件覆盖** rootfs 中整个 `/lib/modules/<version>/` 目录，将其替换为当前内核源码树中已存在的 `.ko` 文件。如果事先没有完整编译内核模块，rootfs 中原有的所有模块（DRM/HDMI、Wi-Fi、PWM 风扇、温度传感器等）将被清空，只剩下当时源码树中碰巧存在的模块文件。
+
+请根据下表判断运行烧录工具前需要执行哪些编译步骤：
+
+| 变更类型 | 必要的编译步骤 |
+|----------|--------------|
+| 仅修改 DTS / 引脚复用 | `make linux-dtbs` → `make linux-dtbs_stage` → **`make linux`** → `make linux_stage` |
+| 修改内核源码（`.c` / `.h`） | `make linux` → `make linux_stage` |
+| 修改 U-Boot 源码 | `make u-boot` → `make u-boot_stage` |
+| 仅修改 rootfs overlay（脚本、服务文件） | 无需重新编译内核——烧录工具会自动复制 overlay |
+
+> **重要：** 即使只修改了 DTS 文件，烧录前也必须执行 `make linux`（或确认内核源码树中已有完整编译好的 `.ko` 文件）。**仅运行 `make linux-dtbs` 是不够的**，因为它不会编译内核模块。
+
+完整的固件发布编译流程如下：
+
+```bash
+# 1. 完整内核编译——编译 Image、全部模块和 FitImage
+make linux
+
+# 2. 将 Image 和 DTB 归档到 built-images/
+make linux_stage
+make linux-dtbs_stage
+
+# 3.（可选）如果 U-Boot 源码有改动，重新编译 U-Boot
+make u-boot
+make u-boot_stage
+
+# 4. 烧录
+sudo bash bin/mo-62a-flash.sh
+```
 
 ---
 
