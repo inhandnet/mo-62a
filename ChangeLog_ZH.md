@@ -1,5 +1,82 @@
 # 更新日志
 
+## v1.0.3 — 2026-04-17
+
+### 内核与设备树
+
+#### TIDSS DPMS 唤醒黑屏修复（tidss_plane.c）
+- 修复 `drivers/gpu/drm/tidss/tidss_plane.c` 中的 `tidss_plane_atomic_update()`：
+  在调用 `dispc_plane_setup()` 后，对可见 plane 额外调用
+  `dispc_plane_enable(true)`。
+  **根本原因**：DPMS Off 后，`tidss_runtime_put()` 将 PM 引用计数降至 0；
+  1 秒自动挂起延迟到期后，`dispc_runtime_suspend()` 关闭 DSS 功能时钟，
+  致使硬件掉电。DPMS On 时，`dispc_runtime_resume()` 调用
+  `dispc_initial_config()` → `dispc_k3_plane_init()`，将
+  `DISPC_VID_ATTRIBUTES` bit 0（VID pipeline 使能位）复位为 0。
+  DRM 提交随后调用 `tidss_plane_atomic_update()`（写入 DMA shadow 寄存器），
+  但因 `drm_atomic_plane_enabling()` 返回 false（DRM 状态显示 plane 仍绑定
+  在 CRTC 上，框架不认为需要重新使能），跳过了
+  `tidss_plane_atomic_enable()`。VID pipeline 保持 disabled，overlay 层收不
+  到像素数据，显示全黑；与此同时 SiI9022A 仍正常输出 HDMI 同步信号（显示器
+  指示灯为白色）。修复方案：在 `atomic_update()` 中只要 plane 可见就无条件
+  重新使能 VID pipeline，该调用对正常页翻转是幂等的，对 DPMS 唤醒的硬件掉
+  电场景则是必要的。
+
+### 根文件系统
+
+#### DPMS 唤醒可靠性修复 — xfce4-power-manager 竞态问题
+- 在 rootfs overlay 中添加 `/etc/xdg/autostart/xfce4-power-manager.desktop`
+  （`Hidden=true`），全面屏蔽 xfce4-power-manager 在 XFCE 会话中的自动启动。
+  **根本原因**：xfce4-power-manager 4.20.0 以固定间隔轮询 XScreenSaver 的空闲
+  计时器。当显示器从 DPMS 息屏状态被唤醒（按下键盘或执行 `xset dpms force on`）
+  时，XSS 空闲计数器的复位与 xfce4-power-manager 下一次轮询之间存在竞态：若
+  轮询在复位完成之前触发，xfce4-power-manager 读取到的空闲时长仍超过
+  `dpms-on-ac-sleep` 阈值（4 分钟），随即调用 `DPMSForceLevel(Off)`，导致屏幕
+  在唤醒约 1 秒后再次熄灭（表现为屏幕闪烁一下后立刻变黑）。该版本中
+  `presentation-mode=true` 配置项对此竞态无效。
+- 更新 `/etc/xdg/autostart/enable-dpms.desktop`：将 `Exec` 从单条 `xset +dpms`
+  扩展为 `xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank`。
+  屏蔽 xfce4-power-manager 后，DPMS 完全由 X 服务器接管：
+  Standby/Suspend 设为 0（禁用），Off 在空闲 600 秒（10 分钟）后触发，
+  同时禁用 X 内建屏保以避免与 DPMS 互相干扰。
+
+#### USB 输入设备 seat 分配
+- 在 rootfs overlay 中添加 `/etc/udev/rules.d/72-seat-input.rules`。
+  在 AM62A + LightDM 的组合下，udev 不会自动为 USB 键盘/鼠标/触摸屏/摇杆
+  添加 `ID_SEAT=seat0` 标签，原因是 USB Hub 与 DSS/DRM 子系统挂在不同的父设备
+  下——logind 因此将这些输入设备排除在 seat0 的设备列表之外，libinput 也无法
+  通过 logind 的 TakeDevice 接口向 Xorg 传递物理按键/鼠标事件。没有物理输入
+  事件，显示器就无法被键盘或鼠标从 DPMS 息屏状态唤醒。新规则对所有已识别的
+  输入设备类型（`ID_INPUT_KEYBOARD`、`ID_INPUT_MOUSE`、`ID_INPUT_TOUCHSCREEN`、
+  `ID_INPUT_JOYSTICK`）显式设置 `ID_SEAT=seat0` 并添加 `TAG+="seat"`。
+
+---
+
+## v1.0.2 — 2026-04-16
+
+### 内核与设备树
+
+#### HDMI 息屏唤醒修复（SiI9022A）
+- 修复 `sii902x_bridge_atomic_enable()`：将 20 ms TMDS PLL 稳定延迟
+  （`msleep(20)`）移至条件块外，确保在清除 `PWR_DWN` 之前无条件执行。
+  原实现将其置于 `if (mode.clock)` 分支内——模块热加载后 `mode.clock`
+  为 0（DRM 仅更新 `active_changed`，不重新调用 `mode_set`），导致 PLL
+  无法锁定，DPMS 唤醒后画面持续黑屏。
+- 在 `atomic_enable` 中添加 CRTC 状态回退逻辑：若 `mode.clock` 仍为 0
+  （如未重启的热加载场景），从 `bridge->encoder->crtc->state` 读取
+  调整后的显示模式，以便仍能正确编程 TPI 视频寄存器。
+
+### 根文件系统
+
+#### DPMS 登录自动启用
+- 在 rootfs overlay 中添加 `/etc/xdg/autostart/enable-dpms.desktop`：
+  每次 XFCE 会话启动时执行 `xset +dpms`。若缺少此项，
+  `xfce4-power-manager` 虽已配置 DPMS 定时器，但 X11 DPMS 仍处于
+  "Disabled" 状态，自动息屏定时器无法触发，键盘/鼠标也无法通过
+  DRM 路径唤醒显示器。
+
+---
+
 ## v1.0.1 — 2026-04-15
 
 ### 内核与设备树
@@ -21,6 +98,12 @@
   系统启动完成后关闭红色 LED，并将绿色 LED 切换为呼吸灯模式。
   呼吸频率与四核平均 CPU 使用率正相关——0 % 时半周期约 2 000 ms（极慢），
   100 % 时半周期约 100 ms（快速）。
+
+#### nginx — 日志目录缺失修复
+- 在 rootfs overlay 中新增 `usr/lib/tmpfiles.d/nginx.conf`：指示
+  `systemd-tmpfiles` 在启动时创建 `/var/log/nginx/` 目录（属主
+  `www-data:adm`，权限 0755），修复基础 rootfs 镜像中该目录缺失
+  导致 nginx 服务启动失败的问题。
 
 #### fancontrol — hwmon 编号漂移修复
 - 新增 `fancontrol-update-config` 脚本（`/usr/local/bin/`）：每次服务启动时
@@ -86,8 +169,6 @@ MO-62A 板级支持包首次公开发布。
 ### 根文件系统
 
 - 预装并配置 `fancontrol` 和 `lm-sensors`，开机自动启动 `fancontrol` 服务。
-- 禁用 DPMS 和 X11 息屏功能（`xorg.conf.d/10-no-dpms.conf` + `lightdm.conf`），
-  防止显示器自动熄屏后无法唤醒。
 - 将 `imx219-preview.sh` 安装至 `/usr/local/bin`，支持一键启动 CSI 摄像头
   预览；脚本会自动检测 `/dev/videoX` 和 IMX219 子设备节点。
 

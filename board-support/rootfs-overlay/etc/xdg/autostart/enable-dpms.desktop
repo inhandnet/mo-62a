@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Configure DPMS
+Comment=Enable X11 DPMS with a 10-minute Off timeout, disable the X screen saver, and start dpms-wakeup. xfce4-power-manager is blocked from autostarting (see xfce4-power-manager.desktop Hidden=true) so the X server manages DPMS entirely. dpms-wakeup monitors /dev/input/event* and calls "xset dpms force on" on any keyboard/mouse activity while the display is in DPMS Off state, working around the Xorg DPMS idle-timer limitation that prevents automatic wake on physical input.
+Exec=bash -c "xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank; dpms-wakeup &"
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

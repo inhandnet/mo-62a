@@ -50,6 +50,7 @@ MO-62A 单板计算机 SDK，基于 TI AM62A7 平台，提供高达 2 TOPS AI �
   - [7.14 启动配置](#714-启动配置)
   - [7.15 JTAG 接口](#715-jtag-接口)
   - [7.16 硬件版本识别引脚](#716-硬件版本识别引脚)
+- [8. 显示——DPMS 息屏与唤醒](#8-显示dpms-息屏与唤醒)
 
 ---
 
@@ -627,34 +628,6 @@ Compression (zip|xz|none) (default: zip): zip
 |--------|--------------|------|
 | `frei0r-plugins` | `imx219-preview.sh` | 通过 `frei0r-filter-white-balance` GStreamer 元素实现白平衡校正 |
 
-**在 chroot 内完成的系统配置更改：**
-
-1. **禁用 DPMS 和屏幕消隐：**
-
-   ```bash
-   mkdir -p /etc/X11/xorg.conf.d
-   cat > /etc/X11/xorg.conf.d/10-no-dpms.conf << 'EOF'
-   Section "ServerFlags"
-       Option "BlankTime"   "0"
-       Option "StandbyTime" "0"
-       Option "SuspendTime" "0"
-       Option "OffTime"     "0"
-   EndSection
-
-   Section "Monitor"
-       Identifier "Monitor0"
-       Option     "DPMS"    "false"
-   EndSection
-   EOF
-   ```
-
-2. **通过 lightdm 禁用 X server 屏幕保护程序：**
-
-   ```bash
-   sed -i 's|^# xserver-command=X$|xserver-command=X -s 0 -dpms|' \
-       /etc/lightdm/lightdm.conf
-   ```
-
 ---
 
 ## 6. 分区布局
@@ -1030,3 +1003,58 @@ MO-62A 使用固定电阻启动模式配置（BOOTMODE[15:0]）。
 ### 7.16 硬件版本识别引脚
 
 三个硬件版本识别引脚（HW_REV0、HW_REV1、HW_REV2）路由至原理图第 9 页 OSPI 接口部分。这些 PCB 焊接电阻（默认 DNF）用于在硬件上编码 PCB 版本和 DDR 型号，供软件检测使用。
+
+---
+
+## 8. 显示——DPMS 息屏与唤醒
+
+MO-62A 支持通过 DPMS（显示器电源管理信号）自动息屏，以及通过键盘或鼠标从息屏状态可靠唤醒。该功能涉及软件栈五个层面的修复，所有修复均已包含在 SDK 中，正常烧录后即可生效。
+
+### 工作原理
+
+显示器空闲 10 分钟后，X 服务器发送 DPMS Off 命令，SiI9022A 切断 HDMI TMDS 链路。经过 1 秒自动挂起延迟后，Linux 运行时 PM 子系统对 AM62A DISPC 硬件进行断电重启。
+
+当有键盘或鼠标输入时，唤醒流程如下：
+
+1. `dpms-wakeup` 检测到 `/dev/input/event*` 输入事件，调用 `xset dpms force on`
+2. X 服务器发起 DRM atomic commit，将 CRTC 恢复为活动状态
+3. DISPC 硬件上电，`dispc_runtime_resume()` 重新初始化所有寄存器
+4. SiI9022A 执行 20 ms TMDS PLL 稳定延迟后，HDMI 输出恢复
+5. `tidss_plane_atomic_update()` 重新使能 VID pipeline，像素数据流向显示器
+
+### 已应用的修复
+
+| # | 层次 | 根本原因 | 修复方案 |
+|---|------|---------|---------|
+| 1 | `drivers/gpu/drm/bridge/sii902x.c` | 20 ms TMDS PLL 延迟依赖 `mode.clock`，模块重载后该值为 0，导致 PLL 无法锁定，HDMI 保持黑屏 | 将延迟移至 `PWR_DWN` 清除之前无条件执行；为 `mode.clock = 0` 场景添加 CRTC 状态回退逻辑 |
+| 2 | `rootfs-overlay/usr/local/bin/dpms-wakeup` | DPMS 息屏状态下收到原始输入事件时，Xorg 不会自动调用 `xset dpms force on` | Python 守护进程监控所有 `/dev/input/event*` 节点，有输入时调用 `xset dpms force on`（2 秒冷却） |
+| 3 | `rootfs-overlay/etc/udev/rules.d/72-seat-input.rules` | USB 输入设备未被标记为 `ID_SEAT=seat0`——因为 USB Hub 父设备与 DSS/DRM 父设备不同，logind 将其排除在 seat0 设备列表之外 | udev 规则为所有已识别的输入设备类型显式设置 `ID_SEAT=seat0` 和 `TAG+="seat"` |
+| 4 | `rootfs-overlay/etc/xdg/autostart/xfce4-power-manager.desktop` | xfce4-power-manager 4.20.0 轮询 XSS 空闲计数器，在唤醒后约 1 秒因与计数器复位存在竞态而再次息屏 | `Hidden=true` 屏蔽 xfce4-power-manager 自启动；DPMS 完全由 X 服务器管理 |
+| 5 | `drivers/gpu/drm/tidss/tidss_plane.c` | `dispc_initial_config()` 在恢复时将 `DISPC_VID_ATTRIBUTES` bit 0（VID 使能位）复位为 0；由于 plane 已绑定 CRTC，DRM 跳过 `atomic_enable()`，VID pipeline 保持禁用状态 | 在 `tidss_plane_atomic_update()` 中，对可见 plane 无条件调用 `dispc_plane_enable(true)` |
+
+### DPMS 配置
+
+X 服务器的 DPMS 参数由 XFCE 会话启动时运行的 `enable-dpms.desktop` 设置（rootfs overlay：`etc/xdg/autostart/enable-dpms.desktop`）：
+
+```bash
+xset +dpms              # 启用 DPMS
+xset dpms 0 0 600       # 空闲 600 秒（10 分钟）后息屏；Standby/Suspend 禁用
+xset s off              # 禁用 X 屏幕保护程序
+xset s noblank          # 禁用 X 屏幕消隐
+dpms-wakeup &           # 启动输入事件唤醒守护进程
+```
+
+如需修改息屏超时时间，请在 rootfs overlay 中修改 `600` 的值后重新烧录。
+
+### 通过 SSH 验证 DPMS
+
+```bash
+# 查看当前 DPMS 状态和定时器设置
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset q | grep -A3 DPMS
+
+# 立即息屏（测试）
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force off
+
+# 唤醒显示器（测试）
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
+```

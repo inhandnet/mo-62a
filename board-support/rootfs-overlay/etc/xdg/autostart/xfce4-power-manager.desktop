@@ -1,0 +1,16 @@
+[Desktop Entry]
+Name=Power Manager
+Comment=Power management for the Xfce desktop (disabled on MO-62A)
+Icon=org.xfce.powermanager
+Exec=xfce4-power-manager
+Terminal=false
+Type=Application
+OnlyShowIn=XFCE;
+StartupNotify=false
+
+# Disabled on MO-62A: xfce4-power-manager causes an immediate display
+# re-blank after DPMS wake due to a race between its idle-time poll and
+# the X server idle counter reset.  Display DPMS is managed entirely by
+# the X server (xset dpms 0 0 600) via the enable-dpms.desktop autostart
+# entry, which provides the same 10-minute blank timeout without the race.
+Hidden=true

@@ -25,6 +25,7 @@
 #include <drm/drm_bridge.h>
 #include <drm/drm_drv.h>
 #include <drm/drm_edid.h>
+#include <drm/drm_modes.h>
 #include <drm/drm_print.h>
 #include <drm/drm_probe_helper.h>
 
@@ -183,6 +184,7 @@ struct sii902x {
 	struct device_link *link;
 	unsigned int ctx_tpi;
 	unsigned int ctx_interrupt;
+	struct drm_display_mode mode; /* cached adjusted mode for DPMS resume */
 
 	/*
 	 * Mutex protects audio and video functions from interfering
@@ -326,41 +328,13 @@ static const struct drm_connector_helper_funcs sii902x_connector_helper_funcs = 
 	.get_modes = sii902x_get_modes,
 };
 
-static void sii902x_bridge_atomic_disable(struct drm_bridge *bridge,
-					  struct drm_bridge_state *old_bridge_state)
+/*
+ * Re-program all TPI video registers from the cached mode.
+ * Must be called with sii902x->mutex held.
+ */
+static void sii902x_apply_mode(struct sii902x *sii902x)
 {
-	struct sii902x *sii902x = bridge_to_sii902x(bridge);
-
-	mutex_lock(&sii902x->mutex);
-
-	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
-			   SII902X_SYS_CTRL_PWR_DWN,
-			   SII902X_SYS_CTRL_PWR_DWN);
-
-	mutex_unlock(&sii902x->mutex);
-}
-
-static void sii902x_bridge_atomic_enable(struct drm_bridge *bridge,
-					 struct drm_bridge_state *old_bridge_state)
-{
-	struct sii902x *sii902x = bridge_to_sii902x(bridge);
-
-	mutex_lock(&sii902x->mutex);
-
-	regmap_update_bits(sii902x->regmap, SII902X_PWR_STATE_CTRL,
-			   SII902X_AVI_POWER_STATE_MSK,
-			   SII902X_AVI_POWER_STATE_D(0));
-	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
-			   SII902X_SYS_CTRL_PWR_DWN, 0);
-
-	mutex_unlock(&sii902x->mutex);
-}
-
-static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
-				    const struct drm_display_mode *mode,
-				    const struct drm_display_mode *adj)
-{
-	struct sii902x *sii902x = bridge_to_sii902x(bridge);
+	const struct drm_display_mode *adj = &sii902x->mode;
 	u8 output_mode = SII902X_SYS_CTRL_OUTPUT_DVI;
 	struct regmap *regmap = sii902x->regmap;
 	u8 buf[HDMI_INFOFRAME_SIZE(AVI)];
@@ -384,36 +358,113 @@ static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
 	buf[9] = SII902X_TPI_AVI_INPUT_RANGE_AUTO |
 		 SII902X_TPI_AVI_INPUT_COLORSPACE_RGB;
 
-	mutex_lock(&sii902x->mutex);
-
 	ret = regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
 				 SII902X_SYS_CTRL_OUTPUT_MODE, output_mode);
 	if (ret)
-		goto out;
+		return;
 
 	ret = regmap_bulk_write(regmap, SII902X_TPI_VIDEO_DATA, buf, 10);
 	if (ret)
-		goto out;
+		return;
 
 	ret = drm_hdmi_avi_infoframe_from_display_mode(&frame,
 						       &sii902x->connector, adj);
 	if (ret < 0) {
 		DRM_ERROR("couldn't fill AVI infoframe\n");
-		goto out;
+		return;
 	}
 
 	ret = hdmi_avi_infoframe_pack(&frame, buf, sizeof(buf));
 	if (ret < 0) {
 		DRM_ERROR("failed to pack AVI infoframe: %d\n", ret);
-		goto out;
+		return;
 	}
 
 	/* Do not send the infoframe header, but keep the CRC field. */
 	regmap_bulk_write(regmap, SII902X_TPI_AVI_INFOFRAME,
 			  buf + HDMI_INFOFRAME_HEADER_SIZE - 1,
 			  HDMI_AVI_INFOFRAME_SIZE + 1);
+}
 
-out:
+static void sii902x_bridge_atomic_disable(struct drm_bridge *bridge,
+					  struct drm_bridge_state *old_bridge_state)
+{
+	struct sii902x *sii902x = bridge_to_sii902x(bridge);
+
+	mutex_lock(&sii902x->mutex);
+
+	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
+			   SII902X_SYS_CTRL_PWR_DWN,
+			   SII902X_SYS_CTRL_PWR_DWN);
+
+	mutex_unlock(&sii902x->mutex);
+}
+
+static void sii902x_bridge_atomic_enable(struct drm_bridge *bridge,
+					 struct drm_bridge_state *old_bridge_state)
+{
+	struct sii902x *sii902x = bridge_to_sii902x(bridge);
+
+	mutex_lock(&sii902x->mutex);
+
+	/*
+	 * The upstream TIDSS pixel clock restarts concurrently with this
+	 * atomic_enable call.  The SiI9022A TMDS PLL requires the pixel clock
+	 * to be stable for at least one full frame (~17 ms at 60 Hz) before it
+	 * can lock.  This delay must be unconditional — gating it on
+	 * mode.clock (which can be 0 if mode_set was never called, e.g. after
+	 * a module hot-reload) causes the PLL to fail and HDMI output to stay
+	 * dark.
+	 */
+	msleep(20);
+
+	/*
+	 * mode.clock is populated by mode_set, which is only called when
+	 * mode_changed || connectors_changed.  For DPMS-only transitions
+	 * (active_changed only) it is not re-called, so mode.clock remains
+	 * valid from the last real modeset.  However, after a module
+	 * hot-reload the struct is zero-initialised and DRM will not re-issue
+	 * mode_set.  Fall back to reading the adjusted mode from the current
+	 * CRTC state so we can still program the TPI registers.
+	 */
+	if (!sii902x->mode.clock && bridge->encoder && bridge->encoder->crtc) {
+		struct drm_crtc_state *cs = bridge->encoder->crtc->state;
+
+		if (cs && cs->adjusted_mode.clock) {
+			drm_mode_copy(&sii902x->mode, &cs->adjusted_mode);
+			dev_warn(&sii902x->i2c->dev,
+				 "mode.clock was 0; recovered %dx%d@%dHz from CRTC state\n",
+				 sii902x->mode.hdisplay, sii902x->mode.vdisplay,
+				 drm_mode_vrefresh(&sii902x->mode));
+		}
+	}
+
+	if (sii902x->mode.clock) {
+		dev_info(&sii902x->i2c->dev,
+			 "DPMS resume: re-applying mode %dx%d@%dHz\n",
+			 sii902x->mode.hdisplay, sii902x->mode.vdisplay,
+			 drm_mode_vrefresh(&sii902x->mode));
+		sii902x_apply_mode(sii902x);
+	}
+
+	regmap_update_bits(sii902x->regmap, SII902X_PWR_STATE_CTRL,
+			   SII902X_AVI_POWER_STATE_MSK,
+			   SII902X_AVI_POWER_STATE_D(0));
+	regmap_update_bits(sii902x->regmap, SII902X_SYS_CTRL_DATA,
+			   SII902X_SYS_CTRL_PWR_DWN, 0);
+
+	mutex_unlock(&sii902x->mutex);
+}
+
+static void sii902x_bridge_mode_set(struct drm_bridge *bridge,
+				    const struct drm_display_mode *mode,
+				    const struct drm_display_mode *adj)
+{
+	struct sii902x *sii902x = bridge_to_sii902x(bridge);
+
+	mutex_lock(&sii902x->mutex);
+	drm_mode_copy(&sii902x->mode, adj);
+	sii902x_apply_mode(sii902x);
 	mutex_unlock(&sii902x->mutex);
 }
 

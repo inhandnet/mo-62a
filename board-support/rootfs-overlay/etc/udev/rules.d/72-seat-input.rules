@@ -1,0 +1,24 @@
+# Assign USB input devices (keyboard, mouse, touchscreen) to seat0.
+#
+# On AM62A with LightDM, udev does not automatically tag input devices
+# with ID_SEAT=seat0 because the platform lacks a /sys/class/drm device
+# linked to the same parent as the input devices (the USB hub is separate
+# from the DSS/DRM subsystem).  Without this tag, logind omits the
+# keyboard and mouse from seat0's device list, so libinput (via logind's
+# TakeDevice API) never delivers physical key/mouse events to Xorg.
+# The result: physical input cannot wake the display from DPMS blank.
+#
+# This rule explicitly tags all recognised input devices as seat0 so that
+# logind forwards their events to the active seat0 session (LightDM / Xorg).
+
+SUBSYSTEM=="input", ENV{ID_INPUT_KEYBOARD}=="1", \
+    ENV{ID_SEAT}="seat0", TAG+="seat"
+
+SUBSYSTEM=="input", ENV{ID_INPUT_MOUSE}=="1", \
+    ENV{ID_SEAT}="seat0", TAG+="seat"
+
+SUBSYSTEM=="input", ENV{ID_INPUT_TOUCHSCREEN}=="1", \
+    ENV{ID_SEAT}="seat0", TAG+="seat"
+
+SUBSYSTEM=="input", ENV{ID_INPUT_JOYSTICK}=="1", \
+    ENV{ID_SEAT}="seat0", TAG+="seat"

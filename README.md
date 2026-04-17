@@ -29,6 +29,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [5.2 Launch the Flash Tool](#52-launch-the-flash-tool)
   - [5.3 Online Flashing (Write Directly to SD Card)](#53-online-flashing-write-directly-to-sd-card)
   - [5.4 Offline Image Creation (balenaEtcher)](#54-offline-image-creation-balenaetcher)
+  - [5.5 Customising the Rootfs Tarball (Adding apt Packages)](#55-customising-the-rootfs-tarball-adding-apt-packages)
 - [6. Partition Layout](#6-partition-layout)
   - [6.1 BOOT Partition Contents](#boot-partition-contents)
   - [6.2 Boot Configuration](#boot-configuration)
@@ -49,6 +50,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [7.14 Boot Configuration](#714-boot-configuration)
   - [7.15 JTAG Interface](#715-jtag-interface)
   - [7.16 Hardware Revision Straps](#716-hardware-revision-straps)
+- [8. Display — DPMS Screen Blanking and Wake](#8-display--dpms-screen-blanking-and-wake)
 
 ---
 
@@ -635,36 +637,6 @@ After repacking, re-run the flash tool as normal. The newly installed packages w
 |---------|-------------|---------|
 | `frei0r-plugins` | `imx219-preview.sh` | White-balance correction via `frei0r-filter-white-balance` GStreamer element |
 
-**System configuration changes applied inside the chroot:**
-
-These changes are made directly to config files (no apt required) and must be applied after step 5 (inside the chroot) or by editing files directly in `$ROOTFS_DIR` after exiting the chroot.
-
-1. **Disable DPMS and screen blanking** — prevents the display from going dark and becoming unresponsive:
-
-   ```bash
-   mkdir -p /etc/X11/xorg.conf.d
-   cat > /etc/X11/xorg.conf.d/10-no-dpms.conf << 'EOF'
-   Section "ServerFlags"
-       Option "BlankTime"   "0"
-       Option "StandbyTime" "0"
-       Option "SuspendTime" "0"
-       Option "OffTime"     "0"
-   EndSection
-
-   Section "Monitor"
-       Identifier "Monitor0"
-       Option     "DPMS"    "false"
-   EndSection
-   EOF
-   ```
-
-2. **Pass `-s 0 -dpms` to the X server via lightdm** — disables the X server's built-in screen saver and DPMS at the server level:
-
-   ```bash
-   sed -i 's|^# xserver-command=X$|xserver-command=X -s 0 -dpms|' \
-       /etc/lightdm/lightdm.conf
-   ```
-
 ---
 
 ## 6. Partition Layout
@@ -1040,3 +1012,58 @@ Pull-up resistors: 4.7 kΩ to VCC_3V3_SYS.
 ### 7.16 Hardware Revision Straps
 
 Three hardware revision pins (HW_REV0, HW_REV1, HW_REV2) are routed to the OSPI interface page (sheet 9). These PCB strap resistors (DNF by default) allow encoding the PCB revision and DDR model in hardware for software detection.
+
+---
+
+## 8. Display — DPMS Screen Blanking and Wake
+
+The MO-62A supports automatic display blanking via DPMS (Display Power Management Signaling) and reliable wake-on-input from the blanked state. This required fixes across five layers of the software stack; all are included in the SDK and active after a normal flash.
+
+### How It Works
+
+When the display has been idle for 10 minutes the X server issues a DPMS Off command. SiI9022A cuts the HDMI TMDS link. After a 1-second autosuspend delay the AM62A DISPC hardware is power-cycled by the Linux runtime PM subsystem.
+
+On any keyboard or mouse input:
+
+1. `dpms-wakeup` detects the `/dev/input/event*` activity and calls `xset dpms force on`
+2. The X server issues a DRM atomic commit to bring the CRTC back to active
+3. The DISPC hardware powers back on; `dispc_runtime_resume()` re-initialises all registers
+4. The SiI9022A 20 ms TMDS PLL stabilisation delay runs, then HDMI output is restored
+5. `tidss_plane_atomic_update()` re-enables the VID pipeline so pixel data reaches the display
+
+### Fixes Applied
+
+| # | Layer | Root Cause | Fix |
+|---|-------|-----------|-----|
+| 1 | `drivers/gpu/drm/bridge/sii902x.c` | 20 ms TMDS PLL delay was gated on `mode.clock`, which is 0 after a module reload — PLL never locked, HDMI stayed dark | Delay moved unconditionally before `PWR_DWN` clear; CRTC state fallback added for `mode.clock = 0` |
+| 2 | `rootfs-overlay/usr/local/bin/dpms-wakeup` | Xorg does not automatically call `xset dpms force on` when raw input arrives while DPMS is Off | Python daemon watches all `/dev/input/event*` nodes, calls `xset dpms force on` on activity (2 s cooldown) |
+| 3 | `rootfs-overlay/etc/udev/rules.d/72-seat-input.rules` | USB input devices not tagged `ID_SEAT=seat0` — logind excludes them because the USB hub parent differs from the DSS/DRM parent | udev rules explicitly set `ID_SEAT=seat0` and `TAG+="seat"` for all recognised input device types |
+| 4 | `rootfs-overlay/etc/xdg/autostart/xfce4-power-manager.desktop` | xfce4-power-manager 4.20.0 polls the XSS idle counter and re-blanks the display ~1 s after wake due to a race with the idle-counter reset | `Hidden=true` suppresses xfce4-power-manager autostart; DPMS fully managed by the X server |
+| 5 | `drivers/gpu/drm/tidss/tidss_plane.c` | `dispc_initial_config()` resets `DISPC_VID_ATTRIBUTES` bit 0 (VID enable) to 0 on resume; DRM skips `atomic_enable()` because the plane is already bound to the CRTC | `dispc_plane_enable(true)` added inside `tidss_plane_atomic_update()` whenever the plane is visible |
+
+### DPMS Configuration
+
+The X server DPMS settings are applied at XFCE session start by `enable-dpms.desktop` (rootfs overlay: `etc/xdg/autostart/enable-dpms.desktop`):
+
+```bash
+xset +dpms              # Enable DPMS
+xset dpms 0 0 600       # Off after 600 s idle; Standby/Suspend disabled
+xset s off              # Disable the X screensaver
+xset s noblank          # Disable X screen blanking
+dpms-wakeup &           # Start the input-event wakeup daemon
+```
+
+To change the blank timeout, edit the `600` value in the rootfs overlay and reflash.
+
+### Verifying DPMS from an SSH Session
+
+```bash
+# Check current DPMS state and timer settings
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset q | grep -A3 DPMS
+
+# Blank the display immediately (test)
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force off
+
+# Wake the display (test)
+DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
+```

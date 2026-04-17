@@ -1,5 +1,85 @@
 # Changelog
 
+## v1.0.3 — 2026-04-17
+
+### Kernel & Device Tree
+
+#### TIDSS DPMS Wake Black Screen Fix (tidss_plane.c)
+- Fix `tidss_plane_atomic_update()` in `drivers/gpu/drm/tidss/tidss_plane.c`: add
+  `dispc_plane_enable(true)` for visible planes in addition to `dispc_plane_setup()`.
+  **Root cause**: After DPMS Off, `tidss_runtime_put()` drops the PM refcount to zero.
+  After the autosuspend delay (1 s), `dispc_runtime_suspend()` disables the functional
+  clock, power-cycling the DSS hardware. On DPMS On, `dispc_runtime_resume()` calls
+  `dispc_initial_config()` → `dispc_k3_plane_init()`, which resets
+  `DISPC_VID_ATTRIBUTES` bit 0 (VID pipeline enable) to 0. The DRM commit then calls
+  `tidss_plane_atomic_update()` (which writes DMA shadow registers) but skips
+  `tidss_plane_atomic_enable()` because `drm_atomic_plane_enabling()` returns false —
+  the DRM state records the plane as already bound to the CRTC, so the framework does
+  not recognise the need to re-enable it. With the VID pipeline disabled the overlay
+  layer receives no pixel data and the display outputs black, even though SiI9022A
+  delivers valid HDMI sync (monitor LED shows white/signal-present). The fix mirrors
+  the first-activation path: unconditionally re-enable the pipeline inside
+  `atomic_update()` whenever the plane is visible, making the call idempotent for
+  normal page-flips and correct for the DPMS-wake power-cycle case.
+
+### Rootfs
+
+#### DPMS Wake Reliability — xfce4-power-manager Race Fix
+- Add `/etc/xdg/autostart/xfce4-power-manager.desktop` (Hidden=true) to the
+  rootfs overlay. This suppresses xfce4-power-manager autostart for all XFCE
+  sessions on the board.
+  **Root cause**: xfce4-power-manager 4.20.0 polls the XScreenSaver idle counter
+  on a fixed interval. When the display wakes from DPMS blank (keyboard press or
+  `xset dpms force on`), there is a race between the XSS idle-counter reset and
+  xfce4-power-manager's next poll. If the poll fires before the reset is
+  processed, xfce4-power-manager sees the accumulated idle time (> `dpms-on-ac-sleep`
+  threshold of 4 minutes) and immediately calls `DPMSForceLevel(Off)` again,
+  causing the display to flash briefly and go dark within ~1 second of waking.
+  The `presentation-mode=true` setting in its configuration does not prevent this
+  behaviour in this version.
+- Update `/etc/xdg/autostart/enable-dpms.desktop`: expand the `Exec` command
+  from `xset +dpms` to `xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank`.
+  With xfce4-power-manager suppressed, the X server now owns DPMS completely:
+  Standby/Suspend are disabled (0), Off fires after 600 s (10 min) of idle, and
+  the built-in X screensaver is disabled to avoid interfering with DPMS.
+
+#### USB Input Device Seat Assignment
+- Add `/etc/udev/rules.d/72-seat-input.rules` to the rootfs overlay.
+  On AM62A with LightDM, udev does not automatically tag USB keyboard/mouse/
+  touchscreen/joystick devices as `ID_SEAT=seat0` because the USB hub sits on a
+  separate parent from the DSS/DRM subsystem — logind therefore omits them from
+  seat0's device list, and libinput never delivers physical key/mouse events to
+  Xorg. Without physical input events, the display cannot be woken from DPMS
+  blank by keyboard or mouse. The new rules explicitly tag all recognised input
+  device types (`ID_INPUT_KEYBOARD`, `ID_INPUT_MOUSE`, `ID_INPUT_TOUCHSCREEN`,
+  `ID_INPUT_JOYSTICK`) with `ID_SEAT=seat0` and `TAG+="seat"`.
+
+---
+
+## v1.0.2 — 2026-04-16
+
+### Kernel & Device Tree
+
+#### HDMI DPMS Wake Fix (SiI9022A)
+- Fix `sii902x_bridge_atomic_enable()`: move the 20 ms TMDS PLL stabilisation
+  delay (`msleep(20)`) unconditionally before `PWR_DWN` is cleared. Previously
+  it was gated on `mode.clock`, which is 0 after a module hot-reload (DRM does
+  not re-issue `mode_set` when only `active_changed`), causing the PLL to time
+  out and HDMI output to stay dark after DPMS wake.
+- Add CRTC-state fallback in `atomic_enable`: if `mode.clock` is still 0 after
+  the delay (e.g. module hot-reload without reboot), read the adjusted mode from
+  `bridge->encoder->crtc->state` so TPI video registers can still be programmed.
+
+### Rootfs
+
+#### DPMS Auto-Enable on Login
+- Add `/etc/xdg/autostart/enable-dpms.desktop` to the rootfs overlay: runs
+  `xset +dpms` at every XFCE session start. Without this, `xfce4-power-manager`
+  sets DPMS timers but X11 DPMS stays "Disabled" so the automatic screen-blank
+  timer never fires, and keyboard/mouse activity cannot wake via the DRM path.
+
+---
+
 ## v1.0.1 — 2026-04-15
 
 ### Kernel & Device Tree
@@ -22,6 +102,12 @@
   Breathing period is inversely proportional to the 4-core average CPU
   utilisation — 0 % → 2 000 ms half-cycle (very slow), 100 % → 100 ms
   half-cycle (fast).
+
+#### nginx — Missing Log Directory Fix
+- Add `usr/lib/tmpfiles.d/nginx.conf` to rootfs overlay: instructs
+  `systemd-tmpfiles` to create `/var/log/nginx/` (owner `www-data:adm`, mode
+  0755) at boot, fixing the nginx startup failure caused by the missing
+  directory in the base rootfs image.
 
 #### fancontrol — hwmon Index Drift Fix
 - Add `fancontrol-update-config` script (`/usr/local/bin/`): scans
@@ -89,9 +175,6 @@ First public release of the MO-62A board support package.
 
 - Install and pre-configure `fancontrol` and `lm-sensors`; enable the
   `fancontrol` service at boot.
-- Disable DPMS and X11 screen blanking (`xorg.conf.d/10-no-dpms.conf` +
-  `lightdm.conf`) to prevent the display from blanking and becoming
-  unresponsive.
 - Install `imx219-preview.sh` to `/usr/local/bin` for one-command CSI camera
   preview; the script auto-detects `/dev/videoX` and the IMX219 subdev node.
 

@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""
+dpms-wakeup — wake the X11 display from DPMS Off on any keyboard/mouse input.
+
+Xorg's internal DPMS idle timer does not re-check after an input event while
+the display is already in the Off state (it only re-arms for the next Off
+transition, not for wakeup). This daemon fills the gap: it opens every
+/dev/input/event* node, waits for any raw event using select(), and calls
+"xset dpms force on" on any input activity.
+
+Run as an XFCE autostart application (see enable-dpms.desktop).
+"""
+
+import glob
+import os
+import select
+import subprocess
+import sys
+import time
+import logging
+
+LOG_FILE = "/tmp/dpms-wakeup.log"
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.DEBUG,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+log = logging.getLogger("dpms-wakeup")
+
+DISPLAY = os.environ.get("DISPLAY", ":0")
+XAUTHORITY = os.environ.get("XAUTHORITY", os.path.expanduser("~/.Xauthority"))
+ENV = {**os.environ, "DISPLAY": DISPLAY, "XAUTHORITY": XAUTHORITY}
+EVENT_SIZE = 24   # struct input_event: 8-byte timeval + 2+2+4 bytes
+
+
+def open_devices():
+    fds = []
+    for path in sorted(glob.glob("/dev/input/event*")):
+        try:
+            # buffering=0: unbuffered, required for correct select() behavior
+            # with evdev character devices
+            fds.append(open(path, "rb", buffering=0))
+            log.debug("opened %s", path)
+        except OSError as e:
+            log.warning("cannot open %s: %s", path, e)
+    return fds
+
+
+def force_on():
+    try:
+        # Reset the X server's idle timer first so the DPMS idle-timer callback
+        # sees idle=0 after force-on and does not immediately re-blank the display.
+        subprocess.run(["xset", "s", "reset"], capture_output=True, timeout=2, env=ENV)
+        r = subprocess.run(
+            ["xset", "dpms", "force", "on"],
+            capture_output=True, text=True, timeout=3, env=ENV,
+        )
+        log.info("xset dpms force on → rc=%d %s", r.returncode, r.stderr.strip())
+    except Exception as e:
+        log.error("force_on failed: %s", e)
+
+
+def wait_for_x():
+    for i in range(30):
+        try:
+            subprocess.run(
+                ["xset", "q"], capture_output=True, timeout=2, env=ENV, check=True
+            )
+            log.info("X server ready")
+            return True
+        except Exception:
+            time.sleep(1)
+    log.error("X server not ready after 30s")
+    return False
+
+
+def main():
+    log.info("dpms-wakeup starting, DISPLAY=%s XAUTHORITY=%s", DISPLAY, XAUTHORITY)
+
+    if not wait_for_x():
+        sys.exit(1)
+
+    fds = open_devices()
+    if not fds:
+        log.error("no /dev/input/event* devices found")
+        sys.exit(1)
+
+    log.info("monitoring %d input devices", len(fds))
+
+    last_wake = 0.0
+    COOLDOWN = 2.0  # minimum seconds between successive wakeup calls
+
+    while True:
+        try:
+            readable, _, _ = select.select(fds, [], [], 60)
+        except (ValueError, OSError) as e:
+            log.warning("select error: %s, rebuilding device list", e)
+            for f in fds:
+                try:
+                    f.close()
+                except OSError:
+                    pass
+            fds = open_devices()
+            continue
+
+        if readable:
+            # Drain ALL pending events from every fd so that keyboard auto-repeat
+            # does not cause hundreds of back-to-back select() returns and rapid
+            # DRM atomic commits that destabilise the HDMI signal.
+            for f in fds:
+                while True:
+                    r, _, _ = select.select([f], [], [], 0)
+                    if not r:
+                        break
+                    try:
+                        f.read(EVENT_SIZE)
+                    except OSError:
+                        break
+
+            now = time.time()
+            if now - last_wake >= COOLDOWN:
+                log.debug("input detected, calling force on")
+                force_on()
+                last_wake = now
+            else:
+                log.debug("input detected, cooldown active (%.1fs remaining)",
+                          COOLDOWN - (now - last_wake))
+
+
+if __name__ == "__main__":
+    main()

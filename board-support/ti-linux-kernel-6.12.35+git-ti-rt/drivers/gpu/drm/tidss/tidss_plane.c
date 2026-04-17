@@ -134,6 +134,19 @@ static void tidss_plane_atomic_update(struct drm_plane *plane,
 	hw_videoport = to_tidss_crtc(new_state->crtc)->hw_videoport;
 
 	dispc_plane_setup(tidss->dispc, tplane->hw_plane_id, new_state, hw_videoport);
+
+	/*
+	 * Re-enable the VID pipeline here in addition to atomic_enable().
+	 * atomic_enable() is only called by drm_atomic_helper_commit_planes()
+	 * when drm_atomic_plane_enabling() is true (old crtc was NULL), which
+	 * does not cover the DPMS-wake path: after tidss_runtime_put() drops
+	 * the PM refcount to zero the hardware is power-cycled, and
+	 * dispc_initial_config() resets VID_ATTRIBUTES bit-0 (enable) to 0.
+	 * Without this call the VID pipeline stays disabled even though the
+	 * overlay layer is re-enabled, resulting in a black screen with valid
+	 * HDMI sync.
+	 */
+	dispc_plane_enable(tidss->dispc, tplane->hw_plane_id, true);
 }
 
 static void tidss_plane_atomic_enable(struct drm_plane *plane,

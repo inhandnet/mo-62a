@@ -462,9 +462,10 @@
 		compatible = "sil,sii9022";
 		reg = <0x3b>;
 		pinctrl-names = "default";
-		pinctrl-0 = <&gpio0_pins_default>;
+		pinctrl-0 = <&gpio0_pins_default &sii9022_reset_pins>;
 		interrupt-parent = <&main_gpio0>;
 		interrupts = <90 IRQ_TYPE_EDGE_FALLING>;
+		reset-gpios = <&main_gpio1 3 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sil,i2s-data-lanes = < 0 >;
 
