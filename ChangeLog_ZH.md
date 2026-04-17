@@ -20,6 +20,17 @@
   及专用的 `sii9022_reset_pins` 引脚复用组（将 `RGMII2_RD0 / GPIO1_3` 配置为
   `PIN_OUTPUT`），允许驱动在 probe/remove 时主动控制 HDMI_RSTn。
 
+#### EEPROM BL24C02F 驱动支持
+- 在 `k3-am62a7-mo-62a.dts` 的 `&main_i2c1` 下新增 `eeprom@50` I2C 设备节点：
+  `compatible = "atmel,24c02"`，地址 0x50，页大小 16 字节，
+  `wp-gpios = <&main_gpio1 7 GPIO_ACTIVE_HIGH>`。`at24` 驱动
+  （`CONFIG_EEPROM_AT24=m`）在启动时由 udev 自动加载，将 EEPROM 以
+  `/sys/bus/i2c/devices/1-0050/eeprom`（256 字节，仅 root 可读写）的形式暴露给用户空间。
+- 将 `gpio1_pins_default` 中 pad 0x0194（`MCASP0_AXR3`，球 C19）的配置从
+  `PIN_INPUT` 改为 `PIN_OUTPUT`。EEP_WC（写控制）信号经 R267（10 kΩ）上拉至
+  VCC_3V3_SYS；配置为输入时该引脚浮至高电平，使 EEPROM 处于写保护状态。
+  改为输出后，`at24` 驱动可通过 `wp-gpios` 将其驱动为低电平（允许写入）。
+
 #### TIDSS DPMS 唤醒黑屏修复（tidss_plane.c）
 - 修复 `drivers/gpu/drm/tidss/tidss_plane.c` 中的 `tidss_plane_atomic_update()`：
   在调用 `dispc_plane_setup()` 后，对可见 plane 额外调用

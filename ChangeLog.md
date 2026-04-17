@@ -20,6 +20,18 @@
   and a dedicated `sii9022_reset_pins` pinmux group (`RGMII2_RD0 / GPIO1_3` as
   `PIN_OUTPUT`), enabling the driver to assert HDMI_RSTn at probe/remove.
 
+#### EEPROM BL24C02F Driver Support
+- Add `eeprom@50` I2C device node to `&main_i2c1` in `k3-am62a7-mo-62a.dts`:
+  `compatible = "atmel,24c02"`, address 0x50, page size 16 bytes,
+  `wp-gpios = <&main_gpio1 7 GPIO_ACTIVE_HIGH>`. The `at24` driver
+  (`CONFIG_EEPROM_AT24=m`) is loaded automatically at boot via udev and exposes
+  the EEPROM as `/sys/bus/i2c/devices/1-0050/eeprom` (256 bytes, root read/write).
+- Change pad 0x0194 (`MCASP0_AXR3`, ball C19) in `gpio1_pins_default` from
+  `PIN_INPUT` to `PIN_OUTPUT`. The EEP_WC (write-control) signal is pulled to
+  VCC_3V3_SYS via R267 (10 kΩ). With the pad as input the WP pin floated high,
+  write-protecting the EEPROM. Reconfiguring it as output allows the `at24`
+  driver to assert the pad low (write enabled) via `wp-gpios`.
+
 #### TIDSS DPMS Wake Black Screen Fix (tidss_plane.c)
 - Fix `tidss_plane_atomic_update()` in `drivers/gpu/drm/tidss/tidss_plane.c`: add
   `dispc_plane_enable(true)` for visible planes in addition to `dispc_plane_setup()`.

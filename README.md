@@ -51,6 +51,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [7.15 JTAG Interface](#715-jtag-interface)
   - [7.16 Hardware Revision Straps](#716-hardware-revision-straps)
 - [8. Display — DPMS Screen Blanking and Wake](#8-display--dpms-screen-blanking-and-wake)
+- [9. EEPROM](#9-eeprom)
 
 ---
 
@@ -785,7 +786,7 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | Package | SOT23-5 |
 | Interface | I2C (SOC_I2C1) |
 | Address | 0x50 |
-| Write protect | GPIO: C19/GPIO0_17/EEP_WC |
+| Write protect | GPIO: C19/GPIO1_7/EEP_WC (active-high; driven low by kernel driver — write enabled by default) |
 
 ---
 
@@ -1067,3 +1068,52 @@ DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force off
 # Wake the display (test)
 DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
 ```
+
+---
+
+## 9. EEPROM
+
+The MO-62A carries a **BL24C02F** 2 Kbit (256-byte) I2C EEPROM on SOC_I2C1 (address 0x50). It is intended for board identity storage — serial number, hardware revision, MAC address seed, or other persistent metadata.
+
+### Hardware
+
+| Item | Value |
+|------|-------|
+| IC | BL24C02F (SOT23-5, compatible with Atmel 24C02) |
+| Interface | SOC_I2C1, 7-bit address 0x50 |
+| Capacity | 256 bytes, page size 16 bytes |
+| Write protect | WP pin (GPIO1_7 / C19 / EEP_WC), active-high, pulled to VCC_3V3_SYS via R267 (10 kΩ) |
+
+The WP pin is driven low by the `at24` kernel driver via the `wp-gpios` DTS property, keeping the EEPROM write-enabled by default. The pinmux pad 0x0194 is configured as `PIN_OUTPUT`.
+
+### Kernel Driver
+
+`CONFIG_EEPROM_AT24=m` is set in `am62ax_mo_62a_defconfig`. The module loads automatically at boot via `udev` device enumeration.
+
+The EEPROM appears as a binary sysfs file:
+
+```
+/sys/bus/i2c/devices/1-0050/eeprom   (256 bytes, rw, root only)
+```
+
+### Reading and Writing
+
+All operations require root (`sudo`).
+
+```bash
+# Read all 256 bytes (hex + ASCII)
+hexdump -C /sys/bus/i2c/devices/1-0050/eeprom
+
+# Write a serial number string starting at byte 0
+printf "MO-62A-SN001" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
+    bs=1 seek=0 conv=notrunc
+
+# Read back the first 16 bytes to verify
+hexdump -C /sys/bus/i2c/devices/1-0050/eeprom | head -1
+
+# Write a single byte (e.g. hardware revision = 0x01) at offset 16
+printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
+    bs=1 seek=16 conv=notrunc
+```
+
+> **Note:** The BL24C02F has a 16-byte page write buffer. Writes that cross a page boundary are split automatically by the `at24` driver. A 5 ms write cycle time is enforced per page.

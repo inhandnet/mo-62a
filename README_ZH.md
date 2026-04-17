@@ -51,6 +51,7 @@ MO-62A 单板计算机 SDK，基于 TI AM62A7 平台，提供高达 2 TOPS AI �
   - [7.15 JTAG 接口](#715-jtag-接口)
   - [7.16 硬件版本识别引脚](#716-硬件版本识别引脚)
 - [8. 显示——DPMS 息屏与唤醒](#8-显示dpms-息屏与唤醒)
+- [9. EEPROM](#9-eeprom)
 
 ---
 
@@ -776,7 +777,7 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | 封装 | SOT23-5 |
 | 接口 | I2C（SOC_I2C1） |
 | 地址 | 0x50 |
-| 写保护 | GPIO：C19/GPIO0_17/EEP_WC |
+| 写保护 | GPIO：C19/GPIO1_7/EEP_WC（高电平有效；内核驱动默认输出低电平，即默认允许写入） |
 
 ---
 
@@ -1058,3 +1059,52 @@ DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force off
 # 唤醒显示器（测试）
 DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
 ```
+
+---
+
+## 9. EEPROM
+
+MO-62A 板上搭载一颗 **BL24C02F** 2 Kbit（256 字节）I2C EEPROM，挂载在 SOC_I2C1 总线上（地址 0x50）。主要用途为存储板卡标识信息，例如序列号、硬件版本、MAC 地址种子或其他需要掉电保持的元数据。
+
+### 硬件参数
+
+| 项目 | 值 |
+|------|-----|
+| 芯片 | BL24C02F（SOT23-5，兼容 Atmel 24C02） |
+| 接口 | SOC_I2C1，7 位地址 0x50 |
+| 容量 | 256 字节，页大小 16 字节 |
+| 写保护 | WP 引脚（GPIO1_7 / C19 / EEP_WC），高电平有效，经 R267（10 kΩ）上拉至 VCC_3V3_SYS |
+
+WP 引脚通过 DTS 中的 `wp-gpios` 属性由 `at24` 内核驱动控制，驱动加载后将其拉低，使 EEPROM 默认处于允许写入状态。引脚复用寄存器偏移 0x0194 配置为 `PIN_OUTPUT`。
+
+### 内核驱动
+
+`am62ax_mo_62a_defconfig` 中已设置 `CONFIG_EEPROM_AT24=m`，内核模块在启动时由 `udev` 自动加载。
+
+EEPROM 以二进制 sysfs 文件的形式呈现：
+
+```
+/sys/bus/i2c/devices/1-0050/eeprom   （256 字节，可读写，仅 root 可访问）
+```
+
+### 读写操作
+
+所有操作均需 root 权限（`sudo`）。
+
+```bash
+# 读取全部 256 字节（十六进制 + ASCII 显示）
+hexdump -C /sys/bus/i2c/devices/1-0050/eeprom
+
+# 从偏移 0 写入序列号字符串
+printf "MO-62A-SN001" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
+    bs=1 seek=0 conv=notrunc
+
+# 回读前 16 字节验证写入结果
+hexdump -C /sys/bus/i2c/devices/1-0050/eeprom | head -1
+
+# 在偏移 16 写入单字节（例如硬件版本 = 0x01）
+printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
+    bs=1 seek=16 conv=notrunc
+```
+
+> **注意：** BL24C02F 的页写缓冲区为 16 字节。`at24` 驱动会自动拆分跨页写入操作，并在每页写入后强制等待 5 ms 写周期时间。
