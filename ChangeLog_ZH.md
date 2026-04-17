@@ -1,8 +1,24 @@
 # 更新日志
 
-## v1.0.3 — 2026-04-17
+## v1.0.2 — 2026-04-17
 
 ### 内核与设备树
+
+#### HDMI 息屏唤醒修复（SiI9022A）
+- 修复 `sii902x_bridge_atomic_enable()`：将 20 ms TMDS PLL 稳定延迟
+  （`msleep(20)`）移至条件块外，确保在清除 `PWR_DWN` 之前无条件执行。
+  原实现将其置于 `if (mode.clock)` 分支内——模块热加载后 `mode.clock`
+  为 0（DRM 仅更新 `active_changed`，不重新调用 `mode_set`），导致 PLL
+  无法锁定，DPMS 唤醒后画面持续黑屏。
+- 在 `atomic_enable` 中添加 CRTC 状态回退逻辑：若 `mode.clock` 仍为 0
+  （如未重启的热加载场景），从 `bridge->encoder->crtc->state` 读取
+  调整后的显示模式，以便仍能正确编程 TPI 视频寄存器。
+- 将 TPI 视频寄存器编程逻辑重构为独立的 `sii902x_apply_mode()` 辅助函数；
+  在 `struct sii902x` 中缓存调整后的显示模式，使其在断电和 DPMS 循环中
+  无需重新调用 `mode_set` 即可保持有效。
+- 在 `sii9022` DTS 节点添加 `reset-gpios = <&main_gpio1 3 GPIO_ACTIVE_LOW>`
+  及专用的 `sii9022_reset_pins` 引脚复用组（将 `RGMII2_RD0 / GPIO1_3` 配置为
+  `PIN_OUTPUT`），允许驱动在 probe/remove 时主动控制 HDMI_RSTn。
 
 #### TIDSS DPMS 唤醒黑屏修复（tidss_plane.c）
 - 修复 `drivers/gpu/drm/tidss/tidss_plane.c` 中的 `tidss_plane_atomic_update()`：
@@ -24,6 +40,17 @@
 
 ### 根文件系统
 
+#### DPMS 配置与唤醒守护进程
+- 在 rootfs overlay 中添加 `/etc/xdg/autostart/enable-dpms.desktop`：每次
+  XFCE 会话启动时执行 `xset +dpms; xset dpms 0 0 600; xset s off;
+  xset s noblank; dpms-wakeup &`。启用 DPMS 并设置 10 分钟息屏超时
+  （Standby/Suspend 禁用），禁用 X 屏幕保护程序，并启动 `dpms-wakeup` 守护进程。
+- 新增 `dpms-wakeup` Python 守护进程（`/usr/local/bin/dpms-wakeup`）：使用
+  `select()` 监控所有 `/dev/input/event*` 节点，在 DPMS 息屏状态下检测到键盘或
+  鼠标活动时调用 `xset dpms force on`。内置 2 秒冷却时间和事件排空循环，
+  防止键盘自动重复引发大量唤醒调用。解决了 Xorg 的限制：在 DPMS 已处于
+  Off 状态时，DPMS 空闲计时器不会因物理输入自动唤醒显示器。
+
 #### DPMS 唤醒可靠性修复 — xfce4-power-manager 竞态问题
 - 在 rootfs overlay 中添加 `/etc/xdg/autostart/xfce4-power-manager.desktop`
   （`Hidden=true`），全面屏蔽 xfce4-power-manager 在 XFCE 会话中的自动启动。
@@ -33,12 +60,8 @@
   轮询在复位完成之前触发，xfce4-power-manager 读取到的空闲时长仍超过
   `dpms-on-ac-sleep` 阈值（4 分钟），随即调用 `DPMSForceLevel(Off)`，导致屏幕
   在唤醒约 1 秒后再次熄灭（表现为屏幕闪烁一下后立刻变黑）。该版本中
-  `presentation-mode=true` 配置项对此竞态无效。
-- 更新 `/etc/xdg/autostart/enable-dpms.desktop`：将 `Exec` 从单条 `xset +dpms`
-  扩展为 `xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank`。
-  屏蔽 xfce4-power-manager 后，DPMS 完全由 X 服务器接管：
-  Standby/Suspend 设为 0（禁用），Off 在空闲 600 秒（10 分钟）后触发，
-  同时禁用 X 内建屏保以避免与 DPMS 互相干扰。
+  `presentation-mode=true` 配置项对此竞态无效。屏蔽 xfce4-power-manager 后，
+  DPMS 完全由 X 服务器接管。
 
 #### USB 输入设备 seat 分配
 - 在 rootfs overlay 中添加 `/etc/udev/rules.d/72-seat-input.rules`。
@@ -49,31 +72,6 @@
   事件，显示器就无法被键盘或鼠标从 DPMS 息屏状态唤醒。新规则对所有已识别的
   输入设备类型（`ID_INPUT_KEYBOARD`、`ID_INPUT_MOUSE`、`ID_INPUT_TOUCHSCREEN`、
   `ID_INPUT_JOYSTICK`）显式设置 `ID_SEAT=seat0` 并添加 `TAG+="seat"`。
-
----
-
-## v1.0.2 — 2026-04-16
-
-### 内核与设备树
-
-#### HDMI 息屏唤醒修复（SiI9022A）
-- 修复 `sii902x_bridge_atomic_enable()`：将 20 ms TMDS PLL 稳定延迟
-  （`msleep(20)`）移至条件块外，确保在清除 `PWR_DWN` 之前无条件执行。
-  原实现将其置于 `if (mode.clock)` 分支内——模块热加载后 `mode.clock`
-  为 0（DRM 仅更新 `active_changed`，不重新调用 `mode_set`），导致 PLL
-  无法锁定，DPMS 唤醒后画面持续黑屏。
-- 在 `atomic_enable` 中添加 CRTC 状态回退逻辑：若 `mode.clock` 仍为 0
-  （如未重启的热加载场景），从 `bridge->encoder->crtc->state` 读取
-  调整后的显示模式，以便仍能正确编程 TPI 视频寄存器。
-
-### 根文件系统
-
-#### DPMS 登录自动启用
-- 在 rootfs overlay 中添加 `/etc/xdg/autostart/enable-dpms.desktop`：
-  每次 XFCE 会话启动时执行 `xset +dpms`。若缺少此项，
-  `xfce4-power-manager` 虽已配置 DPMS 定时器，但 X11 DPMS 仍处于
-  "Disabled" 状态，自动息屏定时器无法触发，键盘/鼠标也无法通过
-  DRM 路径唤醒显示器。
 
 ---
 

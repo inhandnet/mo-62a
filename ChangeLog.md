@@ -1,8 +1,24 @@
 # Changelog
 
-## v1.0.3 — 2026-04-17
+## v1.0.2 — 2026-04-17
 
 ### Kernel & Device Tree
+
+#### HDMI DPMS Wake Fix (SiI9022A)
+- Fix `sii902x_bridge_atomic_enable()`: move the 20 ms TMDS PLL stabilisation
+  delay (`msleep(20)`) unconditionally before `PWR_DWN` is cleared. Previously
+  it was gated on `mode.clock`, which is 0 after a module hot-reload (DRM does
+  not re-issue `mode_set` when only `active_changed`), causing the PLL to time
+  out and HDMI output to stay dark after DPMS wake.
+- Add CRTC-state fallback in `atomic_enable`: if `mode.clock` is still 0 after
+  the delay (e.g. module hot-reload without reboot), read the adjusted mode from
+  `bridge->encoder->crtc->state` so TPI video registers can still be programmed.
+- Refactor TPI video register programming into a new `sii902x_apply_mode()` helper;
+  cache the adjusted display mode in `struct sii902x` so it survives power-cycle
+  and DPMS cycles without requiring `mode_set` to be re-issued.
+- Add `reset-gpios = <&main_gpio1 3 GPIO_ACTIVE_LOW>` to the `sii9022` DTS node
+  and a dedicated `sii9022_reset_pins` pinmux group (`RGMII2_RD0 / GPIO1_3` as
+  `PIN_OUTPUT`), enabling the driver to assert HDMI_RSTn at probe/remove.
 
 #### TIDSS DPMS Wake Black Screen Fix (tidss_plane.c)
 - Fix `tidss_plane_atomic_update()` in `drivers/gpu/drm/tidss/tidss_plane.c`: add
@@ -24,6 +40,18 @@
 
 ### Rootfs
 
+#### DPMS Configuration and Wake Daemon
+- Add `/etc/xdg/autostart/enable-dpms.desktop` to the rootfs overlay: runs at every
+  XFCE session start with `xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank;
+  dpms-wakeup &`. Enables DPMS with a 10-minute Off timeout (Standby/Suspend
+  disabled), suppresses the X screensaver, and launches the `dpms-wakeup` daemon.
+- Add `dpms-wakeup` Python daemon (`/usr/local/bin/dpms-wakeup`): monitors all
+  `/dev/input/event*` nodes with `select()` and calls `xset dpms force on` on any
+  keyboard or mouse activity while the display is in DPMS Off state. Includes a 2-second
+  cooldown and an event drain loop to suppress keyboard auto-repeat storms. Addresses
+  the Xorg limitation where the DPMS idle timer does not automatically wake the display
+  on physical input while already in the Off state.
+
 #### DPMS Wake Reliability — xfce4-power-manager Race Fix
 - Add `/etc/xdg/autostart/xfce4-power-manager.desktop` (Hidden=true) to the
   rootfs overlay. This suppresses xfce4-power-manager autostart for all XFCE
@@ -36,12 +64,8 @@
   threshold of 4 minutes) and immediately calls `DPMSForceLevel(Off)` again,
   causing the display to flash briefly and go dark within ~1 second of waking.
   The `presentation-mode=true` setting in its configuration does not prevent this
-  behaviour in this version.
-- Update `/etc/xdg/autostart/enable-dpms.desktop`: expand the `Exec` command
-  from `xset +dpms` to `xset +dpms; xset dpms 0 0 600; xset s off; xset s noblank`.
-  With xfce4-power-manager suppressed, the X server now owns DPMS completely:
-  Standby/Suspend are disabled (0), Off fires after 600 s (10 min) of idle, and
-  the built-in X screensaver is disabled to avoid interfering with DPMS.
+  behaviour in this version. With xfce4-power-manager suppressed, DPMS is owned
+  entirely by the X server.
 
 #### USB Input Device Seat Assignment
 - Add `/etc/udev/rules.d/72-seat-input.rules` to the rootfs overlay.
@@ -53,30 +77,6 @@
   blank by keyboard or mouse. The new rules explicitly tag all recognised input
   device types (`ID_INPUT_KEYBOARD`, `ID_INPUT_MOUSE`, `ID_INPUT_TOUCHSCREEN`,
   `ID_INPUT_JOYSTICK`) with `ID_SEAT=seat0` and `TAG+="seat"`.
-
----
-
-## v1.0.2 — 2026-04-16
-
-### Kernel & Device Tree
-
-#### HDMI DPMS Wake Fix (SiI9022A)
-- Fix `sii902x_bridge_atomic_enable()`: move the 20 ms TMDS PLL stabilisation
-  delay (`msleep(20)`) unconditionally before `PWR_DWN` is cleared. Previously
-  it was gated on `mode.clock`, which is 0 after a module hot-reload (DRM does
-  not re-issue `mode_set` when only `active_changed`), causing the PLL to time
-  out and HDMI output to stay dark after DPMS wake.
-- Add CRTC-state fallback in `atomic_enable`: if `mode.clock` is still 0 after
-  the delay (e.g. module hot-reload without reboot), read the adjusted mode from
-  `bridge->encoder->crtc->state` so TPI video registers can still be programmed.
-
-### Rootfs
-
-#### DPMS Auto-Enable on Login
-- Add `/etc/xdg/autostart/enable-dpms.desktop` to the rootfs overlay: runs
-  `xset +dpms` at every XFCE session start. Without this, `xfce4-power-manager`
-  sets DPMS timers but X11 DPMS stays "Disabled" so the automatic screen-blank
-  timer never fires, and keyboard/mouse activity cannot wake via the DRM path.
 
 ---
 
