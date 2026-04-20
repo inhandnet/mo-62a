@@ -190,13 +190,13 @@ class MACAddressTest(TestCase):
         rc, out, _ = self.cmd(
             "for f in /sys/class/net/*/address; do"
             " iface=$(basename $(dirname $f));"
-            " case $iface in lo|wlan*|wl*) continue;; esac;"
+            " [ \"$iface\" = lo ] && continue;"
             " mac=$(cat $f 2>/dev/null);"
             " [ -n \"$mac\" ] && echo \"$iface $mac\";"
             " done"
         )
         if rc != 0 or not out.strip():
-            self.fail("No Ethernet interface found")
+            self.fail("No network interface found")
             return
         parts = []
         for line in out.strip().splitlines():
