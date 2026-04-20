@@ -1,0 +1,54 @@
+/* SPDX-License-Identifier: BSD-3-Clause */
+/*
+ * J784S4 Host Info
+ *
+ * Copyright (C) 2022-2025 Texas Instruments Incorporated - https://www.ti.com/
+ */
+
+#ifndef __J784S4_HOST_INFO_H
+#define __J784S4_HOST_INFO_H
+
+#define J784S4_HOST_ID_TIFS	0
+#define J784S4_HOST_ID_MCU_0_R5_0	3
+#define J784S4_HOST_ID_MCU_0_R5_1	4
+#define J784S4_HOST_ID_MCU_0_R5_2	5
+#define J784S4_HOST_ID_MCU_0_R5_3	6
+#define J784S4_HOST_ID_A72_0	10
+#define J784S4_HOST_ID_A72_1	11
+#define J784S4_HOST_ID_A72_2	12
+#define J784S4_HOST_ID_A72_3	13
+#define J784S4_HOST_ID_A72_4	14
+#define J784S4_HOST_ID_A72_5	15
+#define J784S4_HOST_ID_A72_6	16
+#define J784S4_HOST_ID_A72_7	17
+#define J784S4_HOST_ID_C7X_0_0	20
+#define J784S4_HOST_ID_C7X_0_1	21
+#define J784S4_HOST_ID_C7X_1_0	22
+#define J784S4_HOST_ID_C7X_1_1	23
+#define J784S4_HOST_ID_C7X_2_0	24
+#define J784S4_HOST_ID_C7X_2_1	25
+#define J784S4_HOST_ID_C7X_3_0	26
+#define J784S4_HOST_ID_C7X_3_1	27
+#define J784S4_HOST_ID_GPU_0	30
+#define J784S4_HOST_ID_MAIN_0_R5_0	35
+#define J784S4_HOST_ID_MAIN_0_R5_1	36
+#define J784S4_HOST_ID_MAIN_0_R5_2	37
+#define J784S4_HOST_ID_MAIN_0_R5_3	38
+#define J784S4_HOST_ID_MAIN_1_R5_0	40
+#define J784S4_HOST_ID_MAIN_1_R5_1	41
+#define J784S4_HOST_ID_MAIN_1_R5_2	42
+#define J784S4_HOST_ID_MAIN_1_R5_3	43
+#define J784S4_HOST_ID_MAIN_2_R5_0	45
+#define J784S4_HOST_ID_MAIN_2_R5_1	46
+#define J784S4_HOST_ID_MAIN_2_R5_2	47
+#define J784S4_HOST_ID_MAIN_2_R5_3	48
+#define J784S4_HOST_ID_DM2TIFS	250
+#define J784S4_HOST_ID_TIFS2DM	251
+#define J784S4_HOST_ID_HSM	253
+#define J784S4_HOST_ID_DM	254
+
+#define J784S4_MAX_HOST_IDS	38
+
+extern struct ti_sci_host_info j784s4_host_info[];
+
+#endif /* __J784S4_HOST_INFO_H */
