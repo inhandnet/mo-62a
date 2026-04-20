@@ -52,6 +52,7 @@ MO-62A 单板计算机 SDK，基于 TI AM62A7 平台，提供高达 2 TOPS AI �
   - [7.16 硬件版本识别引脚](#716-硬件版本识别引脚)
 - [8. 显示——DPMS 息屏与唤醒](#8-显示dpms-息屏与唤醒)
 - [9. EEPROM](#9-eeprom)
+- [10. MO-62A 自动化测试工具](#10-mo-62a-自动化测试工具)
 
 ---
 
@@ -751,10 +752,12 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | SOC_I2C0 | RTC PCF85263ATL | 0x51 |
 | SOC_I2C1 | 音频编解码器 TLV320AIC3106 | 0x1B |
 | SOC_I2C1 | HDMI TX SiI9022ACNU | 0x3B / 0x3F / 0x62 |
-| SOC_I2C1 | EEPROM BL24C02 | 0x50 |
+| SOC_I2C1 | EEPROM BL24C02 | 0x50 ¹ |
 | SOC_I2C2 | CSI FPC | — |
 | SOC_I2C2 | EXP 40 Pin（SDA1/SCL1） | — |
 | MCU_I2C0 | PMIC（从 I2C） | — |
+
+> ¹ EEPROM 硬件存在于 0x50 地址，但内核设备树中未启用 `eeprom@50` DTS 节点。SiI9022A HDMI 发送器通过内部 I2C 旁路以相同地址（0x50）提供 EDID DDC 访问；同时启用两者会导致总线冲突。详见[第 9 节](#9-eeprom)。
 
 ---
 
@@ -777,7 +780,9 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | 封装 | SOT23-5 |
 | 接口 | I2C（SOC_I2C1） |
 | 地址 | 0x50 |
-| 写保护 | GPIO：C19/GPIO1_7/EEP_WC（高电平有效；内核驱动默认输出低电平，即默认允许写入） |
+| 写保护 | GPIO：C19/GPIO1_7/EEP_WC（高电平有效；经 R267 10 kΩ 上拉至 VCC_3V3_SYS，驱动未加载时默认写保护） |
+
+> `eeprom@50` DTS 节点当前已移除，详见[第 9 节](#9-eeprom)。
 
 ---
 
@@ -1075,21 +1080,15 @@ MO-62A 板上搭载一颗 **BL24C02F** 2 Kbit（256 字节）I2C EEPROM，挂载
 | 容量 | 256 字节，页大小 16 字节 |
 | 写保护 | WP 引脚（GPIO1_7 / C19 / EEP_WC），高电平有效，经 R267（10 kΩ）上拉至 VCC_3V3_SYS |
 
-WP 引脚通过 DTS 中的 `wp-gpios` 属性由 `at24` 内核驱动控制，驱动加载后将其拉低，使 EEPROM 默认处于允许写入状态。引脚复用寄存器偏移 0x0194 配置为 `PIN_OUTPUT`。
+### I2C 地址与 SiI9022A 冲突
 
-### 内核驱动
+BL24C02F 的 I2C 地址 **0x50** 与 SiI9022A HDMI 发送器的内部 EDID DDC 旁路寄存器地址相同。SiI9022A 在 DDC 旁路模式下会在 SOC_I2C1 总线上响应 0x50 地址的 I2C 事务，以透传下游显示器的 EDID 数据。同时启用 EEPROM 驱动和 SiI9022A DDC 旁路会引发总线冲突，导致 HDMI 工作异常。
 
-`am62ax_mo_62a_defconfig` 中已设置 `CONFIG_EEPROM_AT24=m`，内核模块在启动时由 `udev` 自动加载。
+因此，当前设备树（`k3-am62a7-mo-62a.dts`）中**未包含** `eeprom@50` DTS 节点，GPIO1_7 引脚（EEP_WC）保持 `PIN_INPUT` 配置（通过 R267 上拉实现写保护）。`CONFIG_EEPROM_AT24` 仍以模块方式编译，但启动时不会枚举 `at24` 设备。
 
-EEPROM 以二进制 sysfs 文件的形式呈现：
+如需启用 EEPROM 访问（例如量产烧录阶段），可将 `eeprom@50` 节点添加回设备树，并将 GPIO1_7 驱动为低电平以关闭写保护。操作期间请确保未连接 HDMI 显示器，以避免 I2C 总线冲突。
 
-```
-/sys/bus/i2c/devices/1-0050/eeprom   （256 字节，可读写，仅 root 可访问）
-```
-
-### 读写操作
-
-所有操作均需 root 权限（`sudo`）。
+### 读写操作（启用 DTS 节点后）
 
 ```bash
 # 读取全部 256 字节（十六进制 + ASCII 显示）
@@ -1099,12 +1098,65 @@ hexdump -C /sys/bus/i2c/devices/1-0050/eeprom
 printf "MO-62A-SN001" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
     bs=1 seek=0 conv=notrunc
 
-# 回读前 16 字节验证写入结果
-hexdump -C /sys/bus/i2c/devices/1-0050/eeprom | head -1
-
 # 在偏移 16 写入单字节（例如硬件版本 = 0x01）
 printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
     bs=1 seek=16 conv=notrunc
 ```
 
 > **注意：** BL24C02F 的页写缓冲区为 16 字节。`at24` 驱动会自动拆分跨页写入操作，并在每页写入后强制等待 5 ms 写周期时间。
+
+---
+
+## 10. MO-62A 自动化测试工具
+
+`tools/mo62a-tester/` 是一套基于 Python 的 GUI 自动化测试工具，通过 SSH 对 MO-62A 板卡进行硬件验收测试。
+
+### 功能特性
+
+- 通过局域网 SSH 连接设备（支持手动输入 IP 或通过 `mo-discover` 守护进程 UDP 自动发现）
+- 首次上电密码修改流程（检测到默认密码 `temppwd` 时自动引导修改）
+- 测试项选择界面，支持分类三态复选框和中英文切换
+- 并发测试执行，实时显示通过 / 失败 / 信息状态
+- HTML 报告导出
+
+### 依赖要求
+
+```
+Python 3.8+
+paramiko
+```
+
+安装依赖：
+
+```bash
+pip install -r tools/mo62a-tester/requirements.txt
+```
+
+### 使用方法
+
+```bash
+python3 tools/mo62a-tester/main.py
+```
+
+在**连接**页面连接设备，在**选择**页面勾选测试项，在**运行**页面执行测试。
+
+### 测试分类
+
+| 分类 | 测试内容 |
+|------|---------|
+| 系统基础信息 | 固件版本、内核版本、DTB/overlay、OS 版本、主机名、运行时长、文件系统用量、内存、CPU 核心数、CPU 主频（从 OPP 表读取）、CPU 温度、以太网 MAC 地址 |
+| LED | 电源 LED 和状态 LED GPIO 控制 |
+| 风扇 | PWM 风扇转速控制与转速计反馈 |
+| RTC | PCF85263A 时间读写 |
+| I2C | 总线枚举、设备在线检测 |
+| HDMI | 显示模式与连接器状态 |
+| 音频 | 编解码器检测、播放/录音 |
+| 摄像头 | CSI 通道、设备节点在线 |
+| 网络 | 以太网链路、IP 分配、连通性 |
+| USB | Hub 枚举、端口检测 |
+| GPIO | 40 Pin 扩展接口 GPIO 拨控 |
+| 系统服务 | systemd 服务状态检测 |
+
+### 设备端守护进程
+
+`mo-discover` UDP 守护进程（安装路径 `/usr/local/bin/mo-discover`，由 `mo-discover.service` 管理）监听 UDP 47622 端口，响应来自测试工具的广播发现报文，无需预先知道设备 IP 即可在局域网内定位设备。

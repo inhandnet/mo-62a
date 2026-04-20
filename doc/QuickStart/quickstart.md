@@ -416,22 +416,6 @@ gpiomon --edges=rising -c gpiochip2 23
 i2cdetect -y 2
 ```
 
-**PWM on pin 32 (BCM GPIO12 → `pwmchip0` channel 0), 1 kHz, 50% duty cycle:**
-
-```bash
-# Export channel 0
-echo 0 | sudo tee /sys/class/pwm/pwmchip0/export
-
-# Set period 1 ms = 1000000 ns
-echo 1000000 | sudo tee /sys/class/pwm/pwmchip0/pwm0/period
-
-# Set duty cycle 500 µs = 500000 ns
-echo 500000 | sudo tee /sys/class/pwm/pwmchip0/pwm0/duty_cycle
-
-# Enable
-echo 1 | sudo tee /sys/class/pwm/pwmchip0/pwm0/enable
-```
-
 ---
 
 ## 9. Common Issues & Tips

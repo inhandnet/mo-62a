@@ -445,13 +445,6 @@
 	pinctrl-0 = <&main_i2c1_pins_default>;
 	clock-frequency = <100000>;
 
-	eeprom@50 {
-		compatible = "atmel,24c02";
-		reg = <0x50>;
-		pagesize = <16>;
-		wp-gpios = <&main_gpio1 7 GPIO_ACTIVE_HIGH>;
-	};
-
 	tlv320aic3106: audio-codec@1b {
 		#sound-dai-cells = <0>;
 		compatible = "ti,tlv320aic3106";

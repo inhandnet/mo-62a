@@ -32,6 +32,16 @@
   write-protecting the EEPROM. Reconfiguring it as output allows the `at24`
   driver to assert the pad low (write enabled) via `wp-gpios`.
 
+#### Pinmux Dead Code Removal
+- Remove orphaned `main_ehrpwm1_pins_default` pinctrl group from
+  `k3-am62a7-mo-62a-pinmux.dtsi`. The group claimed pad 0x019c
+  (`MCASP0_AXR1`, ball B18) in EHRPWM1_A mux mode but was never referenced
+  by any DTS node, leaving `gpio1_pins_default` (which also claims pad 0x019c
+  in GPIO mux mode) as the only active consumer. Removed to eliminate the
+  latent conflict and clean up dead entries.
+- Fix annotation on GPIO1_9 (pad 0x019c) in `gpio1_pins_default`: corrected
+  the signal name to `/* (B18) MCASP0_AXR1.GPIO1_9 */`.
+
 #### TIDSS DPMS Wake Black Screen Fix (tidss_plane.c)
 - Fix `tidss_plane_atomic_update()` in `drivers/gpu/drm/tidss/tidss_plane.c`: add
   `dispc_plane_enable(true)` for visible planes in addition to `dispc_plane_setup()`.
@@ -90,6 +100,34 @@
   device types (`ID_INPUT_KEYBOARD`, `ID_INPUT_MOUSE`, `ID_INPUT_TOUCHSCREEN`,
   `ID_INPUT_JOYSTICK`) with `ID_SEAT=seat0` and `TAG+="seat"`.
 
+#### nginx — Missing Log Directory Fix
+- Add `usr/lib/tmpfiles.d/nginx.conf` to rootfs overlay: instructs
+  `systemd-tmpfiles` to create `/var/log/nginx/` (owner `www-data:adm`, mode
+  0755) at boot, fixing the nginx startup failure caused by the missing
+  directory in the base rootfs image.
+
+### Tools
+
+#### mo-version
+- Add `board-support/extra-applications/mo-version/`: a minimal C utility
+  installed to `/usr/local/bin/mo-version` that prints the board BSP version
+  and build date baked in at compile time:
+  ```
+  MO-62A v1.0.2
+  Built:  2026-04-17
+  ```
+  The flash script passes `VERSION` and `BUILD_DATE` as make variables so the
+  binary always reflects the image that was flashed.
+
+### Documentation
+
+#### QuickStart — PWM Pin Table Correction
+- Remove incorrect PWM sysfs example from §8.4 that referenced `pwmchip0`
+  channel 0 for expansion-header Pin 32 (`BCM GPIO12`). `pwmchip0` is the fan
+  PWM controller, not the expansion header; the example would silently affect
+  the fan instead of the expansion header. No corrected example is provided
+  because no PWM output is currently routed to the expansion header pins.
+
 ---
 
 ## v1.0.1 — 2026-04-15
@@ -114,12 +152,6 @@
   Breathing period is inversely proportional to the 4-core average CPU
   utilisation — 0 % → 2 000 ms half-cycle (very slow), 100 % → 100 ms
   half-cycle (fast).
-
-#### nginx — Missing Log Directory Fix
-- Add `usr/lib/tmpfiles.d/nginx.conf` to rootfs overlay: instructs
-  `systemd-tmpfiles` to create `/var/log/nginx/` (owner `www-data:adm`, mode
-  0755) at boot, fixing the nginx startup failure caused by the missing
-  directory in the base rootfs image.
 
 #### fancontrol — hwmon Index Drift Fix
 - Add `fancontrol-update-config` script (`/usr/local/bin/`): scans

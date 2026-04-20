@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""
+mo-discover: UDP device discovery responder for MO-62A.
+
+Listens on UDP port 47622 for probe packets containing "MO62A_DISCOVER".
+Responds with a JSON payload containing hostname, IP, version, and build date.
+No periodic broadcast — responds only when probed, so idle CPU/network cost is zero.
+"""
+import json
+import logging
+import socket
+import subprocess
+import sys
+
+LISTEN_PORT = 47622
+PROBE_MAGIC = b"MO62A_DISCOVER"
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s mo-discover %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+log = logging.getLogger("mo-discover")
+
+
+def _get_version() -> str:
+    try:
+        out = subprocess.check_output(["mo-version"], text=True, timeout=2)
+        # First line: "MO-62A v1.0.2"
+        return out.splitlines()[0].split()[-1]
+    except Exception:
+        return "unknown"
+
+
+def _get_build_date() -> str:
+    try:
+        out = subprocess.check_output(["mo-version"], text=True, timeout=2)
+        # Second line: "Built:  2026-04-17"
+        for line in out.splitlines():
+            if "Built" in line:
+                return line.split()[-1]
+    except Exception:
+        pass
+    return "unknown"
+
+
+def _primary_ip() -> str:
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+
+def _mac_for_ip(target_ip: str) -> str:
+    try:
+        import re
+        with open("/proc/net/if_inet6") as _:
+            pass
+    except Exception:
+        pass
+    try:
+        import netifaces
+        for iface in netifaces.interfaces():
+            addrs = netifaces.ifaddresses(iface)
+            for entry in addrs.get(netifaces.AF_INET, []):
+                if entry.get("addr") == target_ip:
+                    link = addrs.get(netifaces.AF_LINK, [{}])[0]
+                    return link.get("addr", "")
+    except Exception:
+        pass
+    # Fallback: parse /sys/class/net/*/address
+    import os, re
+    for iface in os.listdir("/sys/class/net"):
+        try:
+            addr_path = f"/sys/class/net/{iface}/address"
+            with open(addr_path) as f:
+                mac = f.read().strip()
+            # Check if this iface has target_ip
+            with open(f"/sys/class/net/{iface}/ifindex") as _:
+                pass
+            # Quick check via ip addr
+            result = subprocess.run(
+                ["ip", "-4", "addr", "show", iface],
+                capture_output=True, text=True, timeout=1
+            )
+            if target_ip in result.stdout:
+                return mac
+        except Exception:
+            continue
+    return ""
+
+
+def main():
+    version = _get_version()
+    build_date = _get_build_date()
+    hostname = socket.gethostname()
+
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    try:
+        sock.bind(("", LISTEN_PORT))
+    except OSError as e:
+        log.error("Cannot bind UDP port %d: %s", LISTEN_PORT, e)
+        sys.exit(1)
+
+    log.info("Listening on UDP port %d  hostname=%s  version=%s",
+             LISTEN_PORT, hostname, version)
+
+    while True:
+        try:
+            data, addr = sock.recvfrom(256)
+        except OSError as e:
+            log.warning("recvfrom error: %s", e)
+            continue
+
+        if data.strip() != PROBE_MAGIC:
+            continue
+
+        ip = _primary_ip()
+        mac = _mac_for_ip(ip)
+
+        payload = json.dumps({
+            "hostname": hostname,
+            "ip": ip,
+            "mac": mac,
+            "version": version,
+            "build_date": build_date,
+        }, separators=(",", ":"))
+
+        try:
+            sock.sendto(payload.encode(), addr)
+            log.info("Probe from %s → replied: %s", addr[0], payload)
+        except OSError as e:
+            log.warning("sendto %s failed: %s", addr, e)
+
+
+if __name__ == "__main__":
+    main()

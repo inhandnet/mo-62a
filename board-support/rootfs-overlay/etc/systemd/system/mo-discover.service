@@ -1,0 +1,22 @@
+[Unit]
+Description=MO-62A UDP Device Discovery Responder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mo-discover
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+
+# Minimal sandboxing — needs network socket only
+PrivateTmp=true
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/
+
+[Install]
+WantedBy=multi-user.target

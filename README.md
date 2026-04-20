@@ -52,6 +52,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [7.16 Hardware Revision Straps](#716-hardware-revision-straps)
 - [8. Display — DPMS Screen Blanking and Wake](#8-display--dpms-screen-blanking-and-wake)
 - [9. EEPROM](#9-eeprom)
+- [10. MO-62A Automated Test Tool](#10-mo-62a-automated-test-tool)
 
 ---
 
@@ -760,10 +761,12 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | SOC_I2C0 | RTC PCF85263ATL | 0x51 |
 | SOC_I2C1 | Audio Codec TLV320AIC3106 | 0x1B |
 | SOC_I2C1 | HDMI TX SiI9022ACNU | 0x3B / 0x3F / 0x62 |
-| SOC_I2C1 | EEPROM BL24C02 | 0x50 |
+| SOC_I2C1 | EEPROM BL24C02 | 0x50 ¹ |
 | SOC_I2C2 | CSI FPC | — |
 | SOC_I2C2 | EXP 40-Pin (SDA1/SCL1) | — |
 | MCU_I2C0 | PMIC (secondary I2C) | — |
+
+> ¹ The EEPROM hardware is present at 0x50, but the `eeprom@50` DTS node is not enabled in the kernel device tree. The SiI9022A HDMI transmitter uses the same I2C address (0x50) for EDID DDC access via its internal I2C bypass; enabling both simultaneously causes bus conflicts. See [Section 9](#9-eeprom) for details.
 
 ---
 
@@ -786,7 +789,9 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | Package | SOT23-5 |
 | Interface | I2C (SOC_I2C1) |
 | Address | 0x50 |
-| Write protect | GPIO: C19/GPIO1_7/EEP_WC (active-high; driven low by kernel driver — write enabled by default) |
+| Write protect | GPIO: C19/GPIO1_7/EEP_WC (active-high; pulled high via R267 10 kΩ — write-protected by default when driver not loaded) |
+
+> The `eeprom@50` DTS node is currently removed. See [Section 9](#9-eeprom).
 
 ---
 
@@ -1084,21 +1089,15 @@ The MO-62A carries a **BL24C02F** 2 Kbit (256-byte) I2C EEPROM on SOC_I2C1 (addr
 | Capacity | 256 bytes, page size 16 bytes |
 | Write protect | WP pin (GPIO1_7 / C19 / EEP_WC), active-high, pulled to VCC_3V3_SYS via R267 (10 kΩ) |
 
-The WP pin is driven low by the `at24` kernel driver via the `wp-gpios` DTS property, keeping the EEPROM write-enabled by default. The pinmux pad 0x0194 is configured as `PIN_OUTPUT`.
+### I2C Address Conflict with SiI9022A
 
-### Kernel Driver
+The BL24C02F shares I2C address **0x50** with the SiI9022A HDMI transmitter's internal EDID DDC bypass register. When the SiI9022A is in DDC-bypass mode, it responds to I2C transactions at 0x50 on SOC_I2C1 to expose the downstream monitor's EDID data. Enabling both the EEPROM driver and the SiI9022A DDC bypass simultaneously causes bus conflicts and prevents stable HDMI operation.
 
-`CONFIG_EEPROM_AT24=m` is set in `am62ax_mo_62a_defconfig`. The module loads automatically at boot via `udev` device enumeration.
+For this reason, the `eeprom@50` DTS node is **not included** in the current device tree (`k3-am62a7-mo-62a.dts`), and the GPIO1_7 pin (EEP_WC) is left as `PIN_INPUT` (write-protected via R267 pull-up). `CONFIG_EEPROM_AT24` is still compiled as a module, but no `at24` device is enumerated at boot.
 
-The EEPROM appears as a binary sysfs file:
+To enable EEPROM access (e.g. during production programming), add the `eeprom@50` node back to the device tree and drive GPIO1_7 low to disable write protection. Ensure no HDMI display is connected during this operation to avoid I2C bus conflicts.
 
-```
-/sys/bus/i2c/devices/1-0050/eeprom   (256 bytes, rw, root only)
-```
-
-### Reading and Writing
-
-All operations require root (`sudo`).
+### Reading and Writing (when DTS node is enabled)
 
 ```bash
 # Read all 256 bytes (hex + ASCII)
@@ -1108,12 +1107,65 @@ hexdump -C /sys/bus/i2c/devices/1-0050/eeprom
 printf "MO-62A-SN001" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
     bs=1 seek=0 conv=notrunc
 
-# Read back the first 16 bytes to verify
-hexdump -C /sys/bus/i2c/devices/1-0050/eeprom | head -1
-
 # Write a single byte (e.g. hardware revision = 0x01) at offset 16
 printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
     bs=1 seek=16 conv=notrunc
 ```
 
 > **Note:** The BL24C02F has a 16-byte page write buffer. Writes that cross a page boundary are split automatically by the `at24` driver. A 5 ms write cycle time is enforced per page.
+
+---
+
+## 10. MO-62A Automated Test Tool
+
+`tools/mo62a-tester/` is a Python-based GUI tool for automated hardware acceptance testing of MO-62A boards over SSH.
+
+### Features
+
+- SSH connection to the device via LAN (IP entry or UDP auto-discovery via the `mo-discover` daemon)
+- First-boot password change flow (detects the default `temppwd` password and prompts for a new one)
+- Test item selection with tristate category checkboxes and English / Chinese UI
+- Parallel test execution with live pass / fail / info status display
+- HTML report export
+
+### Requirements
+
+```
+Python 3.8+
+paramiko
+```
+
+Install dependencies:
+
+```bash
+pip install -r tools/mo62a-tester/requirements.txt
+```
+
+### Usage
+
+```bash
+python3 tools/mo62a-tester/main.py
+```
+
+Connect to the device on the **Connect** page, select test items on the **Select** page, then run tests on the **Run** page.
+
+### Test Categories
+
+| Category | Coverage |
+|----------|----------|
+| System Basics | Firmware version, kernel version, DTB/overlays, OS version, hostname, uptime, filesystem usage, memory, CPU cores, CPU frequency (from OPP table), CPU temperature, Ethernet MAC address |
+| LEDs | Power LED and Status LED GPIO control |
+| Fan | PWM fan speed control and tachometer feedback |
+| RTC | PCF85263A time read/write |
+| I2C | Bus enumeration, device presence check |
+| HDMI | Display mode and connector state |
+| Audio | Codec detection, playback/capture |
+| Camera | CSI pipeline, device node presence |
+| Network | Ethernet link, IP assignment, connectivity |
+| USB | Hub enumeration, port detection |
+| GPIO | 40-pin header GPIO toggling |
+| Services | systemd service states |
+
+### Device-side Daemon
+
+The `mo-discover` UDP daemon (installed to `/usr/local/bin/mo-discover`, managed by `mo-discover.service`) listens on UDP port 47622 and responds to broadcast discovery packets from the test tool. This allows the tool to find devices on the LAN without knowing their IP addresses in advance.

@@ -405,8 +405,6 @@ static void sii902x_bridge_atomic_enable(struct drm_bridge *bridge,
 {
 	struct sii902x *sii902x = bridge_to_sii902x(bridge);
 
-	mutex_lock(&sii902x->mutex);
-
 	/*
 	 * The upstream TIDSS pixel clock restarts concurrently with this
 	 * atomic_enable call.  The SiI9022A TMDS PLL requires the pixel clock
@@ -414,9 +412,12 @@ static void sii902x_bridge_atomic_enable(struct drm_bridge *bridge,
 	 * can lock.  This delay must be unconditional — gating it on
 	 * mode.clock (which can be 0 if mode_set was never called, e.g. after
 	 * a module hot-reload) causes the PLL to fail and HDMI output to stay
-	 * dark.
+	 * dark.  Sleep before acquiring the mutex to avoid blocking I2C/audio
+	 * operations for 20 ms.
 	 */
 	msleep(20);
+
+	mutex_lock(&sii902x->mutex);
 
 	/*
 	 * mode.clock is populated by mode_set, which is only called when

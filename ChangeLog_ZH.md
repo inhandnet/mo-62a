@@ -31,6 +31,14 @@
   VCC_3V3_SYS；配置为输入时该引脚浮至高电平，使 EEPROM 处于写保护状态。
   改为输出后，`at24` 驱动可通过 `wp-gpios` 将其驱动为低电平（允许写入）。
 
+#### 引脚复用无效代码清理
+- 从 `k3-am62a7-mo-62a-pinmux.dtsi` 中删除孤立的 `main_ehrpwm1_pins_default`
+  引脚组。该组声明了 pad 0x019c（`MCASP0_AXR1`，球 B18）的 EHRPWM1_A 复用，
+  但从未被任何 DTS 节点引用，与同样声明 pad 0x019c（GPIO 复用模式）的
+  `gpio1_pins_default` 存在潜在冲突。删除该无效条目以消除冲突隐患。
+- 修正 `gpio1_pins_default` 中 GPIO1_9（pad 0x019c）的注释，更正信号名称为
+  `/* (B18) MCASP0_AXR1.GPIO1_9 */`。
+
 #### TIDSS DPMS 唤醒黑屏修复（tidss_plane.c）
 - 修复 `drivers/gpu/drm/tidss/tidss_plane.c` 中的 `tidss_plane_atomic_update()`：
   在调用 `dispc_plane_setup()` 后，对可见 plane 额外调用
@@ -84,6 +92,32 @@
   输入设备类型（`ID_INPUT_KEYBOARD`、`ID_INPUT_MOUSE`、`ID_INPUT_TOUCHSCREEN`、
   `ID_INPUT_JOYSTICK`）显式设置 `ID_SEAT=seat0` 并添加 `TAG+="seat"`。
 
+#### nginx — 日志目录缺失修复
+- 在 rootfs overlay 中新增 `usr/lib/tmpfiles.d/nginx.conf`：指示
+  `systemd-tmpfiles` 在启动时创建 `/var/log/nginx/` 目录（属主
+  `www-data:adm`，权限 0755），修复基础 rootfs 镜像中该目录缺失
+  导致 nginx 服务启动失败的问题。
+
+### 工具
+
+#### mo-version
+- 新增 `board-support/extra-applications/mo-version/`：一个轻量 C 工具，
+  安装至 `/usr/local/bin/mo-version`，输出在编译时写入的 BSP 版本号和构建日期：
+  ```
+  MO-62A v1.0.2
+  Built:  2026-04-17
+  ```
+  烧录脚本在调用 make 时传入 `VERSION` 和 `BUILD_DATE` 变量，确保二进制文件
+  始终与烧录的镜像版本一致。
+
+### 文档
+
+#### QuickStart — PWM 引脚表格勘误
+- 删除 §8.4 中引用 `pwmchip0` 通道 0 控制扩展排针 Pin 32（BCM GPIO12）的
+  错误 PWM sysfs 示例。`pwmchip0` 是风扇 PWM 控制器，并非扩展排针；
+  该示例会静默地影响风扇而非扩展排针。目前扩展排针无 PWM 输出路由，
+  故不提供替代示例。
+
 ---
 
 ## v1.0.1 — 2026-04-15
@@ -107,12 +141,6 @@
   系统启动完成后关闭红色 LED，并将绿色 LED 切换为呼吸灯模式。
   呼吸频率与四核平均 CPU 使用率正相关——0 % 时半周期约 2 000 ms（极慢），
   100 % 时半周期约 100 ms（快速）。
-
-#### nginx — 日志目录缺失修复
-- 在 rootfs overlay 中新增 `usr/lib/tmpfiles.d/nginx.conf`：指示
-  `systemd-tmpfiles` 在启动时创建 `/var/log/nginx/` 目录（属主
-  `www-data:adm`，权限 0755），修复基础 rootfs 镜像中该目录缺失
-  导致 nginx 服务启动失败的问题。
 
 #### fancontrol — hwmon 编号漂移修复
 - 新增 `fancontrol-update-config` 脚本（`/usr/local/bin/`）：每次服务启动时

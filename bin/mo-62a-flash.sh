@@ -159,9 +159,11 @@ install_external_apps_into_rootfs() {
     echo "Building external app: $(basename "$app_dir")"
     make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- clean
     make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- \
+      VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
       || die "Failed to build $(basename "$app_dir")"
     make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- install \
       APP_INSTALL_DIR="$ROOTFS_MNT/usr/bin" \
+      VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
       || die "Failed to install $(basename "$app_dir")"
     echo "Installed: $(basename "$app_dir")"
   done
@@ -549,6 +551,11 @@ run_sd_flow() {
   fi
 
   pick_mode_interactive
+
+  if [[ "$SD_MODE" == "full" || "$SD_MODE" == "rootfs" ]]; then
+    IMAGE_VERSION="$(prompt_with_default "Version (e.g. v1.0.0)" "$IMAGE_VERSION")"
+    IMAGE_DATE="$(prompt_with_default "Build date (YYYY-MM-DD)" "$IMAGE_DATE")"
+  fi
 
   case "$SD_MODE" in
     full|partition)
