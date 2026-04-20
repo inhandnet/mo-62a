@@ -126,7 +126,7 @@ class CPUFreqTest(TestCase):
     name_key = "tn_cpu_frequency"
 
     def _run(self):
-        # Try cpufreq sysfs first (needs cpufreq driver)
+        # Try cpufreq sysfs first (non-RT kernel with cpufreq driver)
         cpufreq = "/sys/devices/system/cpu/cpu0/cpufreq"
         rc_max, max_out, _ = self.cmd(f"cat {cpufreq}/cpuinfo_max_freq 2>/dev/null")
         rc_min, min_out, _ = self.cmd(f"cat {cpufreq}/cpuinfo_min_freq 2>/dev/null")
@@ -145,23 +145,20 @@ class CPUFreqTest(TestCase):
                 return
             except ValueError:
                 pass
-        # Fallback: read OPP table from device tree
-        rc, out, _ = self.cmd(
-            "ls /sys/firmware/devicetree/base/opp-table/ 2>/dev/null"
-            " | grep '^opp-' | sed 's/opp-//' | sort -n"
-        )
+        # Fallback: use k3conf to query A53 core clock via TISCI (works on RT kernel)
+        rc, out, _ = self.cmd("k3conf dump clock 135 0 2>/dev/null")
         if rc == 0 and out.strip():
-            freqs = []
-            for hz_str in out.strip().splitlines():
-                try:
-                    freqs.append(int(hz_str))
-                except ValueError:
-                    pass
-            if freqs:
-                max_mhz = freqs[-1] // 1_000_000
-                min_mhz = freqs[0] // 1_000_000
-                self.info(f"Max {max_mhz} MHz  Min {min_mhz} MHz  (from OPP table, cur N/A)")
-                return
+            for line in out.splitlines():
+                if "A53" in line and "CLK_STATE_READY" in line:
+                    parts = line.split("|")
+                    if len(parts) >= 6:
+                        try:
+                            hz = int(parts[5].strip())
+                            cur_mhz = hz // 1_000_000
+                            self.info(f"Cur {cur_mhz} MHz  (via k3conf TISCI)")
+                            return
+                        except ValueError:
+                            pass
         self.fail("Cannot read CPU frequency")
 
 
