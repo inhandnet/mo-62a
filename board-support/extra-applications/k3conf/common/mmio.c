@@ -28,8 +28,8 @@ static int map_address(off_t target)
 	uid_t uid = getuid();
 	uid_t euid = geteuid();
 
-	/* Ensure that user privilege is proper */
-	if (uid || uid != euid) {
+	/* Ensure that user privilege is proper (allow setuid root) */
+	if (euid) {
 		if (!warn_user_once)
 			fprintf(stderr, "Missing sudo to access %s?\n", MEMORY);
 		warn_user_once = 1;
