@@ -3,19 +3,24 @@ HTML 测试报告生成器（纯 Python 字符串拼接，不依赖 jinja2）。
 """
 
 import html
+import os
+import stat
 from datetime import datetime
 
+from gui.i18n import t
 
-# 状态对应的颜色配置
+# 状态对应的颜色和 i18n key
 _STATUS_STYLE = {
-    "PASS":        {"bg": "#d4edda", "color": "#155724", "label": "PASS"},
-    "FAIL":        {"bg": "#f8d7da", "color": "#721c24", "label": "FAIL"},
-    "SKIP":        {"bg": "#e2e3e5", "color": "#383d41", "label": "SKIP"},
-    "MANUAL_PASS": {"bg": "#cce5ff", "color": "#004085", "label": "手动通过"},
-    "MANUAL_FAIL": {"bg": "#fff3cd", "color": "#856404", "label": "手动失败"},
+    "PASS":        {"bg": "#d4edda", "color": "#155724", "key": "status_pass"},
+    "FAIL":        {"bg": "#f8d7da", "color": "#721c24", "key": "status_fail"},
+    "SKIP":        {"bg": "#e2e3e5", "color": "#383d41", "key": "status_skip"},
+    "INFO":        {"bg": "#e8f4fd", "color": "#0c5460", "key": "status_info"},
+    "MANUAL_PASS": {"bg": "#cce5ff", "color": "#004085", "key": "status_manual_pass"},
+    "MANUAL_FAIL": {"bg": "#fff3cd", "color": "#856404", "key": "status_manual_fail"},
+    "ERROR":       {"bg": "#f8d7da", "color": "#721c24", "key": "status_error"},
 }
 
-_DEFAULT_STYLE = {"bg": "#f8f9fa", "color": "#343a40", "label": "UNKNOWN"}
+_DEFAULT_STYLE = {"bg": "#f8f9fa", "color": "#343a40", "key": "rpt_badge_unknown"}
 
 
 class Reporter:
@@ -63,17 +68,12 @@ class Reporter:
         )
 
     def summary(self) -> dict:
-        """返回汇总统计。
-
-        Returns:
-            {total, passed, failed, skipped}
-        """
         total = len(self.results)
         passed = sum(
-            1 for r in self.results if r["status"] in ("PASS", "MANUAL_PASS")
+            1 for r in self.results if r["status"] in ("PASS", "MANUAL_PASS", "INFO")
         )
         failed = sum(
-            1 for r in self.results if r["status"] in ("FAIL", "MANUAL_FAIL")
+            1 for r in self.results if r["status"] in ("FAIL", "MANUAL_FAIL", "ERROR")
         )
         skipped = sum(1 for r in self.results if r["status"] == "SKIP")
         return {"total": total, "passed": passed, "failed": failed, "skipped": skipped}
@@ -87,6 +87,14 @@ class Reporter:
         html_content = self._build_html()
         with open(filepath, "w", encoding="utf-8") as f:
             f.write(html_content)
+        # 确保文件对普通用户可读（sudo 运行时文件会被 root 创建）
+        try:
+            os.chmod(filepath, stat.S_IRUSR | stat.S_IWUSR | stat.S_IRGRP | stat.S_IROTH)
+            uid = int(os.environ.get("SUDO_UID", os.getuid()))
+            gid = int(os.environ.get("SUDO_GID", os.getgid()))
+            os.chown(filepath, uid, gid)
+        except OSError:
+            pass
 
     # ------------------------------------------------------------------
     # 内部构建方法
@@ -95,7 +103,6 @@ class Reporter:
     def _build_html(self) -> str:
         summ = self.summary()
         generated_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        title = f"MO-62A 测试报告 — {self.device_info.get('hostname', 'N/A')}"
 
         # 按 category 分组
         categories: dict[str, list[dict]] = {}
@@ -110,6 +117,8 @@ class Reporter:
             self._build_category_section(cat, items)
             for cat, items in categories.items()
         )
+
+        title = t("rpt_title") + " — " + self.device_info.get("hostname", "N/A")
 
         return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -316,10 +325,10 @@ class Reporter:
 
   <!-- Header -->
   <div class="report-header">
-    <h1>MO-62A 嵌入式开发板测试报告</h1>
+    <h1>{html.escape(title)}</h1>
     <div class="subtitle">
-      生成时间：{html.escape(generated_at)} &nbsp;|&nbsp;
-      测试时间：{html.escape(str(self.device_info.get("test_time", "N/A")))}
+      {html.escape(t("rpt_generated_at", generated_at))} &nbsp;|&nbsp;
+      {html.escape(t("rpt_test_time", str(self.device_info.get("test_time", "N/A"))))}
     </div>
   </div>
 
@@ -327,36 +336,36 @@ class Reporter:
   <div class="summary-grid">
     <div class="summary-card card-total">
       <div class="card-value">{summ['total']}</div>
-      <div class="card-label">总测试数</div>
+      <div class="card-label">{html.escape(t("rpt_total"))}</div>
     </div>
     <div class="summary-card card-passed">
       <div class="card-value">{summ['passed']}</div>
-      <div class="card-label">通过</div>
+      <div class="card-label">{html.escape(t("rpt_passed"))}</div>
     </div>
     <div class="summary-card card-failed">
       <div class="card-value">{summ['failed']}</div>
-      <div class="card-label">失败</div>
+      <div class="card-label">{html.escape(t("rpt_failed"))}</div>
     </div>
     <div class="summary-card card-skipped">
       <div class="card-value">{summ['skipped']}</div>
-      <div class="card-label">跳过</div>
+      <div class="card-label">{html.escape(t("rpt_skipped"))}</div>
     </div>
     <div class="summary-card card-rate">
       <div class="card-value">{pass_rate}</div>
-      <div class="card-label">通过率</div>
+      <div class="card-label">{html.escape(t("rpt_pass_rate"))}</div>
     </div>
   </div>
 
   <!-- Device Info -->
   <div class="device-card">
-    <h2>设备信息</h2>
+    <h2>{html.escape(t("rpt_device_info"))}</h2>
     <table class="device-table">
       <tbody>
-        <tr><td>主机名</td><td>{html.escape(str(self.device_info.get("hostname", "N/A")))}</td></tr>
-        <tr><td>IP 地址</td><td>{html.escape(str(self.device_info.get("ip", "N/A")))}</td></tr>
-        <tr><td>固件版本</td><td>{html.escape(str(self.device_info.get("version", "N/A")))}</td></tr>
-        <tr><td>构建日期</td><td>{html.escape(str(self.device_info.get("build_date", "N/A")))}</td></tr>
-        <tr><td>测试时间</td><td>{html.escape(str(self.device_info.get("test_time", "N/A")))}</td></tr>
+        <tr><td>{html.escape(t("rpt_hostname"))}</td><td>{html.escape(str(self.device_info.get("hostname", "N/A")))}</td></tr>
+        <tr><td>{html.escape(t("rpt_ip"))}</td><td>{html.escape(str(self.device_info.get("ip", "N/A")))}</td></tr>
+        <tr><td>{html.escape(t("rpt_version"))}</td><td>{html.escape(str(self.device_info.get("version", "N/A")))}</td></tr>
+        <tr><td>{html.escape(t("rpt_build_date"))}</td><td>{html.escape(str(self.device_info.get("build_date", "N/A")))}</td></tr>
+        <tr><td>{html.escape(t("rpt_duration"))}</td><td>{html.escape(str(self.device_info.get("test_time", "N/A")))}</td></tr>
       </tbody>
     </table>
   </div>
@@ -365,7 +374,7 @@ class Reporter:
   {sections}
 
   <div class="report-footer">
-    MO-62A Test Framework &mdash; 报告生成于 {html.escape(generated_at)}
+    {html.escape(t("rpt_footer", generated_at))}
   </div>
 
 </div>
@@ -373,11 +382,10 @@ class Reporter:
 </html>"""
 
     def _build_category_section(self, category: str, items: list[dict]) -> str:
-        """构建单个测试大类的 HTML 区块。"""
-        cat_pass = sum(1 for r in items if r["status"] in ("PASS", "MANUAL_PASS"))
-        cat_fail = sum(1 for r in items if r["status"] in ("FAIL", "MANUAL_FAIL"))
-        badge_text = f"{cat_pass}/{len(items)} 通过"
-        badge_extra = f"，{cat_fail} 失败" if cat_fail else ""
+        cat_pass = sum(1 for r in items if r["status"] in ("PASS", "MANUAL_PASS", "INFO"))
+        cat_fail = sum(1 for r in items if r["status"] in ("FAIL", "MANUAL_FAIL", "ERROR"))
+        badge_text = t("rpt_cat_pass", cat_pass, len(items))
+        badge_extra = t("rpt_cat_fail", cat_fail) if cat_fail else ""
 
         rows = "\n".join(self._build_row(r) for r in items)
 
@@ -389,10 +397,10 @@ class Reporter:
     <table class="results-table">
       <thead>
         <tr>
-          <th class="col-name">测试项</th>
-          <th class="col-status">状态</th>
-          <th class="col-dur">耗时</th>
-          <th class="col-message">说明</th>
+          <th class="col-name">{html.escape(t("rpt_col_name"))}</th>
+          <th class="col-status">{html.escape(t("rpt_col_status"))}</th>
+          <th class="col-dur">{html.escape(t("rpt_col_dur"))}</th>
+          <th class="col-message">{html.escape(t("rpt_col_message"))}</th>
         </tr>
       </thead>
       <tbody>
@@ -406,7 +414,7 @@ class Reporter:
         style = _STATUS_STYLE.get(result["status"], _DEFAULT_STYLE)
         badge_html = (
             f'<span class="badge" style="background:{style["bg"]};color:{style["color"]}">'
-            f'{html.escape(style["label"])}</span>'
+            f'{html.escape(t(style["key"]))}</span>'
         )
         duration_str = f'{result["duration"]:.2f}s' if result["duration"] else "—"
         message_escaped = html.escape(result.get("message", "")).replace("\n", "<br>")

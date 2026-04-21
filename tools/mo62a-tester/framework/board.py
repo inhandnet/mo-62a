@@ -142,6 +142,25 @@ class Board:
         finally:
             channel.close()
 
+    def get_file(self, remote_path: str) -> bytes:
+        """通过 SFTP 从板子下载文件内容。
+
+        Raises:
+            BoardConnectionError: 未连接
+            BoardCommandError: 下载失败
+        """
+        if self._client is None:
+            raise BoardConnectionError("Not connected. Call connect() first.")
+        try:
+            sftp = self._client.open_sftp()
+            try:
+                with sftp.open(remote_path, "rb") as f:
+                    return f.read()
+            finally:
+                sftp.close()
+        except (paramiko.SSHException, OSError) as e:
+            raise BoardCommandError(f"SFTP download failed: {e}") from e
+
     def put_file(self, local_path: str, remote_path: str) -> None:
         """通过 SFTP 上传文件到板子。
 

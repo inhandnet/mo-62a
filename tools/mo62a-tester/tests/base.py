@@ -2,6 +2,17 @@ import time
 from typing import Optional, Callable
 
 
+class SliderRequest:
+    """滑动条手工测试请求对象，传给 _manual_input_fn 触发滑动条对话框。"""
+    def __init__(self, min_val: int, max_val: int, on_change: Callable[[int], None],
+                 unit: str = "%", initial_val: int = None):
+        self.min_val = min_val
+        self.max_val = max_val
+        self.on_change = on_change  # callable(int) -> None，在 daemon 线程中调用
+        self.unit = unit
+        self.initial_val = initial_val if initial_val is not None else min_val
+
+
 class TestResult:
     PASS = "PASS"
     FAIL = "FAIL"
@@ -22,11 +33,11 @@ class TestCase:
         from gui.i18n import t
         return t(self.name_key) if self.name_key else self.__class__.__name__
 
-    def __init__(self, board, manual_confirm_fn: Optional[Callable] = None):
-        # board: Board 或 SerialBoard 实例（都有 .run(cmd) 方法）
-        # manual_confirm_fn: fn(prompt: str) -> bool，由 GUI 提供弹窗
+    def __init__(self, board, manual_confirm_fn: Optional[Callable] = None,
+                 manual_input_fn: Optional[Callable] = None):
         self.board = board
         self._manual_confirm = manual_confirm_fn
+        self._manual_input_fn = manual_input_fn
         self.message = ""
         self.status = TestResult.SKIP
         self.duration = 0.0
@@ -70,9 +81,35 @@ class TestCase:
             result = self._manual_confirm(prompt)
             self.status = TestResult.MANUAL_PASS if result else TestResult.MANUAL_FAIL
             return result
-        # 无 GUI 时默认跳过
         self.status = TestResult.SKIP
         return False
+
+    def manual_slider_confirm(self, prompt: str, min_val: int, max_val: int,
+                              on_change: Callable[[int], None],
+                              initial_val: int = None) -> bool:
+        """弹出带滑动条的对话框，on_change(value) 在滑动停稳后被调用（daemon 线程）。"""
+        req = SliderRequest(min_val, max_val, on_change, initial_val=initial_val)
+        if self._manual_input_fn:
+            result = self._manual_input_fn(prompt, None, req)
+            return result == "pass"
+        return False
+
+    def manual_image_confirm(self, prompt: str, image_bytes: bytes) -> bool:
+        """弹出带截图的对话框，让用户对比截图与实际显示是否一致。
+        image_bytes 通过 _manual_input_fn(prompt, None, image_bytes) 传递，
+        返回 True=一致，False=不一致。"""
+        if self._manual_input_fn:
+            result = self._manual_input_fn(prompt, None, image_bytes)
+            return result == "pass"
+        return False
+
+    def manual_input(self, prompt: str, choices: list = None,
+                     password: bool = False) -> Optional[str]:
+        """请求用户输入文本，choices 非空时显示下拉选择，password=True 时隐藏输入。
+        返回用户输入的字符串，取消时返回 None。"""
+        if self._manual_input_fn:
+            return self._manual_input_fn(prompt, choices, password)
+        return None
 
     def pass_(self, message: str = ""):
         self.status = TestResult.PASS

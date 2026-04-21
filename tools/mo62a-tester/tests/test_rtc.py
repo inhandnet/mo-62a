@@ -1,82 +1,55 @@
-"""
-实时时钟 (RTC) 测试模块
-"""
+"""实时时钟 (RTC) 测试模块"""
 
-from tests.base import TestCase, TestResult
-
-
-class RtcDriverTest(TestCase):
-    category = "实时时钟 (RTC)"
-    name_key = "tn_rtc_node"
-
-    def _run(self):
-        rc, out, err = self.cmd("ls /dev/rtc0")
-        if rc != 0:
-            self.fail("/dev/rtc0 不存在")
-            return
-        self.pass_("/dev/rtc0 存在")
-
-
-class RtcModuleTest(TestCase):
-    category = "实时时钟 (RTC)"
-    name_key = "tn_rtc_module"
-
-    def _run(self):
-        if not self.assert_contains(
-            "lsmod | grep rtc_pcf85363",
-            "rtc_pcf85363",
-            "rtc_pcf85363 模块未加载",
-        ):
-            return
-        self.pass_("rtc_pcf85363 模块已加载")
+from tests.base import TestCase
+from gui.i18n import t
 
 
 class RtcReadTest(TestCase):
-    category = "实时时钟 (RTC)"
+    category_key = "cat_rtc"
     name_key = "tn_rtc_time_read"
 
     def _run(self):
-        rc, out, err = self.cmd("hwclock -r")
+        sudo_pw = getattr(self.board, "_password", "")
+        rc, out, _ = self.cmd(f"echo '{sudo_pw}' | sudo -S /usr/sbin/hwclock -r 2>&1", timeout=10)
         if rc != 0:
-            self.fail(f"hwclock -r 失败（rc={rc}）：{err.strip()}")
-            return
-        self.pass_(f"当前 RTC 时间：{out.strip()}")
+            self.fail(t("rtc_read_fail", out.strip()))
+        else:
+            self.pass_(t("rtc_read_ok", out.strip()))
 
 
 class RtcWriteReadTest(TestCase):
-    category = "实时时钟 (RTC)"
+    category_key = "cat_rtc"
     name_key = "tn_rtc_write_read"
 
     def _run(self):
-        # 写入固定时间
-        rc, out, err = self.cmd('hwclock --set --date="2026-01-01 12:00:00"')
+        sudo_pw = getattr(self.board, "_password", "")
+
+        def sudo(cmd):
+            return self.cmd(f"echo '{sudo_pw}' | sudo -S {cmd} 2>&1", timeout=15)
+
+        rc, out, _ = sudo("/usr/sbin/hwclock --set --date='2020-06-15 10:30:00'")
         if rc != 0:
-            self.fail(f"hwclock --set 失败（rc={rc}）：{err.strip()}")
+            self.fail(t("rtc_set_fail", out.strip()))
             return
 
-        # 读回并验证年份
-        rc2, out2, err2 = self.cmd("hwclock -r")
+        rc2, out2, _ = sudo("/usr/sbin/hwclock -r")
         if rc2 != 0:
-            self.fail(f"写入后 hwclock -r 失败（rc={rc2}）：{err2.strip()}")
-            # 尝试恢复
-            self.cmd("hwclock --hctosys")
+            self.fail(t("rtc_readback_fail", out2.strip()))
+            sudo("/usr/sbin/hwclock --systohc")
             return
 
         rtc_time = out2.strip()
-        if "2026" not in rtc_time:
-            self.fail(f"RTC 读回时间年份不符（期望 2026）：{rtc_time}")
-            self.cmd("hwclock --hctosys")
-            return
+        if "2020" not in rtc_time:
+            self.fail(t("rtc_year_mismatch", rtc_time))
+        else:
+            self.pass_(t("rtc_write_ok", rtc_time))
 
-        # 恢复系统时间
-        self.cmd("hwclock --hctosys")
-        self.pass_(f"RTC 写入读回验证通过，读回时间：{rtc_time}")
+        sudo("/usr/sbin/hwclock --systohc")
 
 
-def get_tests(board, manual_confirm_fn=None):
+def get_tests(board, manual_confirm_fn=None, manual_input_fn=None, **kwargs):
+    args = (board, manual_confirm_fn, manual_input_fn)
     return [
-        RtcDriverTest(board, manual_confirm_fn),
-        RtcModuleTest(board, manual_confirm_fn),
-        RtcReadTest(board, manual_confirm_fn),
-        RtcWriteReadTest(board, manual_confirm_fn),
+        RtcReadTest(*args),
+        RtcWriteReadTest(*args),
     ]

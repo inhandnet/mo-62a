@@ -1,87 +1,140 @@
-"""
-以太网测试模块
-"""
+"""Network interface tests: Ethernet ping-gateway and Wi-Fi connect."""
 
 import re
 
 from tests.base import TestCase, TestResult
+from gui.i18n import t
 
 
-class EthInterfaceTest(TestCase):
-    category = "以太网"
-    name_key = "tn_eth0_status"
-
-    def _run(self):
-        if not self.assert_contains(
-            "ip link show eth0 2>/dev/null",
-            "UP",
-            "eth0 接口未处于 UP 状态",
-        ):
-            return
-        self.pass_("eth0 接口处于 UP 状态")
+def _get_default_gateway(tc: TestCase) -> str | None:
+    rc, out, _ = tc.cmd("ip route show default")
+    if rc != 0:
+        return None
+    for line in out.splitlines():
+        parts = line.split()
+        if "via" in parts:
+            return parts[parts.index("via") + 1]
+    return None
 
 
-class IpAddressTest(TestCase):
-    category = "以太网"
-    name_key = "tn_eth0_ip"
-
-    def _run(self):
-        rc, out, err = self.cmd("ip -4 addr show eth0 2>/dev/null")
-        if "inet" not in out:
-            self.fail("eth0 未获取到 IPv4 地址")
-            return
-        # 提取 IP 地址
-        match = re.search(r"inet\s+(\d+\.\d+\.\d+\.\d+/\d+)", out)
-        ip_info = match.group(1) if match else "(解析失败)"
-        self.pass_(f"eth0 IP 地址：{ip_info}")
+def _ping_gateway(tc: TestCase, gw: str) -> tuple[bool, str]:
+    rc, out, _ = tc.cmd(f"ping -c 3 -W 2 {gw}", timeout=15)
+    match = re.search(r"(\d+)% packet loss", out)
+    loss = match.group(0) if match else "unknown loss"
+    return rc == 0, f"gateway {gw}: {loss}"
 
 
-class GatewayPingTest(TestCase):
-    category = "以太网"
-    name_key = "tn_gateway_ping"
+# ── Ethernet ────────────────────────────────────────────────────────────────
+class EthernetPingTest(TestCase):
+    category = "Network"
+    name_key = "tn_ethernet_ping"
 
     def _run(self):
-        # 获取默认网关
-        rc, out, err = self.cmd("ip route | awk '/default/{print $3}'")
-        gateway = out.strip().splitlines()[0] if out.strip() else ""
-        if not gateway:
-            self.fail("未找到默认网关")
+        gw = _get_default_gateway(self)
+        if not gw:
+            self.fail(t("net_no_gateway"))
             return
+        ok, msg = _ping_gateway(self, gw)
+        if ok:
+            self.pass_(msg)
+        else:
+            self.fail(msg)
 
-        # Ping 网关，发送 5 包，等待 2 秒超时
-        rc2, out2, err2 = self.cmd(
-            f"ping -c 5 -W 2 {gateway}", timeout=20
+
+# ── Wi-Fi ───────────────────────────────────────────────────────────────────
+class WiFiConnectTest(TestCase):
+    category = "Network"
+    name_key = "tn_wifi_connect"
+    requires_manual = True
+
+    def _run(self):
+        # Scan
+        rc, out, _ = self.cmd(
+            "nmcli -t -f SSID,SIGNAL dev wifi list 2>/dev/null"
         )
-        if rc2 != 0:
-            self.fail(f"ping 网关 {gateway} 失败（rc={rc2}）")
+        if rc != 0 or not out.strip():
+            self.fail(t("net_scan_fail"))
             return
 
-        # 检查丢包率
-        if "0% packet loss" in out2:
-            self.pass_(f"网关 {gateway} 连通，丢包率 0%")
-        else:
-            # 提取丢包率信息
-            loss_match = re.search(r"(\d+)% packet loss", out2)
-            loss = loss_match.group(0) if loss_match else "未知丢包率"
-            self.fail(f"ping 网关 {gateway} 存在丢包：{loss}")
+        ssids = []
+        for line in out.splitlines():
+            ssid = line.split(":")[0].strip()
+            if ssid and ssid not in ssids:
+                ssids.append(ssid)
+
+        if not ssids:
+            self.fail(t("net_no_ap"))
+            return
+
+        # Ask user: select SSID + enter password (combined dialog)
+        result = self.manual_input(
+            t("net_wifi_select", len(ssids)), choices=ssids
+        )
+        if result is None:
+            self.skip(t("net_cancelled"))
+            return
+
+        parts = result.split("\n", 1)
+        ssid = parts[0].strip()
+        password = parts[1].strip() if len(parts) > 1 else ""
+
+        if not ssid:
+            self.fail(t("net_no_ssid"))
+            return
+
+        # Connect (needs root; use stored login password for sudo)
+        sudo_pw = getattr(self.board, "_password", "")
+        # 删除旧 profile，避免 key-mgmt 缺失导致的连接失败
+        self.cmd(f"echo '{sudo_pw}' | sudo -S nmcli connection delete '{ssid}' 2>/dev/null", timeout=10)
+        connect_cmd = (
+            f"echo '{sudo_pw}' | sudo -S nmcli dev wifi connect '{ssid}' ifname wlan0"
+            + (f" password '{password}'" if password else "")
+        )
+        rc, out, err = self.cmd(connect_cmd, timeout=30)
+        combined = (out + err).strip()
+        if rc != 0 or "error" in combined.lower():
+            self.fail(t("net_connect_fail", combined))
+            return
+
+        # Ping gateway
+        gw = _get_default_gateway(self)
+        ping_msg = ""
+        if gw:
+            ok, ping_msg = _ping_gateway(self, gw)
+            if not ok:
+                ping_msg = f"connected but {ping_msg}"
+
+        # Disconnect
+        self.cmd(f"echo '{sudo_pw}' | sudo -S nmcli dev disconnect wlan0 2>/dev/null", timeout=10)
+
+        self.pass_(t("net_wifi_ok", ssid, ping_msg).strip())
 
 
-class DnsTest(TestCase):
-    category = "以太网"
-    name_key = "tn_dns_resolution"
+# ── BLE ─────────────────────────────────────────────────────────────────────
+class BLEScanTest(TestCase):
+    category = "Network"
+    name_key = "tn_ble_scan"
 
     def _run(self):
-        rc, out, err = self.cmd("nslookup google.com 2>/dev/null")
-        if rc == 0 or "Address" in out:
-            self.pass_("DNS 解析 google.com 成功")
-        else:
-            self.fail(f"DNS 解析失败（rc={rc}）：{out.strip() or err.strip()}")
+        sudo_pw = getattr(self.board, "_password", "")
+        # down/up 强制重置扫描状态（lescan 被 timeout 杀死时不发 STOP_SCAN）
+        self.cmd(f"echo '{sudo_pw}' | sudo -S hciconfig hci0 down 2>/dev/null", timeout=5)
+        self.cmd(f"echo '{sudo_pw}' | sudo -S hciconfig hci0 up 2>/dev/null", timeout=5)
+        rc, out, err = self.cmd(
+            f"echo '{sudo_pw}' | sudo -S timeout 5 hcitool lescan 2>/dev/null",
+            timeout=15,
+        )
+        lines = [l.strip() for l in out.splitlines() if l.strip() and "LE Scan" not in l]
+        if not lines:
+            self.fail(t("net_ble_none"))
+            return
+        self.pass_(t("net_ble_ok", len(lines)))
 
 
-def get_tests(board, manual_confirm_fn=None):
+def get_tests(board, manual_confirm_fn=None, manual_input_fn=None, **kwargs):
+    args = (board, manual_confirm_fn, manual_input_fn)
     return [
-        EthInterfaceTest(board, manual_confirm_fn),
-        IpAddressTest(board, manual_confirm_fn),
-        GatewayPingTest(board, manual_confirm_fn),
-        DnsTest(board, manual_confirm_fn),
+        EthernetPingTest(*args),
+        WiFiConnectTest(*args),
+        BLEScanTest(*args),
     ]

@@ -1,5 +1,46 @@
 # 更新日志
 
+## v1.0.3 — 2026-04-21
+
+### 根文件系统
+
+#### 镜像体积精简（未压缩约 1.76 GB / 压缩后约 400 MB）
+- 通过 `apt-get remove --purge` + autoremove 卸载 Thunderbird 和 LibreOffice
+  （含所有 l10n 及 UI 软件包），释放约 487 MB。
+- 精简 Noto 字体：删除 `fonts-noto-extra`、`fonts-noto-cjk-extra`、
+  `fonts-noto-ui-extra`、`fonts-noto-unhinted` 及 `fonts-noto` 元包；
+  保留 `fonts-noto-core`、`fonts-noto-cjk`、`fonts-noto-mono`；释放约 657 MB。
+- 删除 MO-62A 硬件不使用的第三方厂商固件：Qualcomm（ath10k/ath11k/ath12k/qca）、
+  Intel（iwlwifi/intel）、MediaTek、Broadcom（brcm）、
+  Marvell（mrvl/libertas/mwl8k）、Cypress、Atheros（ath6k/ar3k）、
+  Wilocity、Ralink 及零散固件文件；保留 TI（ti-connectivity/ti-ipc）、
+  Realtek（rtw89/rtw88/rtlwifi/rtl_bt/rtlbt/rtl_nic/realtek）、
+  AM62A VPU（cnm/vpu_d.bin/vpu_p.bin）及无线信道规范库；释放约 306 MB。
+- 精简 locale 数据：仅保留 zh_CN、zh_TW、zh_HK、en、en_US、en_GB 及
+  locale.alias，其余全部删除；释放约 307 MB。
+- 预装 `memtester` 和 `mbw`，用于 LPDDR4 完整性和带宽测试。
+
+### 工具
+
+#### mo62a-tester — 存储测试套件
+- 新增 `tests/test_storage.py`，包含全新的「Storage（存储）」测试类别（`cat_storage`）：
+  - `LpddrMemtesterTest`：通过 sudo 执行 `memtester 32M 1`（19 种测试模式）；
+    测试大小从 128 M 缩减至 32 M，将单次运行时间控制在 60 秒以内（AM62A 典型约 52 秒）。
+  - `LpddrBandwidthTest`：执行 `mbw -n 3 256`，解析 MEMCPY 均值，
+    报告 MiB/s，低于 1000 MiB/s 时判定失败（AM62A 典型约 1478 MiB/s）。
+  - `SdSpeedModeTest`：通过 sudo 读取 `/sys/kernel/debug/mmc1/ios`，
+    获取 SD 卡协商速率模式及时钟频率；失败时回退到 `journalctl` 关键字匹配。
+  - `SdReadSpeedTest`：清除页缓存后，使用
+    `dd if=/dev/mmcblk1 of=/dev/null bs=4M count=50` 测量顺序读取速度；
+    阈值 ≥ 15 MB/s。
+  - `SdWriteSpeedTest`：使用
+    `dd if=/dev/zero of=/tmp/sd_write_test bs=4M count=50 oflag=dsync`
+    测量顺序写入速度；阈值 ≥ 5 MB/s。
+- 在 `gui/page_select.py` 的 `TEST_CATEGORIES` 中注册 `cat_storage`。
+- 在 `gui/i18n.py` 中添加存储类别相关字符串（中英文）。
+
+---
+
 ## v1.0.2 — 2026-04-17
 
 ### 内核与设备树

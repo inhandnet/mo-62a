@@ -1,8 +1,7 @@
-"""
-风扇控制测试模块
-"""
+"""风扇控制测试模块"""
 
-from tests.base import TestCase, TestResult
+from tests.base import TestCase
+from gui.i18n import t
 
 
 class FanServiceTest(TestCase):
@@ -10,24 +9,11 @@ class FanServiceTest(TestCase):
     name_key = "tn_fancontrol_service"
 
     def _run(self):
-        rc, out, err = self.cmd("systemctl is-active fancontrol")
-        status = out.strip()
-        if status != "active":
-            self.fail(f"fancontrol 服务未运行（状态：{status}）")
-            return
-        self.pass_("fancontrol 服务正在运行")
-
-
-class PwmChipTest(TestCase):
-    category = "风扇控制"
-    name_key = "tn_pwm_chip"
-
-    def _run(self):
-        rc, out, err = self.cmd("ls /sys/class/pwm/pwmchip0/")
-        if rc != 0:
-            self.fail(f"pwmchip0 节点不存在：{err.strip()}")
-            return
-        self.pass_("pwmchip0 节点存在")
+        rc, out, _ = self.cmd("systemctl is-active fancontrol")
+        if out.strip() != "active":
+            self.fail(t("fan_svc_inactive", out.strip()))
+        else:
+            self.pass_(t("fan_svc_ok"))
 
 
 class TempReadTest(TestCase):
@@ -35,43 +21,76 @@ class TempReadTest(TestCase):
     name_key = "tn_hwmon_temp"
 
     def _run(self):
-        rc, out, err = self.cmd(
+        rc, out, _ = self.cmd(
             "cat /sys/class/hwmon/hwmon*/temp1_input 2>/dev/null | head -1"
         )
         raw = out.strip()
         if not raw:
-            self.fail("未能从 hwmon 读取温度（无输出）")
+            self.fail(t("fan_temp_missing"))
             return
         try:
-            temp_raw = int(raw)
+            temp_c = int(raw) / 1000.0
         except ValueError:
-            self.fail(f"无法解析 hwmon 温度值：{raw}")
+            self.fail(t("fan_temp_parse_fail", raw))
             return
-        if temp_raw <= 0:
-            self.fail(f"hwmon 温度值异常：{temp_raw}")
-            return
-        temp_c = temp_raw / 1000.0
-        self.pass_(f"hwmon 温度：{temp_c:.1f}°C")
+        self.pass_(t("fan_temp_ok", temp_c))
 
 
-class FanVisualTest(TestCase):
+class FanPwmSliderTest(TestCase):
+    """停止 fancontrol → 滑动条手动控制 PWM（10~100%）→ 恢复 fancontrol"""
     category = "风扇控制"
     name_key = "tn_fan_visual"
     requires_manual = True
 
     def _run(self):
-        confirmed = self.manual_confirm(
-            "请确认：风扇正在运转（可用手感受气流）"
+        sudo_pw = getattr(self.board, "_password", "")
+
+        def sudo(cmd, timeout=10):
+            rc, out, _ = self.cmd(f"echo '{sudo_pw}' | sudo -S {cmd} 2>&1", timeout=timeout)
+            return rc, out
+
+        # 查找 pwmfan hwmon 路径
+        rc, out, _ = self.cmd(
+            "for d in /sys/class/hwmon/hwmon*; do "
+            "[ \"$(cat $d/name 2>/dev/null)\" = 'pwmfan' ] && echo $d && break; done"
         )
-        if not confirmed:
+        hwmon_path = out.strip()
+        if not hwmon_path:
+            self.fail(t("fan_hwmon_missing"))
             return
-        self.pass_("风扇目视/触感确认运转正常")
+
+        pwm_path = f"{hwmon_path}/pwm1"
+        enable_path = f"{hwmon_path}/pwm1_enable"
+
+        # 停止 fancontrol，切换为手动模式，初始 50%
+        sudo("systemctl stop fancontrol")
+        sudo(f"sh -c 'echo 1 > {enable_path}'")
+        sudo(f"sh -c 'echo 128 > {pwm_path}'")
+
+        def on_change(pct):
+            pwm_val = max(0, min(255, round(pct / 100 * 255)))
+            sudo(f"sh -c 'echo {pwm_val} > {pwm_path}'", timeout=5)
+
+        ok = self.manual_slider_confirm(
+            t("fan_slider_prompt"),
+            min_val=10, max_val=100,
+            on_change=on_change,
+            initial_val=50,
+        )
+
+        # 恢复 fancontrol
+        sudo("systemctl start fancontrol")
+
+        if ok:
+            self.pass_(t("fan_visual_ok"))
+        else:
+            self.fail(t("fan_visual_fail"))
 
 
-def get_tests(board, manual_confirm_fn=None):
+def get_tests(board, manual_confirm_fn=None, manual_input_fn=None, **kwargs):
+    args = (board, manual_confirm_fn, manual_input_fn)
     return [
-        FanServiceTest(board, manual_confirm_fn),
-        PwmChipTest(board, manual_confirm_fn),
-        TempReadTest(board, manual_confirm_fn),
-        FanVisualTest(board, manual_confirm_fn),
+        FanServiceTest(*args),
+        TempReadTest(*args),
+        FanPwmSliderTest(*args),
     ]

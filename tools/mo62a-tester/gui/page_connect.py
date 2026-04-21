@@ -406,12 +406,24 @@ class ConnectPage(tk.Frame):
 
     def _finish_connect(self, board, host: str) -> None:
         self.app.board = board
-        self.app.device_info = {"host": host}
+        info = {"ip": host, "hostname": "N/A", "version": "N/A",
+                "build_date": "N/A", "test_time": "N/A"}
         try:
-            rc, out, _ = board.run("cat /etc/mo-version 2>/dev/null || echo unknown")
-            self.app.device_info["version"] = out.strip()
+            _, out, _ = board.run("hostname 2>/dev/null")
+            info["hostname"] = out.strip() or "N/A"
         except Exception:
             pass
+        try:
+            _, out, _ = board.run("mo-version 2>/dev/null")
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith("MO-"):
+                    info["version"] = line
+                elif line.startswith("Built:"):
+                    info["build_date"] = line.split(":", 1)[1].strip()
+        except Exception:
+            pass
+        self.app.device_info = info
         self._status_var.set(t("conn_success"))
         self._connect_btn.config(state="normal")
         self.app.show_page("select")

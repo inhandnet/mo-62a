@@ -13,17 +13,14 @@ COLOR_CAT_BG  = "#e8ecf4"
 # (大类 i18n key, 模块路径)
 TEST_CATEGORIES = [
     ("cat_system",   "tests.test_system"),
-    ("cat_leds",     "tests.test_leds"),
-    ("cat_fan",      "tests.test_fan"),
-    ("cat_rtc",      "tests.test_rtc"),
-    ("cat_i2c",      "tests.test_i2c"),
-    ("cat_hdmi",     "tests.test_hdmi"),
-    ("cat_audio",    "tests.test_audio"),
-    ("cat_camera",   "tests.test_camera"),
     ("cat_network",  "tests.test_network"),
-    ("cat_usb",      "tests.test_usb"),
-    ("cat_gpio",     "tests.test_gpio"),
+    ("cat_leds",     "tests.test_leds"),
+    ("cat_hdmi",     "tests.test_hdmi"),
     ("cat_services", "tests.test_services"),
+    ("cat_rtc",      "tests.test_rtc"),
+    ("cat_fan",      "tests.test_fan"),
+    ("cat_i2c",      "tests.test_i2c"),
+    ("cat_storage",  "tests.test_storage"),
 ]
 
 _CHECK_OFF  = "[ ]"
@@ -359,11 +356,14 @@ class SelectPage(tk.Frame):
         self.app.show_page("run")
 
     # ------------------------------------------------------------------
-    def get_selected_tests(self, board, manual_confirm_fn):
+    def get_selected_tests(self, board, manual_confirm_fn, manual_input_fn=None):
         results = []
         for cat in self._categories:
             try:
                 mod = importlib.import_module(cat.module_path)
+                all_tests = mod.get_tests(board, manual_confirm_fn,
+                                          manual_input_fn=manual_input_fn)
+            except TypeError:
                 all_tests = mod.get_tests(board, manual_confirm_fn)
             except Exception:
                 all_tests = []

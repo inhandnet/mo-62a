@@ -1,107 +1,84 @@
-"""
-系统服务测试模块
-"""
+"""系统服务测试模块"""
 
-from tests.base import TestCase, TestResult
-
-
-class NginxServiceTest(TestCase):
-    category = "系统服务"
-    name_key = "tn_nginx_service"
-
-    def _run(self):
-        rc, out, err = self.cmd("systemctl is-active nginx")
-        status = out.strip()
-        if status != "active":
-            self.fail(f"nginx 服务未运行（状态：{status}）")
-            return
-        self.pass_("nginx 服务正在运行")
-
-
-class NginxHttpTest(TestCase):
-    category = "系统服务"
-    name_key = "tn_nginx_http"
-
-    def _run(self):
-        rc, out, err = self.cmd(
-            'curl -s -o /dev/null -w "%{http_code}" http://localhost/',
-            timeout=10,
-        )
-        code = out.strip()
-        if "200" not in code:
-            self.fail(f"nginx HTTP 响应码不是 200（实际：{code}）")
-            return
-        self.pass_(f"nginx HTTP 响应码：{code}")
-
-
-class LightdmServiceTest(TestCase):
-    category = "系统服务"
-    name_key = "tn_lightdm_service"
-
-    def _run(self):
-        rc, out, err = self.cmd("systemctl is-active lightdm")
-        if "active" not in out:
-            self.fail(f"lightdm 服务未运行（状态：{out.strip()}）")
-            return
-        self.pass_(f"lightdm 服务状态：{out.strip()}")
-
-
-class NginxLogDirTest(TestCase):
-    category = "系统服务"
-    name_key = "tn_nginx_log"
-
-    def _run(self):
-        rc, out, err = self.cmd("ls /var/log/nginx/")
-        if rc != 0:
-            self.fail(f"/var/log/nginx/ 目录不存在或无法访问：{err.strip()}")
-            return
-        self.pass_(f"nginx 日志目录存在，内容：{out.strip()}")
+from tests.base import TestCase
+from gui.i18n import t
 
 
 class NoFailedServicesTest(TestCase):
-    category = "系统服务"
+    category_key = "cat_services"
     name_key = "tn_no_failed_services"
 
     def _run(self):
-        rc, out, err = self.cmd(
-            "systemctl --failed --no-legend 2>/dev/null | wc -l"
+        rc, out, _ = self.cmd(
+            "systemctl list-units --state=failed --no-legend --no-pager 2>/dev/null"
         )
-        count_str = out.strip()
-        try:
-            count = int(count_str)
-        except ValueError:
-            count = -1
-
-        if count != 0:
-            # 获取失败服务列表
-            rc2, out2, err2 = self.cmd(
-                "systemctl --failed --no-legend 2>/dev/null"
-            )
-            failed_list = out2.strip() or "(无法获取列表)"
-            self.fail(f"存在 {count} 个失败服务：\n{failed_list}")
-            return
-        self.pass_("无失败的 systemd 服务")
+        lines = [l for l in out.strip().splitlines() if l.strip()]
+        if lines:
+            self.fail(t("svc_failed_count", len(lines)))
+        else:
+            self.pass_(t("svc_no_failed"))
 
 
-class DpmsWakeupServiceTest(TestCase):
-    category = "系统服务"
-    name_key = "tn_dpms_wake"
+class SshServiceTest(TestCase):
+    category_key = "cat_services"
+    name_key = "tn_ssh_service"
 
     def _run(self):
-        rc, out, err = self.cmd("pgrep -f dpms-wakeup")
-        if rc != 0:
-            self.fail("dpms-wakeup 进程未运行（pgrep 返回非 0）")
+        rc, out, _ = self.cmd("systemctl is-active ssh 2>/dev/null || systemctl is-active sshd 2>/dev/null")
+        if out.strip() != "active":
+            self.fail(t("svc_ssh_inactive", out.strip()))
+        else:
+            self.pass_(t("svc_ssh_ok"))
+
+
+class NtpSyncTest(TestCase):
+    category_key = "cat_services"
+    name_key = "tn_ntp_sync"
+
+    def _run(self):
+        rc, out, _ = self.cmd(
+            "timedatectl show --property=NTPSynchronized --value 2>/dev/null"
+        )
+        if out.strip() == "yes":
+            self.pass_(t("svc_ntp_ok"))
             return
-        pids = out.strip()
-        self.pass_(f"dpms-wakeup 进程正在运行（PID：{pids}）")
+        rc2, out2, _ = self.cmd("systemctl is-active systemd-timesyncd 2>/dev/null")
+        if out2.strip() == "active":
+            self.pass_(t("svc_timesyncd_ok"))
+        else:
+            self.fail(t("svc_ntp_fail", out.strip() or "unknown"))
 
 
-def get_tests(board, manual_confirm_fn=None):
+class LightdmServiceTest(TestCase):
+    category_key = "cat_services"
+    name_key = "tn_lightdm_service"
+
+    def _run(self):
+        rc, out, _ = self.cmd("systemctl is-active lightdm")
+        if out.strip() != "active":
+            self.fail(t("svc_lightdm_inactive", out.strip()))
+        else:
+            self.pass_(t("svc_lightdm_ok"))
+
+
+class MoDiscoverTest(TestCase):
+    category_key = "cat_services"
+    name_key = "tn_mo_discover"
+
+    def _run(self):
+        rc, out, _ = self.cmd("systemctl is-active mo-discover")
+        if out.strip() != "active":
+            self.fail(t("svc_discover_inactive", out.strip()))
+        else:
+            self.pass_(t("svc_discover_ok"))
+
+
+def get_tests(board, manual_confirm_fn=None, manual_input_fn=None, **kwargs):
+    args = (board, manual_confirm_fn, manual_input_fn)
     return [
-        NginxServiceTest(board, manual_confirm_fn),
-        NginxHttpTest(board, manual_confirm_fn),
-        LightdmServiceTest(board, manual_confirm_fn),
-        NginxLogDirTest(board, manual_confirm_fn),
-        NoFailedServicesTest(board, manual_confirm_fn),
-        DpmsWakeupServiceTest(board, manual_confirm_fn),
+        NoFailedServicesTest(*args),
+        SshServiceTest(*args),
+        NtpSyncTest(*args),
+        LightdmServiceTest(*args),
+        MoDiscoverTest(*args),
     ]

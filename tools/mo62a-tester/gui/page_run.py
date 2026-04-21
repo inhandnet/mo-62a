@@ -21,27 +21,24 @@ COLOR_MANUAL_P = "#3498db"
 COLOR_MANUAL_F = "#e67e22"
 
 
-def _status_map():
-    return {
-        "PASS":        ("PASS",     COLOR_PASS),
-        "FAIL":        ("FAIL",     COLOR_FAIL),
-        "SKIP":        ("SKIP",     COLOR_SKIP),
-        "INFO":        ("INFO",     COLOR_INFO),
-        "MANUAL_PASS": ("[M] PASS", COLOR_MANUAL_P),
-        "MANUAL_FAIL": ("[M] FAIL", COLOR_MANUAL_F),
-        "ERROR":       ("ERROR",    COLOR_FAIL),
-    }
+_STATUS_COLORS = {
+    "PASS":        COLOR_PASS,
+    "FAIL":        COLOR_FAIL,
+    "SKIP":        COLOR_SKIP,
+    "INFO":        COLOR_INFO,
+    "MANUAL_PASS": COLOR_MANUAL_P,
+    "MANUAL_FAIL": COLOR_MANUAL_F,
+    "ERROR":       COLOR_FAIL,
+}
 
-
-# 固定显示标签（不跟随语言变化，避免历史记录错位）
-_STATIC_STATUS = {
-    "PASS":        ("PASS",        COLOR_PASS),
-    "FAIL":        ("FAIL",        COLOR_FAIL),
-    "SKIP":        ("SKIP",        COLOR_SKIP),
-    "INFO":        ("INFO",        COLOR_INFO),
-    "MANUAL_PASS": ("[M] PASS",    COLOR_MANUAL_P),
-    "MANUAL_FAIL": ("[M] FAIL",    COLOR_MANUAL_F),
-    "ERROR":       ("ERROR",       COLOR_FAIL),
+_STATUS_KEYS = {
+    "PASS":        "status_pass",
+    "FAIL":        "status_fail",
+    "SKIP":        "status_skip",
+    "INFO":        "status_info",
+    "MANUAL_PASS": "status_manual_pass",
+    "MANUAL_FAIL": "status_manual_fail",
+    "ERROR":       "status_error",
 }
 
 
@@ -57,6 +54,7 @@ class RunPage(tk.Frame):
 
         self._manual_event = threading.Event()
         self._manual_result: bool = False
+        self._manual_input_result: str | None = None
 
         self._build_ui()
         app.register_lang_callback(self.update_language)
@@ -77,12 +75,6 @@ class RunPage(tk.Frame):
         )
         self._header_lbl.pack(side="left", padx=20, pady=12)
 
-        self._lang_btn = tk.Button(
-            header, text=t("lang_toggle"),
-            font=F_SMALL, padx=10, pady=3, relief="groove", cursor="hand2",
-            command=self.app._toggle_lang,
-        )
-        self._lang_btn.pack(side="right", padx=12, pady=10)
 
         # ── 进度条 ──────────────────────────────────────────────────────
         prog_frame = tk.Frame(self, bg=COLOR_BG)
@@ -127,7 +119,7 @@ class RunPage(tk.Frame):
             self._tree.heading(col, text=t(key))
             self._tree.column(col, width=width, anchor=anchor)
 
-        for tag, (_, color) in _STATIC_STATUS.items():
+        for tag, color in _STATUS_COLORS.items():
             self._tree.tag_configure(tag, foreground=color)
 
         vsb_r = ttk.Scrollbar(result_frame, orient="vertical", command=self._tree.yview)
@@ -199,7 +191,6 @@ class RunPage(tk.Frame):
     # ------------------------------------------------------------------
     def update_language(self) -> None:
         self._header_lbl.config(text=t("run_header"))
-        self._lang_btn.config(text=t("lang_toggle"))
         self._result_list_lbl.config(text=t("result_list"))
         self._log_lbl.config(text=t("log_output"))
         for col, key, _, _ in self._tree_col_keys:
@@ -238,7 +229,8 @@ class RunPage(tk.Frame):
         )
 
         if select_page is not None:
-            test_instances = select_page.get_selected_tests(board, self._manual_confirm_fn)
+            test_instances = select_page.get_selected_tests(
+                board, self._manual_confirm_fn, self._manual_input_fn)
         else:
             test_instances = [item.tc for item in self.app.selected_tests]
 
@@ -256,6 +248,7 @@ class RunPage(tk.Frame):
         ).start()
 
     def _run_worker(self, test_instances: list) -> None:
+        _run_start = time.monotonic()
         for tc in test_instances:
             name = getattr(tc, "name", str(tc))
             self.after(0, lambda n=name: self._log(t("running", n)))
@@ -276,7 +269,8 @@ class RunPage(tk.Frame):
 
             if self._reporter is not None:
                 try:
-                    cat = getattr(tc, "category", "")
+                    cat_key = getattr(tc, "category_key", None)
+                    cat = t(cat_key) if cat_key else getattr(tc, "category", "")
                     self._reporter.add_result(cat, name, status, message, duration)
                 except Exception:
                     pass
@@ -288,13 +282,18 @@ class RunPage(tk.Frame):
             if message:
                 self.after(0, lambda m=message: self._log(m))
 
+        total_s = time.monotonic() - _run_start
+        mins, secs = divmod(int(total_s), 60)
+        self.app.device_info["test_time"] = (
+            t("dur_min_sec", mins, secs) if mins else t("dur_sec_only", secs)
+        )
         self.after(0, self._on_all_done)
 
     # ------------------------------------------------------------------
     def _on_result(self, result: dict) -> None:
         status = result["status"]
-        label, _ = _STATIC_STATUS.get(status, (status, COLOR_FAIL))
-        dur_str = f"{result['duration']:.1f}s"
+        label = t(_STATUS_KEYS.get(status, status))
+        dur_str = t("duration_s", f"{result['duration']:.1f}")
 
         self._tree.insert(
             "", "end",
@@ -316,7 +315,7 @@ class RunPage(tk.Frame):
         for r in self._results:
             counts[r["status"]] = counts.get(r["status"], 0) + 1
 
-        passed  = counts["PASS"] + counts["MANUAL_PASS"]
+        passed  = counts["PASS"] + counts["MANUAL_PASS"] + counts.get("INFO", 0)
         failed  = counts["FAIL"] + counts["MANUAL_FAIL"] + counts["ERROR"]
         skipped = counts["SKIP"]
 
@@ -385,6 +384,231 @@ class RunPage(tk.Frame):
         self.after(0, _show)
         self._manual_event.wait()
         return self._manual_result
+
+    # ------------------------------------------------------------------
+    def _manual_input_fn(self, prompt: str, choices: list = None,
+                         password=False) -> "str | None":
+        self._manual_event.clear()
+        self._manual_input_result = None
+
+        # ── 滑动条模式（password 为 SliderRequest 时触发）────────────
+        if hasattr(password, "on_change") and hasattr(password, "min_val"):
+            def _show_slider():
+                import threading
+                req = password
+                _pending = [None]
+
+                dlg = tk.Toplevel(self)
+                dlg.title(t("fan_slider_title"))
+                dlg.resizable(False, False)
+                dlg.grab_set()
+                dlg.transient(self)
+
+                w, h = 500, 230
+                sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+                dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+
+                tk.Label(dlg, text=prompt, font=F_NORMAL,
+                         wraplength=460, justify="left",
+                         pady=12, padx=20).pack(fill="x")
+
+                val_var = tk.DoubleVar(value=req.initial_val)
+                val_lbl = tk.Label(
+                    dlg, text=f"{req.initial_val}{req.unit}", font=F_BOLD, pady=4
+                )
+                val_lbl.pack()
+
+                def _on_change(v):
+                    val = int(float(v))
+                    val_lbl.config(text=f"{val}{req.unit}")
+                    if _pending[0]:
+                        dlg.after_cancel(_pending[0])
+                    def _fire():
+                        threading.Thread(
+                            target=req.on_change, args=(val,), daemon=True
+                        ).start()
+                    _pending[0] = dlg.after(250, _fire)
+
+                ttk.Scale(
+                    dlg, from_=req.min_val, to=req.max_val,
+                    variable=val_var, orient="horizontal",
+                    command=_on_change, length=420,
+                ).pack(padx=40, pady=(0, 8))
+
+                bf = tk.Frame(dlg)
+                bf.pack(pady=(0, 16))
+
+                def _pass():
+                    self._manual_input_result = "pass"
+                    dlg.destroy()
+                    self._manual_event.set()
+
+                def _fail():
+                    self._manual_input_result = "fail"
+                    dlg.destroy()
+                    self._manual_event.set()
+
+                tk.Button(bf, text=t("manual_pass"), bg=COLOR_PASS, fg="white",
+                          font=F_BOLD, padx=20, pady=6, relief="flat", cursor="hand2",
+                          command=_pass).pack(side="left", padx=10)
+                tk.Button(bf, text=t("manual_fail"), bg=COLOR_FAIL, fg="white",
+                          font=F_BOLD, padx=20, pady=6, relief="flat", cursor="hand2",
+                          command=_fail).pack(side="left", padx=10)
+
+                dlg.protocol("WM_DELETE_WINDOW", _fail)
+
+            self.after(0, _show_slider)
+            self._manual_event.wait()
+            return self._manual_input_result
+
+        # ── 图片对比模式（password 传入 bytes 时触发）──────────────────
+        if isinstance(password, (bytes, bytearray)):
+            def _show_image():
+                import io, tempfile, os
+                tmp_path = None
+                try:
+                    from PIL import Image
+                    img = Image.open(io.BytesIO(password))
+                    # 缩放到最大 800×450
+                    max_w, max_h = 800, 450
+                    scale = min(max_w / img.width, max_h / img.height)
+                    new_size = (int(img.width * scale), int(img.height * scale))
+                    img = img.resize(new_size, Image.LANCZOS)
+                    with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+                        tmp_path = f.name
+                    img.save(tmp_path)
+                    photo = tk.PhotoImage(file=tmp_path)
+                except Exception:
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+                    self._manual_input_result = None
+                    self._manual_event.set()
+                    return
+
+                dlg = tk.Toplevel(self)
+                dlg.title(t("hdmi_compare_title"))
+                dlg.resizable(True, True)
+                dlg.grab_set()
+                dlg.transient(self)
+
+                win_w = new_size[0] + 40
+                win_h = new_size[1] + 120
+                sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+                dlg.geometry(f"{win_w}x{win_h}+{(sw-win_w)//2}+{(sh-win_h)//2}")
+
+                img_lbl = tk.Label(dlg, image=photo, bd=1, relief="solid")
+                img_lbl.image = photo  # 防止 GC
+                img_lbl.pack(padx=20, pady=(16, 8))
+
+                tk.Label(
+                    dlg, text=prompt, font=F_NORMAL,
+                    wraplength=win_w - 40, justify="center",
+                ).pack(pady=(0, 8))
+
+                bf = tk.Frame(dlg)
+                bf.pack(pady=(0, 16))
+
+                def _cleanup():
+                    if tmp_path and os.path.exists(tmp_path):
+                        os.unlink(tmp_path)
+
+                def _match():
+                    self._manual_input_result = "pass"
+                    dlg.destroy()
+                    _cleanup()
+                    self._manual_event.set()
+
+                def _no_match():
+                    self._manual_input_result = "fail"
+                    dlg.destroy()
+                    _cleanup()
+                    self._manual_event.set()
+
+                tk.Button(
+                    bf, text=t("hdmi_match"), bg=COLOR_PASS, fg="white",
+                    font=F_BOLD, padx=20, pady=6, relief="flat", cursor="hand2",
+                    command=_match,
+                ).pack(side="left", padx=10)
+                tk.Button(
+                    bf, text=t("hdmi_no_match"), bg=COLOR_FAIL, fg="white",
+                    font=F_BOLD, padx=20, pady=6, relief="flat", cursor="hand2",
+                    command=_no_match,
+                ).pack(side="left", padx=10)
+
+                dlg.protocol("WM_DELETE_WINDOW", _no_match)
+
+            self.after(0, _show_image)
+            self._manual_event.wait()
+            return self._manual_input_result
+
+        def _show():
+            dlg = tk.Toplevel(self)
+            dlg.title(t("manual_input_title"))
+            dlg.resizable(False, False)
+            dlg.grab_set()
+            dlg.transient(self)
+
+            w, h = 460, 260 if choices else 200
+            sw, sh = dlg.winfo_screenwidth(), dlg.winfo_screenheight()
+            dlg.geometry(f"{w}x{h}+{(sw-w)//2}+{(sh-h)//2}")
+
+            tk.Label(dlg, text=prompt, font=F_NORMAL,
+                     wraplength=420, justify="left",
+                     pady=12, padx=20).pack(fill="x")
+
+            var = tk.StringVar()
+
+            if choices:
+                import tkinter.ttk as ttk
+                combo = ttk.Combobox(dlg, textvariable=var, values=choices,
+                                     state="readonly", font=F_NORMAL, width=40)
+                if choices:
+                    combo.current(0)
+                combo.pack(padx=20, pady=(0, 8))
+
+                pw_var = tk.StringVar()
+                tk.Label(dlg, text=t("wifi_password_label"), font=F_NORMAL,
+                         anchor="w", padx=20).pack(fill="x")
+                pw_entry = tk.Entry(dlg, textvariable=pw_var, show="*",
+                                    font=F_NORMAL, width=42)
+                pw_entry.pack(padx=20, pady=(0, 8))
+                pw_entry.focus_set()
+            else:
+                entry = tk.Entry(dlg, textvariable=var, font=F_NORMAL, width=42,
+                                 show="*" if password else "")
+                entry.pack(padx=20, pady=(0, 8))
+                entry.focus_set()
+
+            bf = tk.Frame(dlg)
+            bf.pack(pady=(4, 14))
+
+            def _ok():
+                if choices:
+                    self._manual_input_result = f"{var.get()}\n{pw_var.get()}"
+                else:
+                    self._manual_input_result = var.get()
+                dlg.destroy()
+                self._manual_event.set()
+
+            def _cancel():
+                self._manual_input_result = None
+                dlg.destroy()
+                self._manual_event.set()
+
+            tk.Button(bf, text=t("btn_ok"), bg=COLOR_PASS, fg="white",
+                      font=F_BOLD, padx=20, pady=6, relief="flat",
+                      cursor="hand2", command=_ok).pack(side="left", padx=10)
+            tk.Button(bf, text=t("btn_cancel"), bg="#95a5a6", fg="white",
+                      font=F_BOLD, padx=20, pady=6, relief="flat",
+                      cursor="hand2", command=_cancel).pack(side="left", padx=10)
+
+            dlg.protocol("WM_DELETE_WINDOW", _cancel)
+            dlg.bind("<Return>", lambda e: _ok())
+            dlg.bind("<Escape>", lambda e: _cancel())
+
+        self.after(0, _show)
+        self._manual_event.wait()
+        return self._manual_input_result
 
     # ------------------------------------------------------------------
     def _on_save_report(self) -> None:

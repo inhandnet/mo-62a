@@ -1,5 +1,45 @@
 # Changelog
 
+## v1.0.3 — 2026-04-21
+
+### Rootfs
+
+#### Image Size Reduction (~1.76 GB uncompressed / ~400 MB compressed)
+- Remove Thunderbird and LibreOffice (including all l10n and UI packages) via
+  `apt-get remove --purge` + autoremove; frees ~487 MB.
+- Slim Noto font collection: remove `fonts-noto-extra`, `fonts-noto-cjk-extra`,
+  `fonts-noto-ui-extra`, `fonts-noto-unhinted`, and the `fonts-noto` meta-package;
+  retain `fonts-noto-core`, `fonts-noto-cjk`, `fonts-noto-mono`; frees ~657 MB.
+- Remove third-party vendor firmware not used by MO-62A hardware: Qualcomm
+  (ath10k/ath11k/ath12k/qca), Intel (iwlwifi/intel), MediaTek, Broadcom (brcm),
+  Marvell (mrvl/libertas/mwl8k), Cypress, Atheros (ath6k/ar3k), Wilocity, Ralink,
+  and miscellaneous single-file blobs; retain TI (ti-connectivity/ti-ipc), Realtek
+  (rtw89/rtw88/rtlwifi/rtl_bt/rtlbt/rtl_nic/realtek), AM62A VPU
+  (cnm/vpu_d.bin/vpu_p.bin), and the wireless regulatory database; frees ~306 MB.
+- Slim locale data: remove all locales except zh_CN, zh_TW, zh_HK, en, en_US,
+  en_GB, and locale.alias; frees ~307 MB.
+- Pre-install `memtester` and `mbw` for LPDDR4 integrity and bandwidth testing.
+
+### Tools
+
+#### mo62a-tester — Storage Test Suite
+- Add `tests/test_storage.py` with a new `Storage` test category (`cat_storage`):
+  - `LpddrMemtesterTest`: runs `sudo memtester 32M 1` (19 test patterns); size
+    reduced from 128 M to 32 M to keep runtime under 60 s (~52 s typical).
+  - `LpddrBandwidthTest`: runs `mbw -n 3 256`, parses MEMCPY AVG result, reports
+    MiB/s and fails if below 1000 MiB/s threshold (~1478 MiB/s typical on AM62A).
+  - `SdSpeedModeTest`: reads negotiated SD card speed mode and clock frequency from
+    `/sys/kernel/debug/mmc1/ios` (sudo); falls back to `journalctl` grep on failure.
+  - `SdReadSpeedTest`: drops page cache then measures sequential read speed with
+    `dd if=/dev/mmcblk1 of=/dev/null bs=4M count=50`; threshold ≥ 15 MB/s.
+  - `SdWriteSpeedTest`: measures sequential write speed with
+    `dd if=/dev/zero of=/tmp/sd_write_test bs=4M count=50 oflag=dsync`;
+    threshold ≥ 5 MB/s.
+- Register `cat_storage` in `gui/page_select.py` `TEST_CATEGORIES`.
+- Add all Storage category strings to `gui/i18n.py` (EN + ZH).
+
+---
+
 ## v1.0.2 — 2026-04-17
 
 ### Kernel & Device Tree

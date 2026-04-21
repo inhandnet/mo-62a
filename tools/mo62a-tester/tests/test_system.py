@@ -1,6 +1,7 @@
 """系统基础信息模块（仅采集展示，不做判定）"""
 
 from tests.base import TestCase, TestResult
+from gui.i18n import t
 
 
 class _InfoTest(TestCase):
@@ -15,33 +16,33 @@ class _InfoTest(TestCase):
         self.info(self._fmt(out.strip()))
 
     def _fmt(self, out: str) -> str:
-        return out.splitlines()[0] if out else "(empty)"
+        return out.splitlines()[0] if out else t("sys_empty")
 
 
 # ── 固件版本 ────────────────────────────────────────────────────────────────
 class FirmwareVersionTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_firmware_version"
     _cmd = "mo-version 2>/dev/null | head -2 | tr '\\n' '  ' || echo unknown"
 
 
 # ── 内核版本 ────────────────────────────────────────────────────────────────
 class KernelVersionTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_kernel_version"
     _cmd = "uname -a"
 
 
 # ── DTB 文件（主 DTB + Overlay） ─────────────────────────────────────────────
 class DTBFileTest(TestCase):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_dtb_overlays"
 
     def _run(self):
         extlinux = "/boot/firmware/extlinux/extlinux.conf"
         rc, out, err = self.cmd(f"cat {extlinux} 2>/dev/null")
         if rc != 0:
-            self.fail(f"Cannot read {extlinux}")
+            self.fail(t("sys_dtb_no_read", extlinux))
             return
 
         fdt = ""
@@ -66,7 +67,7 @@ class DTBFileTest(TestCase):
 
 # ── OS 版本 ─────────────────────────────────────────────────────────────────
 class OSVersionTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_os_version"
     _cmd = (
         "grep ^PRETTY_NAME /etc/os-release 2>/dev/null"
@@ -76,53 +77,78 @@ class OSVersionTest(_InfoTest):
 
 # ── 主机名 ──────────────────────────────────────────────────────────────────
 class HostnameTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_hostname"
     _cmd = "hostname"
 
 
 # ── 系统运行时间 ─────────────────────────────────────────────────────────────
-class UptimeTest(_InfoTest):
-    category = "System"
+class UptimeTest(TestCase):
+    category_key = "cat_system"
     name_key = "tn_uptime"
-    _cmd = "uptime -p"
+
+    def _run(self):
+        rc, out, _ = self.cmd("cat /proc/uptime 2>/dev/null")
+        if rc != 0 or not out.strip():
+            self.info("uptime unknown")
+            return
+        try:
+            total_secs = int(float(out.split()[0]))
+        except (ValueError, IndexError):
+            self.info(out.strip())
+            return
+        days, rem = divmod(total_secs, 86400)
+        hours, rem = divmod(rem, 3600)
+        minutes, seconds = divmod(rem, 60)
+        if days > 0:
+            self.info(t("sys_uptime_days", days, hours))
+        elif hours > 0:
+            self.info(t("sys_uptime_hours", hours, minutes))
+        elif minutes > 0:
+            self.info(t("sys_uptime_min", minutes))
+        else:
+            self.info(t("sys_uptime_sec", seconds))
 
 
 # ── 根文件系统 ───────────────────────────────────────────────────────────────
 class FilesystemTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_root_filesystem"
     _cmd = "df -h / | tail -1"
 
     def _fmt(self, out):
         parts = out.split()
         if len(parts) >= 5:
-            return f"Size {parts[1]}  Used {parts[2]} ({parts[4]})"
+            return t("sys_fs_fmt", parts[1], parts[2], parts[4])
         return out
 
 
 # ── 内存 ────────────────────────────────────────────────────────────────────
 class MemoryTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_memory"
-    _cmd = (
-        "free -m | awk '/^Mem/{printf"
-        ' "Total %dMB  Used %dMB  Free %dMB", $2, $3, $4}\'')
+    _cmd = "free -m | awk '/^Mem/{print $2, $3, $4}'"
+
+    def _fmt(self, out):
+        parts = out.split()
+        if len(parts) >= 3:
+            return t("sys_mem_fmt", parts[0], parts[1], parts[2])
+        return out
 
 
 # ── CPU 核心数 ───────────────────────────────────────────────────────────────
 class CPUCoreTest(_InfoTest):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_cpu_cores"
     _cmd = "nproc"
 
     def _fmt(self, out):
-        return f"{out} cores"
+        return t("sys_cores_fmt", out)
 
 
 # ── CPU 最大频率 ─────────────────────────────────────────────────────────────
 class CPUFreqTest(TestCase):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_cpu_frequency"
 
     def _run(self):
@@ -136,11 +162,11 @@ class CPUFreqTest(TestCase):
                 max_mhz = int(max_out.strip()) // 1000
                 min_mhz = int(min_out.strip()) // 1000 if rc_min == 0 and min_out.strip() else None
                 cur_mhz = int(cur_out.strip()) // 1000 if rc_cur == 0 and cur_out.strip() else None
-                parts = [f"Max {max_mhz} MHz"]
+                parts = [t("sys_freq_max", max_mhz)]
                 if min_mhz is not None:
-                    parts.append(f"Min {min_mhz} MHz")
+                    parts.append(t("sys_freq_min", min_mhz))
                 if cur_mhz is not None:
-                    parts.append(f"Cur {cur_mhz} MHz")
+                    parts.append(t("sys_freq_cur", cur_mhz))
                 self.info("  ".join(parts))
                 return
             except ValueError:
@@ -155,16 +181,16 @@ class CPUFreqTest(TestCase):
                         try:
                             hz = int(parts[5].strip())
                             cur_mhz = hz // 1_000_000
-                            self.info(f"Cur {cur_mhz} MHz  (via k3conf TISCI)")
+                            self.info(t("sys_freq_k3", cur_mhz))
                             return
                         except ValueError:
                             pass
-        self.fail("Cannot read CPU frequency")
+        self.fail(t("sys_cannot_read_freq"))
 
 
 # ── CPU 温度 ────────────────────────────────────────────────────────────────
 class TempSensorTest(TestCase):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_cpu_temperature"
 
     def _run(self):
@@ -172,17 +198,17 @@ class TempSensorTest(TestCase):
             "cat /sys/class/thermal/thermal_zone0/temp 2>/dev/null"
         )
         if rc != 0 or not out.strip():
-            self.fail("Cannot read thermal_zone0")
+            self.fail(t("sys_cannot_read_temp"))
             return
         try:
             self.info(f"{int(out.strip()) / 1000.0:.1f} °C")
         except ValueError:
-            self.fail(f"Cannot parse: {out.strip()}")
+            self.fail(t("sys_parse_temp_fail", out.strip()))
 
 
 # ── 以太网 MAC 地址 ──────────────────────────────────────────────────────────
 class MACAddressTest(TestCase):
-    category = "System"
+    category_key = "cat_system"
     name_key = "tn_ethernet_mac"
 
     def _run(self):
@@ -196,7 +222,7 @@ class MACAddressTest(TestCase):
             " done"
         )
         if rc != 0 or not out.strip():
-            self.fail("No network interface found")
+            self.fail(t("sys_no_net_iface"))
             return
         parts = []
         for line in out.strip().splitlines():
