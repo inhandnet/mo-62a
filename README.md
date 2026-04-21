@@ -625,11 +625,13 @@ The standard workflow is:
 
    ```bash
    TARBALL=filesystem/debian-13.2-xfce-v6.12-arm64-2026-01-13-12gb.tar.xz
-   sudo tar -cpJf "$TARBALL" -C "$ROOTFS_DIR" .
+   sudo tar -cpJf "$TARBALL" --numeric-owner -C "$ROOTFS_DIR" .
    sudo rm -rf "$ROOTFS_DIR"
    ```
 
-   > Re-packing a ~7 GiB rootfs with `xz` compression takes several minutes.  Use `tar -cpzf` (`.tar.gz`) for a faster but larger archive if turnaround time matters during development.
+   > **Important:** `sudo` and `--numeric-owner` are both required. Without `sudo`, all root-owned files (sudo, su, Xorg.wrap, etc.) will be stored with the host user's UID, breaking setuid binaries on the target. `--numeric-owner` stores UID/GID as integers rather than names, ensuring correct ownership regardless of host username mapping.
+   >
+   > Re-packing a ~5–7 GiB rootfs with `xz` compression takes 15–25 minutes. Use `tar -cpzf` (`.tar.gz`) for a faster but larger archive if turnaround time matters during development.
 
 After repacking, re-run the flash tool as normal. The newly installed packages will be present on the target immediately after flashing, with no network access required.
 
