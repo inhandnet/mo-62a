@@ -30,6 +30,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [5.3 Online Flashing (Write Directly to SD Card)](#53-online-flashing-write-directly-to-sd-card)
   - [5.4 Offline Image Creation (balenaEtcher)](#54-offline-image-creation-balenaetcher)
   - [5.5 Customising the Rootfs Tarball (Adding apt Packages)](#55-customising-the-rootfs-tarball-adding-apt-packages)
+  - [5.6 Rootfs Maintenance — Known Pitfalls and Fixes](#56-rootfs-maintenance--known-pitfalls-and-fixes)
 - [6. Partition Layout](#6-partition-layout)
   - [6.1 BOOT Partition Contents](#boot-partition-contents)
   - [6.2 Boot Configuration](#boot-configuration)
@@ -640,6 +641,105 @@ After repacking, re-run the flash tool as normal. The newly installed packages w
 | Package | Required by | Purpose |
 |---------|-------------|---------|
 | `frei0r-plugins` | `imx219-preview.sh` | White-balance correction via `frei0r-filter-white-balance` GStreamer element |
+
+### 5.6 Rootfs Maintenance — Known Pitfalls and Fixes
+
+This section documents issues that have been encountered when building or modifying the rootfs tarball, and the fixes that must be applied to preserve a working system.
+
+---
+
+#### 5.6.1 Tarball Packaging Rules (MUST follow every time)
+
+Two rules are non-negotiable when repacking the tarball:
+
+| Rule | Command flag | What breaks without it |
+|------|-------------|------------------------|
+| Always use `sudo` | `sudo tar -cpJf …` | Root-owned files are stored with the host user's UID (e.g. 1000). `sudo`, `su`, `passwd`, `Xorg.wrap` and other setuid binaries lose their ownership and stop working after flashing. |
+| Always use `--numeric-owner` | `tar … --numeric-owner` | UIDs/GIDs are stored as names, not numbers. If the host's `/etc/passwd` does not have the same usernames as the rootfs (e.g. `lightdm`, `saned`, `messagebus`), those entries are silently mapped to `nobody` during extraction, breaking services on the target. |
+
+The correct repack command is:
+
+```bash
+sudo tar -cpJf "$TARBALL" --numeric-owner \
+    --exclude=./proc --exclude=./sys --exclude=./dev --exclude=./run \
+    --exclude=./tmp  --exclude=./mnt --exclude=./media \
+    --exclude=./lost+found \
+    -C "$ROOTFS_DIR" .
+```
+
+---
+
+#### 5.6.2 Mesa bbbio Packages — Must Be Downgraded to Standard Trixie
+
+The rootfs was originally built with Mesa packages from the **BeagleBone.io (bbbio) backport** (`25.3.0-1bbbio0~trixie+20251117`). These packages do not declare a proper `Depends:` on `mesa-libgallium`, so `apt-get autoremove` silently deletes `mesa-libgallium` and the `libgallium-*.so` file along with it.
+
+**Symptom:** lightdm fails to start; Xorg logs show:
+```
+MESA-LOADER: failed to open gbm: /usr/lib/aarch64-linux-gnu/dri/gbm_dri.so: cannot open shared object file
+```
+
+**Fix:** Downgrade all 7 Mesa packages to the standard Debian trixie version (`25.0.7-2`) inside the chroot:
+
+```bash
+# Inside chroot
+apt-get install -y --allow-downgrades \
+    mesa-libgallium=25.0.7-2 \
+    libgl1-mesa-dri=25.0.7-2 \
+    libgbm1=25.0.7-2 \
+    libegl-mesa0=25.0.7-2 \
+    libglx-mesa0=25.0.7-2 \
+    mesa-va-drivers=25.0.7-2 \
+    mesa-vdpau-drivers=25.0.7-2
+```
+
+The standard Debian trixie `sources.list` already present in the rootfs is sufficient — no additional apt source is required.
+
+> **Note:** `libdrm2` and related packages remain at the bbbio version (`2.4.127-1bbbio0~trixie+20251111`); these are compatible with Mesa 25.0.7-2 and do not need to be downgraded.
+
+---
+
+#### 5.6.3 Daemon Directory Ownership — Broken by `chown -R root:root`
+
+If you ever run `sudo chown -R root:root <rootfs_dir>` during tarball preparation (e.g., to fix a bulk ownership issue), it will incorrectly reset the ownership of several daemon-specific directories. These must be restored **inside the chroot** (so that username→UID resolution uses the rootfs `/etc/passwd`, not the host's):
+
+```bash
+# Inside chroot — restore daemon directory ownership
+chown -R lightdm:lightdm  /var/lib/lightdm     # LightDM display manager
+chown -R messagebus:messagebus /var/lib/dbus    # D-Bus system bus
+chown -R saned:saned      /var/lib/saned        # SANE scanner daemon
+chown -R colord:colord    /var/lib/colord        # colord colour management
+chown -R man:man          /var/cache/man         # man page cache
+chown    root:mail        /var/mail              # mail spool
+chmod    2775             /var/mail
+```
+
+**Why inside the chroot?** The rootfs uses different UIDs for these service accounts than the host machine. Running `chown lightdm:lightdm` outside the chroot will either fail (if the host has no `lightdm` user) or silently apply the wrong UID. Inside the chroot the correct numeric UID from `/etc/passwd` is used, and `--numeric-owner` in the repack step stores it correctly.
+
+---
+
+#### 5.6.4 `dpkg --verify` — Stale Locale File Entries
+
+`localepurge` removes non-essential locale files from disk after package installation. If `localepurge` is run in a mode that does not update the dpkg database (e.g. not using `USE_DPKG`), the files are deleted from disk but `/var/lib/dpkg/info/<pkg>.list` still references them. `dpkg --verify` then reports thousands of `missing` entries.
+
+**Check:**
+```bash
+dpkg --verify 2>&1 | grep "^?" | wc -l   # should be 0
+```
+
+**Fix (inside chroot or on extracted rootfs):**
+```bash
+# Collect all paths that dpkg thinks exist but are missing from disk
+dpkg --verify 2>&1 | awk '/missing/{print $NF}' > /tmp/dpkg_missing.txt
+
+# Remove those lines from every .list file
+for f in /var/lib/dpkg/info/*.list; do
+    grep -vFf /tmp/dpkg_missing.txt "$f" > "$f.tmp" || true
+    mv "$f.tmp" "$f"
+done
+rm /tmp/dpkg_missing.txt
+```
+
+> **Note:** The tarball shipped from this repository has already had this fix applied. The issue only recurs if `localepurge` runs again on the live device without `USE_DPKG` mode enabled.
 
 ---
 
