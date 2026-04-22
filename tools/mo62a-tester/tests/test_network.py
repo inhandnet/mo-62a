@@ -116,15 +116,12 @@ class BLEScanTest(TestCase):
     name_key = "tn_ble_scan"
 
     def _run(self):
-        sudo_pw = getattr(self.board, "_password", "")
-        # down/up 强制重置扫描状态（lescan 被 timeout 杀死时不发 STOP_SCAN）
-        self.cmd(f"echo '{sudo_pw}' | sudo -S hciconfig hci0 down 2>/dev/null", timeout=5)
-        self.cmd(f"echo '{sudo_pw}' | sudo -S hciconfig hci0 up 2>/dev/null", timeout=5)
-        rc, out, err = self.cmd(
-            f"echo '{sudo_pw}' | sudo -S timeout 5 hcitool lescan 2>/dev/null",
+        # Keep bluetoothctl alive via pipe so discovery isn't cancelled on exit
+        rc, out, _ = self.cmd(
+            "(echo 'scan on'; sleep 5; echo 'devices'; echo 'quit') | bluetoothctl 2>/dev/null",
             timeout=15,
         )
-        lines = [l.strip() for l in out.splitlines() if l.strip() and "LE Scan" not in l]
+        lines = [l.strip() for l in out.splitlines() if l.strip().startswith("Device")]
         if not lines:
             self.fail(t("net_ble_none"))
             return
