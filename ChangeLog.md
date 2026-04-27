@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.0.4 — 2026-04-27
+
+### Kernel & Device Tree
+
+#### S1 Power Button — TPS6593-Q1 PMIC Driver (tps6594-core.c)
+- Configure `NPWRON_SEL` (bits [7:6] of `NPWRON_CONF` register, address 0x3C) to
+  button mode (`01`) on PMIC probe when the `system-power-controller` DT property is
+  set. In button mode the NPWRON pin generates an interrupt on S1 press/release rather
+  than acting as a simple enable signal.
+- Register an IRQ handler for `TPS6594_IRQ_NPWRON_START` that reports `KEY_POWER`
+  press and release events to a new `tps6594-pwrbutton` input device. Release is
+  detected by polling `GPIO_IN_2` (NPWRON input state bit) every 50 ms via a
+  `delayed_work` since the PMIC only generates a single start-edge interrupt per press.
+- Remove `TPS6594_IRQ_NPWRON_START` from `tps6594_pfsm_resources[]` to prevent an
+  IRQ ownership conflict (`-EBUSY`) with the new handler.
+- Add a `register_reboot_notifier` callback that switches `NPWRON_SEL` back to ENABLE
+  mode (`00`) on `SYS_POWER_OFF`. This runs during `kernel_shutdown_prepare()` while
+  I²C is still operational, restoring the default power-on behaviour so that a short
+  S1 press can restart the system after a clean soft poweroff.
+
+### Rootfs
+
+#### S1 Power Button Timing Daemon
+- Add `board-support/extra-applications/s1-powerkey/` Python daemon with three
+  hold-duration actions, all triggered by hardware timers (not on button release):
+  - **< 3 s** press then release → `systemctl reboot`
+  - **≥ 3 s** hold → launch `xfce4-session-logout` XFCE shutdown dialog (fires while
+    button is still held; silently no-ops if no XFCE session is active — poweroff falls
+    through to the 5 s timer)
+  - **≥ 5 s** hold → `systemctl poweroff`
+- Add `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`: simple
+  service with `Restart=always`; `WantedBy=multi-user.target` only — no
+  `After=graphical.target` / `Wants=graphical.target` to avoid a systemd ordering
+  cycle that silently prevented the service from starting at boot.
+- Add `multi-user.target.wants/s1-powerkey.service` symlink for auto-start.
+- Add `board-support/rootfs-overlay/etc/systemd/logind.conf.d/s1-powerkey.conf`:
+  sets `HandlePowerKey=ignore` and `HandlePowerKeyLongPress=ignore` so logind does
+  not consume `KEY_POWER` events before the daemon can handle them.
+
+---
+
 ## v1.0.3 — 2026-04-21
 
 ### Rootfs

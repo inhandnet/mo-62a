@@ -1,5 +1,44 @@
 # 更新日志
 
+## v1.0.4 — 2026-04-27
+
+### 内核与设备树
+
+#### S1 电源键 — TPS6593-Q1 PMIC 驱动（tps6594-core.c）
+- 当 PMIC 设备树节点设有 `system-power-controller` 属性时，在 probe 阶段将
+  `NPWRON_CONF` 寄存器（地址 0x3C）的 `NPWRON_SEL` 位域（[7:6]）配置为按键模式
+  （`01`）。在此模式下，NPWRON 引脚在 S1 按下/松开时产生中断，而非充当简单的
+  使能信号。
+- 为 `TPS6594_IRQ_NPWRON_START` 注册 IRQ 处理函数，将 `KEY_POWER` 按下与松开
+  事件上报至新建的 `tps6594-pwrbutton` 输入设备。由于 PMIC 每次按压仅产生一次
+  上升沿中断，松开事件通过每 50 ms 轮询 `GPIO_IN_2`（NPWRON 输入状态位）的
+  `delayed_work` 检测。
+- 从 `tps6594_pfsm_resources[]` 中移除 `TPS6594_IRQ_NPWRON_START`，避免与新
+  注册的处理函数产生 IRQ 所有权冲突（`-EBUSY`）。
+- 新增 `register_reboot_notifier` 回调：在 `SYS_POWER_OFF` 事件时将
+  `NPWRON_SEL` 切回使能模式（`00`）。该回调在 `kernel_shutdown_prepare()` 阶段
+  执行，此时 I²C 仍正常工作；切换完成后，S1 短按即可在软关机后重新上电启动系统。
+
+### 根文件系统
+
+#### S1 电源键计时守护进程
+- 新增 `board-support/extra-applications/s1-powerkey/` Python 守护进程，
+  基于硬件计时器（而非松开按键时）触发以下三种动作：
+  - **< 3 秒**按下后松开 → `systemctl reboot`
+  - **≥ 3 秒**持续按住 → 弹出 `xfce4-session-logout` XFCE 关机对话框（按住期间触发；
+    若无 XFCE 会话则静默跳过，由 5 秒计时器负责关机）
+  - **≥ 5 秒**持续按住 → `systemctl poweroff`
+- 新增 `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`：
+  简单服务，设置 `Restart=always`；仅 `WantedBy=multi-user.target`，去除
+  `After=graphical.target` / `Wants=graphical.target` 依赖——原有依赖会在
+  systemd 解析启动顺序时形成循环依赖，导致服务开机静默跳过不启动。
+- 新增 `multi-user.target.wants/s1-powerkey.service` 符号链接，实现开机自启。
+- 新增 `board-support/rootfs-overlay/etc/systemd/logind.conf.d/s1-powerkey.conf`：
+  设置 `HandlePowerKey=ignore` 和 `HandlePowerKeyLongPress=ignore`，阻止
+  logind 在守护进程之前消费 `KEY_POWER` 事件。
+
+---
+
 ## v1.0.3 — 2026-04-21
 
 ### 根文件系统

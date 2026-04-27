@@ -7,9 +7,12 @@
 
 #include <linux/completion.h>
 #include <linux/delay.h>
+#include <linux/input.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/reboot.h>
+#include <linux/workqueue.h>
 
 #include <linux/mfd/core.h>
 #include <linux/mfd/tps6594.h>
@@ -81,7 +84,7 @@ static const struct resource tps6594_pinctrl_resources[] = {
 };
 
 static const struct resource tps6594_pfsm_resources[] = {
-	DEFINE_RES_IRQ_NAMED(TPS6594_IRQ_NPWRON_START, TPS6594_IRQ_NAME_NPWRON_START),
+	/* NPWRON_START is handled by tps6594_s1_configure() when system-power-controller is set */
 	DEFINE_RES_IRQ_NAMED(TPS6594_IRQ_ENABLE, TPS6594_IRQ_NAME_ENABLE),
 	DEFINE_RES_IRQ_NAMED(TPS6594_IRQ_FSD, TPS6594_IRQ_NAME_FSD),
 	DEFINE_RES_IRQ_NAMED(TPS6594_IRQ_SOFT_REBOOT, TPS6594_IRQ_NAME_SOFT_REBOOT),
@@ -604,6 +607,130 @@ static int tps6594_enable_crc(struct tps6594 *tps)
 	return ret;
 }
 
+/* ---- S1 power button (nPWRON pin) ---------------------------------------- */
+
+struct tps6594_pwrbutton {
+	struct tps6594      *tps;
+	struct input_dev    *idev;
+	struct delayed_work  poll_work;
+};
+
+static struct tps6594 *tps6594_pwroff_tps;
+
+/*
+ * Reboot notifier: runs during kernel_shutdown_prepare() while IRQs and I2C
+ * are still fully operational — well before machine_power_off() disables IRQs.
+ * Switch nPWRON back to ENABLE mode so S1 acts as a hardware restart trigger
+ * after the SoC halts:
+ *   S1 press   -> ENABLE deasserted -> PMIC cuts rails
+ *   S1 release -> ENABLE asserted   -> PMIC powers up -> SoC boots
+ */
+static int tps6594_reboot_notify(struct notifier_block *nb,
+				 unsigned long action, void *data)
+{
+	if (action == SYS_POWER_OFF)
+		regmap_update_bits(tps6594_pwroff_tps->regmap,
+				   TPS6594_REG_NPWRON_CONF,
+				   TPS6594_MASK_NPWRON_SEL, 0x00);
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block tps6594_reboot_nb = {
+	.notifier_call = tps6594_reboot_notify,
+};
+
+static void tps6594_s1_poll_release(struct work_struct *work)
+{
+	struct tps6594_pwrbutton *pb =
+		container_of(work, struct tps6594_pwrbutton, poll_work.work);
+	unsigned int val;
+
+	regcache_drop_region(pb->tps->regmap,
+			     TPS6594_REG_GPIO_IN_2, TPS6594_REG_GPIO_IN_2);
+	if (regmap_read(pb->tps->regmap, TPS6594_REG_GPIO_IN_2, &val) ||
+	    (val & TPS6594_BIT_NPWRON_IN)) {
+		input_report_key(pb->idev, KEY_POWER, 0);
+		input_sync(pb->idev);
+	} else {
+		schedule_delayed_work(&pb->poll_work, msecs_to_jiffies(50));
+	}
+}
+
+static irqreturn_t tps6594_s1_irq_handler(int irq, void *data)
+{
+	struct tps6594_pwrbutton *pb = data;
+
+	cancel_delayed_work(&pb->poll_work);
+	input_report_key(pb->idev, KEY_POWER, 1);
+	input_sync(pb->idev);
+	schedule_delayed_work(&pb->poll_work, msecs_to_jiffies(50));
+	return IRQ_HANDLED;
+}
+
+static void tps6594_s1_cancel_poll(void *data)
+{
+	cancel_delayed_work_sync(data);
+}
+
+static int tps6594_s1_configure(struct tps6594 *tps)
+{
+	struct device *dev = tps->dev;
+	struct tps6594_pwrbutton *pb;
+	struct input_dev *idev;
+	int irq, ret;
+
+	pb = devm_kzalloc(dev, sizeof(*pb), GFP_KERNEL);
+	if (!pb)
+		return -ENOMEM;
+
+	idev = devm_input_allocate_device(dev);
+	if (!idev)
+		return -ENOMEM;
+
+	idev->name       = "tps6594-pwrbutton";
+	idev->id.bustype = BUS_I2C;
+	input_set_capability(idev, EV_KEY, KEY_POWER);
+
+	pb->tps  = tps;
+	pb->idev = idev;
+	INIT_DELAYED_WORK(&pb->poll_work, tps6594_s1_poll_release);
+
+	ret = devm_add_action_or_reset(dev, tps6594_s1_cancel_poll,
+				       &pb->poll_work);
+	if (ret)
+		return ret;
+
+	/* Switch nPWRON pin to button mode */
+	ret = regmap_update_bits(tps->regmap, TPS6594_REG_NPWRON_CONF,
+				 TPS6594_MASK_NPWRON_SEL, 0x40);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to set NPWRON mode\n");
+
+	/* Unmask NPWRON_START so presses generate an interrupt */
+	ret = regmap_clear_bits(tps->regmap, TPS6594_REG_MASK_STARTUP,
+				TPS6594_BIT_NPWRON_START_MASK);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to unmask NPWRON_START\n");
+
+	irq = regmap_irq_get_virq(tps->irq_data, TPS6594_IRQ_NPWRON_START);
+	if (irq < 0)
+		return dev_err_probe(dev, irq, "Failed to get NPWRON_START IRQ\n");
+
+	ret = devm_request_threaded_irq(dev, irq, NULL, tps6594_s1_irq_handler,
+					IRQF_ONESHOT, "tps6594-pwrbutton", pb);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to request NPWRON_START IRQ\n");
+
+	ret = input_register_device(idev);
+	if (ret)
+		return dev_err_probe(dev, ret, "Failed to register input device\n");
+
+	dev_info(dev, "S1 power button registered (nPWRON mode)\n");
+	return 0;
+}
+
+/* -------------------------------------------------------------------------- */
+
 int tps6594_device_init(struct tps6594 *tps, bool enable_crc)
 {
 	struct device *dev = tps->dev;
@@ -658,6 +785,17 @@ int tps6594_device_init(struct tps6594 *tps, bool enable_crc)
 					   regmap_irq_get_domain(tps->irq_data));
 		if (ret)
 			return dev_err_probe(dev, ret, "Failed to add RTC child device\n");
+	}
+
+	/* S1 power button: only on boards where this PMIC is the system power controller */
+	if (tps->chip_id != TPS65224 && tps->chip_id != LP8764 &&
+	    of_property_read_bool(dev->of_node, "system-power-controller")) {
+		ret = tps6594_s1_configure(tps);
+		if (ret)
+			return ret;
+
+		tps6594_pwroff_tps = tps;
+		register_reboot_notifier(&tps6594_reboot_nb);
 	}
 
 	return 0;

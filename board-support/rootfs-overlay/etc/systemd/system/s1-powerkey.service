@@ -1,0 +1,13 @@
+[Unit]
+Description=S1 Power Button Timing Daemon
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/s1-powerkey
+Restart=always
+RestartSec=1
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
