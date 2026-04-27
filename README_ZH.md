@@ -51,8 +51,9 @@ MO-62A 单板计算机 SDK，基于 TI AM62A7 平台，提供高达 2 TOPS AI �
   - [7.15 JTAG 接口](#715-jtag-接口)
   - [7.16 硬件版本识别引脚](#716-硬件版本识别引脚)
 - [8. 显示——DPMS 息屏与唤醒](#8-显示dpms-息屏与唤醒)
-- [9. EEPROM](#9-eeprom)
-- [10. MO-62A 自动化测试工具](#10-mo-62a-自动化测试工具)
+- [9. S1 电源键](#9-s1-电源键)
+- [10. EEPROM](#10-eeprom)
+- [11. MO-62A 自动化测试工具](#11-mo-62a-自动化测试工具)
 
 ---
 
@@ -757,7 +758,7 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | SOC_I2C2 | EXP 40 Pin（SDA1/SCL1） | — |
 | MCU_I2C0 | PMIC（从 I2C） | — |
 
-> ¹ EEPROM 硬件存在于 0x50 地址，但内核设备树中未启用 `eeprom@50` DTS 节点。SiI9022A HDMI 发送器通过内部 I2C 旁路以相同地址（0x50）提供 EDID DDC 访问；同时启用两者会导致总线冲突。详见[第 9 节](#9-eeprom)。
+> ¹ EEPROM 硬件存在于 0x50 地址，但内核设备树中未启用 `eeprom@50` DTS 节点。SiI9022A HDMI 发送器通过内部 I2C 旁路以相同地址（0x50）提供 EDID DDC 访问；同时启用两者会导致总线冲突。详见[第 10 节](#10-eeprom)。
 
 ---
 
@@ -782,7 +783,7 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | 地址 | 0x50 |
 | 写保护 | GPIO：C19/GPIO1_7/EEP_WC（高电平有效；经 R267 10 kΩ 上拉至 VCC_3V3_SYS，驱动未加载时默认写保护） |
 
-> `eeprom@50` DTS 节点当前已移除，详见[第 9 节](#9-eeprom)。
+> `eeprom@50` DTS 节点当前已移除，详见[第 10 节](#10-eeprom)。
 
 ---
 
@@ -1067,7 +1068,54 @@ DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
 
 ---
 
-## 9. EEPROM
+## 9. S1 电源键
+
+S1 按键连接至 TPS6593-Q1 PMIC（I²C 总线 0，地址 0x48）的 `NPWRON` 引脚。SDK 实现了完整的软件栈，提供三种按压时长对应的动作。
+
+### 行为说明
+
+| 按压时长 | 动作 | 触发时机 |
+|----------|------|---------|
+| 松开前不足 3 秒 | `systemctl reboot` | 松开时触发 |
+| 持续按住 ≥ 3 秒 | 弹出 XFCE4 关机对话框 | 按住期间触发 |
+| 持续按住 ≥ 5 秒 | `systemctl poweroff` | 按住期间触发 |
+| 软关机后 | S1 短按重新启动 | PMIC 硬件行为 |
+
+若当前无 XFCE 会话（例如设备停留在登录界面），3 秒动作静默跳过——由 5 秒关机计时器负责关机。
+
+执行 `systemctl poweroff` 后，内核 reboot notifier 会将 PMIC `NPWRON_SEL` 寄存器切回使能模式（`00`），恢复默认上电行为，使得 S1 短按可在软关机后直接重启系统，无需重新插拔 USB-C 电源。
+
+### 软件栈
+
+| 组件 | 路径 | 职责 |
+|------|------|------|
+| 内核驱动 | `drivers/mfd/tps6594-core.c` | 配置 `NPWRON_SEL = 01`（按键模式）；注册 `NPWRON_START` IRQ；通过 `tps6594-pwrbutton` 输入设备上报 `KEY_POWER` 事件；reboot notifier 在关机时切回使能模式 |
+| `s1-powerkey` 守护进程 | `/usr/local/bin/s1-powerkey` | Python 守护进程，读取 `/dev/input/eventN` 的 `KEY_POWER` 事件，使用 `threading.Timer` 在 3 秒和 5 秒时触发对应动作 |
+| systemd 服务 | `/etc/systemd/system/s1-powerkey.service` | 开机自动启动（`WantedBy=multi-user.target`）；`Restart=always` |
+| logind 配置 | `/etc/systemd/logind.conf.d/s1-powerkey.conf` | 设置 `HandlePowerKey=ignore` 和 `HandlePowerKeyLongPress=ignore`，阻止 logind 在守护进程之前消费 `KEY_POWER` 事件 |
+
+### PMIC 硬件安全机制（FSD）
+
+TPS6593-Q1 内置硬件强制关机（FSD）计时器：在按键模式下，若 S1 持续按住约 7 秒，PMIC 将无视软件状态直接切断所有电源轨。FSD 断电后，S1 短按可正常重启系统。
+
+由于软件触发的 5 秒关机早于 7 秒 FSD 阈值，且 reboot notifier 在关机序列中已将 `NPWRON_SEL` 切回使能模式，FSD 计时器在系统完全断电前即已失效。FSD 作为最后的硬件安全兜底，仅在软件关机流程卡死时才会触发。
+
+### 通过 SSH 验证
+
+```bash
+# 查看服务状态
+systemctl status s1-powerkey
+
+# 实时监听 KEY_POWER 事件
+sudo evtest /dev/input/event0
+
+# 跟踪守护进程日志
+journalctl -u s1-powerkey -f
+```
+
+---
+
+## 10. EEPROM
 
 MO-62A 板上搭载一颗 **BL24C02F** 2 Kbit（256 字节）I2C EEPROM，挂载在 SOC_I2C1 总线上（地址 0x50）。主要用途为存储板卡标识信息，例如序列号、硬件版本、MAC 地址种子或其他需要掉电保持的元数据。
 
@@ -1107,7 +1155,7 @@ printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
 
 ---
 
-## 10. MO-62A 自动化测试工具
+## 11. MO-62A 自动化测试工具
 
 `tools/mo62a-tester/` 是一套基于 Python 的 GUI 自动化测试工具，通过 SSH 对 MO-62A 板卡进行硬件验收测试。
 

@@ -52,8 +52,9 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [7.15 JTAG Interface](#715-jtag-interface)
   - [7.16 Hardware Revision Straps](#716-hardware-revision-straps)
 - [8. Display — DPMS Screen Blanking and Wake](#8-display--dpms-screen-blanking-and-wake)
-- [9. EEPROM](#9-eeprom)
-- [10. MO-62A Automated Test Tool](#10-mo-62a-automated-test-tool)
+- [9. S1 Power Button](#9-s1-power-button)
+- [10. EEPROM](#10-eeprom)
+- [11. MO-62A Automated Test Tool](#11-mo-62a-automated-test-tool)
 
 ---
 
@@ -868,7 +869,7 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | SOC_I2C2 | EXP 40-Pin (SDA1/SCL1) | — |
 | MCU_I2C0 | PMIC (secondary I2C) | — |
 
-> ¹ The EEPROM hardware is present at 0x50, but the `eeprom@50` DTS node is not enabled in the kernel device tree. The SiI9022A HDMI transmitter uses the same I2C address (0x50) for EDID DDC access via its internal I2C bypass; enabling both simultaneously causes bus conflicts. See [Section 9](#9-eeprom) for details.
+> ¹ The EEPROM hardware is present at 0x50, but the `eeprom@50` DTS node is not enabled in the kernel device tree. The SiI9022A HDMI transmitter uses the same I2C address (0x50) for EDID DDC access via its internal I2C bypass; enabling both simultaneously causes bus conflicts. See [Section 10](#10-eeprom) for details.
 
 ---
 
@@ -893,7 +894,7 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | Address | 0x50 |
 | Write protect | GPIO: C19/GPIO1_7/EEP_WC (active-high; pulled high via R267 10 kΩ — write-protected by default when driver not loaded) |
 
-> The `eeprom@50` DTS node is currently removed. See [Section 9](#9-eeprom).
+> The `eeprom@50` DTS node is currently removed. See [Section 10](#10-eeprom).
 
 ---
 
@@ -1178,7 +1179,54 @@ DISPLAY=:0 XAUTHORITY=/home/debian/.Xauthority xset dpms force on
 
 ---
 
-## 9. EEPROM
+## 9. S1 Power Button
+
+The S1 button is connected to the `NPWRON` pin of the TPS6593-Q1 PMIC (I²C bus 0, address 0x48). The SDK implements a complete software stack that provides three hold-duration actions.
+
+### Behaviour
+
+| Hold duration | Action | Trigger |
+|---------------|--------|---------|
+| Release before 3 s | `systemctl reboot` | On release |
+| Hold ≥ 3 s | XFCE4 shutdown dialog | While still held |
+| Hold ≥ 5 s | `systemctl poweroff` | While still held |
+| After soft poweroff | Short S1 press restarts | PMIC hardware |
+
+When no XFCE session is active (e.g. device is at the login screen), the 3 s action is a no-op — the 5 s poweroff timer handles the shutdown instead.
+
+After `systemctl poweroff`, the kernel reboot notifier switches the PMIC `NPWRON_SEL` register back to ENABLE mode (`00`). This restores the default power-on behaviour so that a short S1 press can restart the system without requiring a power-cycle on the USB-C connector.
+
+### Software Stack
+
+| Component | Location | Role |
+|-----------|----------|------|
+| Kernel driver | `drivers/mfd/tps6594-core.c` | Configures `NPWRON_SEL = 01` (button mode); registers `NPWRON_START` IRQ; reports `KEY_POWER` events via `tps6594-pwrbutton` input device; reboot notifier switches back to ENABLE mode on poweroff |
+| `s1-powerkey` daemon | `/usr/local/bin/s1-powerkey` | Python daemon that reads `KEY_POWER` events from `/dev/input/eventN` and fires `threading.Timer` callbacks at 3 s and 5 s |
+| systemd service | `/etc/systemd/system/s1-powerkey.service` | Starts the daemon at boot (`WantedBy=multi-user.target`); `Restart=always` |
+| logind override | `/etc/systemd/logind.conf.d/s1-powerkey.conf` | Sets `HandlePowerKey=ignore` and `HandlePowerKeyLongPress=ignore` so logind does not consume `KEY_POWER` events before the daemon |
+
+### PMIC Hardware Safety (FSD)
+
+The TPS6593-Q1 has a hardware Forced Shutdown Device (FSD) timer: if S1 is held for approximately 7 seconds in button mode, the PMIC cuts all power rails regardless of software state. After an FSD event, a short S1 press restarts the system normally.
+
+Because our 5 s software poweroff fires before the 7 s FSD threshold, and the reboot notifier switches `NPWRON_SEL` back to ENABLE mode during the shutdown sequence, the FSD timer is no longer running by the time the system goes fully off. The FSD remains as a last-resort safety mechanism if the software-initiated poweroff stalls.
+
+### Verifying from an SSH Session
+
+```bash
+# Check service status
+systemctl status s1-powerkey
+
+# Watch live KEY_POWER events
+sudo evtest /dev/input/event0
+
+# Follow daemon log
+journalctl -u s1-powerkey -f
+```
+
+---
+
+## 10. EEPROM
 
 The MO-62A carries a **BL24C02F** 2 Kbit (256-byte) I2C EEPROM on SOC_I2C1 (address 0x50). It is intended for board identity storage — serial number, hardware revision, MAC address seed, or other persistent metadata.
 
@@ -1218,7 +1266,7 @@ printf "\x01" | sudo dd of=/sys/bus/i2c/devices/1-0050/eeprom \
 
 ---
 
-## 10. MO-62A Automated Test Tool
+## 11. MO-62A Automated Test Tool
 
 `tools/mo62a-tester/` is a Python-based GUI tool for automated hardware acceptance testing of MO-62A boards over SSH.
 
