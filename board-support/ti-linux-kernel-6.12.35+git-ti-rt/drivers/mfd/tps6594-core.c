@@ -11,7 +11,6 @@
 #include <linux/interrupt.h>
 #include <linux/module.h>
 #include <linux/of.h>
-#include <linux/reboot.h>
 #include <linux/workqueue.h>
 
 #include <linux/mfd/core.h>
@@ -615,29 +614,6 @@ struct tps6594_pwrbutton {
 	struct delayed_work  poll_work;
 };
 
-static struct tps6594 *tps6594_pwroff_tps;
-
-/*
- * Reboot notifier: runs during kernel_shutdown_prepare() while IRQs and I2C
- * are still fully operational — well before machine_power_off() disables IRQs.
- * Switch nPWRON back to ENABLE mode so S1 acts as a hardware restart trigger
- * after the SoC halts:
- *   S1 press   -> ENABLE deasserted -> PMIC cuts rails
- *   S1 release -> ENABLE asserted   -> PMIC powers up -> SoC boots
- */
-static int tps6594_reboot_notify(struct notifier_block *nb,
-				 unsigned long action, void *data)
-{
-	if (action == SYS_POWER_OFF)
-		regmap_update_bits(tps6594_pwroff_tps->regmap,
-				   TPS6594_REG_NPWRON_CONF,
-				   TPS6594_MASK_NPWRON_SEL, 0x00);
-	return NOTIFY_DONE;
-}
-
-static struct notifier_block tps6594_reboot_nb = {
-	.notifier_call = tps6594_reboot_notify,
-};
 
 static void tps6594_s1_poll_release(struct work_struct *work)
 {
@@ -793,9 +769,6 @@ int tps6594_device_init(struct tps6594 *tps, bool enable_crc)
 		ret = tps6594_s1_configure(tps);
 		if (ret)
 			return ret;
-
-		tps6594_pwroff_tps = tps;
-		register_reboot_notifier(&tps6594_reboot_nb);
 	}
 
 	return 0;
