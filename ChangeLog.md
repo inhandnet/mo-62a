@@ -23,13 +23,15 @@
 ### Rootfs
 
 #### S1 Power Button Timing Daemon
-- Add `board-support/extra-applications/s1-powerkey/` Python daemon with three
-  hold-duration actions, all triggered by hardware timers (not on button release):
-  - **< 3 s** press then release → `systemctl reboot`
-  - **≥ 3 s** hold → launch `xfce4-session-logout` XFCE shutdown dialog (fires while
-    button is still held; silently no-ops if no XFCE session is active — poweroff falls
-    through to the 5 s timer)
-  - **≥ 5 s** hold → `systemctl poweroff`
+- Add `board-support/extra-applications/s1-powerkey/` Python daemon that mirrors
+  standard Ubuntu laptop power-button behaviour:
+  - **Press** → `xfce4-session-logout` XFCE shutdown dialog appears immediately
+    (non-blocking, fired via a daemon thread while the button is still held)
+  - **Release before 3 s** → poweroff timer cancelled; dialog stays open for user
+    interaction
+  - **Hold ≥ 3 s** → `systemctl poweroff` (dialog bypassed)
+  - No XFCE session (login screen): dialog step silently skipped; 3 s poweroff
+    timer still fires normally
 - Add `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`: simple
   service with `Restart=always`; `WantedBy=multi-user.target` only — no
   `After=graphical.target` / `Wants=graphical.target` to avoid a systemd ordering

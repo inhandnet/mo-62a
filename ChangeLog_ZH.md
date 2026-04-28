@@ -23,11 +23,12 @@
 
 #### S1 电源键计时守护进程
 - 新增 `board-support/extra-applications/s1-powerkey/` Python 守护进程，
-  基于硬件计时器（而非松开按键时）触发以下三种动作：
-  - **< 3 秒**按下后松开 → `systemctl reboot`
-  - **≥ 3 秒**持续按住 → 弹出 `xfce4-session-logout` XFCE 关机对话框（按住期间触发；
-    若无 XFCE 会话则静默跳过，由 5 秒计时器负责关机）
-  - **≥ 5 秒**持续按住 → `systemctl poweroff`
+  行为与标准 Ubuntu 笔记本电源键一致：
+  - **按下** → 立即弹出 `xfce4-session-logout` XFCE 关机对话框（通过守护线程
+    非阻塞触发，无需松开按键）
+  - **3 秒内松开** → 取消关机计时器；对话框保持显示，等待用户操作
+  - **持续按住 ≥ 3 秒** → `systemctl poweroff`（绕过对话框，强制关机）
+  - 无 XFCE 会话（停留在登录界面）时：弹窗步骤静默跳过，3 秒关机计时器仍正常触发
 - 新增 `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`：
   简单服务，设置 `Restart=always`；仅 `WantedBy=multi-user.target`，去除
   `After=graphical.target` / `Wants=graphical.target` 依赖——原有依赖会在
