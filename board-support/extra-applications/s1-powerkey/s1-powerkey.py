@@ -2,10 +2,11 @@
 """
 s1-powerkey: S1 power button timing daemon for MO-62A.
 
-Three states based on how long S1 is held:
-  < 3s   → systemctl reboot            (triggered on release)
-  ≥ 3s   → XFCE4 shutdown dialog       (triggered while still held)
-  ≥ 5s   → systemctl poweroff           (triggered while still held)
+Mirrors Ubuntu laptop power-button behaviour:
+  press         → XFCE4 shutdown dialog (immediately, while still held)
+  hold ≥ 3s     → systemctl poweroff (dialog bypassed)
+  release < 3s  → dialog stays open for user interaction
+  ~7s           → PMIC hardware forced shutdown (FSD, not software-controlled)
 """
 import glob
 import logging
@@ -25,8 +26,7 @@ log = logging.getLogger("s1-powerkey")
 DEVICE_NAME = "tps6594-pwrbutton"
 EV_KEY      = 1
 KEY_POWER   = 116
-T_DIALOG    = 3.0   # seconds before showing XFCE dialog
-T_POWEROFF  = 5.0   # seconds before forcing poweroff
+T_POWEROFF  = 3.0   # hold ≥ 3s → force poweroff
 
 # struct input_event on aarch64: timeval(8+8) + type(2) + code(2) + value(4) = 24 bytes
 EVENT_FMT  = "llHHi"
@@ -48,7 +48,6 @@ def find_device():
 
 
 def show_xfce_dialog():
-    log.info("3s → XFCE shutdown dialog")
     env = {}
     try:
         result = subprocess.run(
@@ -65,17 +64,12 @@ def show_xfce_dialog():
         log.warning("Cannot find XFCE session: %s — no dialog shown", e)
         return
 
+    log.info("Press → XFCE shutdown dialog")
     display = env.get("DISPLAY", ":0")
     dbus    = env.get("DBUS_SESSION_BUS_ADDRESS", "")
     cmd     = f"DISPLAY={display} DBUS_SESSION_BUS_ADDRESS={dbus} xfce4-session-logout"
-    proc    = subprocess.Popen(["su", "debian", "-c", cmd],
-                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    try:
-        _, err = proc.communicate(timeout=5)
-        if proc.returncode != 0:
-            log.warning("xfce4-session-logout rc=%d stderr=%r", proc.returncode, err)
-    except subprocess.TimeoutExpired:
-        pass  # dialog is showing — expected
+    subprocess.Popen(["su", "debian", "-c", cmd],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
 
 def main():
@@ -88,8 +82,6 @@ def main():
 
     log.info("Monitoring %s", dev)
 
-    time_press     = None
-    dialog_timer   = None
     poweroff_timer = None
 
     with open(dev, "rb") as f:
@@ -101,26 +93,18 @@ def main():
             if etype != EV_KEY or code != KEY_POWER:
                 continue
 
-            if value == 1:  # press
-                time_press     = time.monotonic()
-                dialog_timer   = threading.Timer(T_DIALOG,   show_xfce_dialog)
+            if value == 1:  # press — show dialog immediately and start poweroff countdown
+                threading.Thread(target=show_xfce_dialog, daemon=True).start()
                 poweroff_timer = threading.Timer(T_POWEROFF, lambda: (
-                    log.info("5s → poweroff") or subprocess.run(["systemctl", "poweroff"])
+                    log.info("3s hold → poweroff") or
+                    subprocess.run(["systemctl", "poweroff"])
                 ))
-                dialog_timer.start()
                 poweroff_timer.start()
 
-            elif value == 0 and time_press is not None:  # release
-                held       = time.monotonic() - time_press
-                time_press = None
-                dialog_timer.cancel()
-                poweroff_timer.cancel()
-                dialog_timer = poweroff_timer = None
-
-                if held < T_DIALOG:
-                    log.info("%.2fs → reboot", held)
-                    subprocess.run(["systemctl", "reboot"])
-                # ≥ T_DIALOG: dialog already fired; poweroff timer cancelled
+            elif value == 0:  # release — cancel poweroff, dialog stays open
+                if poweroff_timer:
+                    poweroff_timer.cancel()
+                    poweroff_timer = None
 
 
 if __name__ == "__main__":

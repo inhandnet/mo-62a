@@ -1185,14 +1185,17 @@ The S1 button is connected to the `NPWRON` pin of the TPS6593-Q1 PMIC (I²C bus 
 
 ### Behaviour
 
-| Hold duration | Action | Trigger |
-|---------------|--------|---------|
-| Release before 3 s | `systemctl reboot` | On release |
-| Hold ≥ 3 s | XFCE4 shutdown dialog | While still held |
-| Hold ≥ 5 s | `systemctl poweroff` | While still held |
-| After soft poweroff | Short S1 press restarts | PMIC hardware |
+| Event | Action | Notes |
+|-------|--------|-------|
+| Press | XFCE4 shutdown dialog | Appears immediately while button is still held |
+| Release before 3 s | Dialog stays open | User can choose from dialog options |
+| Hold ≥ 3 s | `systemctl poweroff` | Dialog bypassed; poweroff forced |
+| Hold ~7 s | PMIC hardware forced shutdown | FSD — hardware safety, not software-controlled |
+| After soft poweroff | Short S1 press restarts system | PMIC switched to ENABLE mode by reboot notifier |
 
-When no XFCE session is active (e.g. device is at the login screen), the 3 s action is a no-op — the 5 s poweroff timer handles the shutdown instead.
+This matches standard Ubuntu laptop power-button behaviour.
+
+When no XFCE session is active (e.g. device is at the login screen), the dialog step is silently skipped — the 3 s poweroff timer still fires normally.
 
 After `systemctl poweroff`, the kernel reboot notifier switches the PMIC `NPWRON_SEL` register back to ENABLE mode (`00`). This restores the default power-on behaviour so that a short S1 press can restart the system without requiring a power-cycle on the USB-C connector.
 
