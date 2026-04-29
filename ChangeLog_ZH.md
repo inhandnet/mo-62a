@@ -1,5 +1,32 @@
 # 更新日志
 
+## v1.0.5 — 2026-04-29
+
+### 内核与设备树
+
+#### 40-Pin 扩展接口 — 外设模式 DT Overlay
+
+- 新增 `k3-am62a7-mo-62a-exp-periph.dtso`，为 40-pin 扩展接口（J9）提供可选外设功能：
+  - **引脚 3/5**：WKUP\_I2C0 SDA/SCL（`/dev/i2c-0`）
+  - **引脚 8/10**：UART5 TXD/RXD（`/dev/ttyS3`）
+  - **引脚 19/21/23/24/26**：SPI0 D0/D1/CLK/CS0/CS1
+  - **引脚 32/33**：EHRPWM0\_B/A（`/sys/class/pwm/pwmchip0` ch1/ch0）
+  - **引脚 12/35/38/40**：MCASP2 ACLKX/AFSX/AXR0/AXR1
+- Overlay 为 `mcu_gpio0` 和 `main_gpio1` 提供精简的 pinctrl 组（排除已被外设占用的
+  引脚），防止 GPIO 控制器在启动时 probe 失败。
+- 在 overlay 中将 pad 0x0174（GPIO0\_91 / 引脚 35）从 `gpio0-default-pins` 中移除，
+  解决 SiI9022 HDMI 桥接芯片与 MCASP2\_AFSX 之间的 pinctrl 冲突。
+- 在内核 DTS `Makefile` 中新增 `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-periph.dtbo`，
+  执行 `make linux-dtbs` 时自动编译该 overlay。
+
+### 启动配置
+
+- 在 `bin/extlinux/extlinux.conf` 中新增 `microSD-periph` 启动项，通过
+  `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo` 加载外设模式 overlay。
+  默认启动项 `microSD`（全 GPIO 模式）保持不变。
+
+---
+
 ## v1.0.4 — 2026-04-28
 
 ### 内核与设备树

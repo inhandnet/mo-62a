@@ -303,6 +303,7 @@ MO-62A specific files added to the Linux kernel source tree:
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/configs/am62ax_mo_62a_defconfig` | MO-62A base kernel defconfig |
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a.dts` | MO-62A main device tree |
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-pinmux.dtsi` | Pin mux configuration |
+| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-exp-periph.dtso` | 40-pin peripheral mode DT overlay |
 
 The following kernel config fragments are applied on top of the defconfig during the build:
 
@@ -313,7 +314,7 @@ The following kernel config fragments are applied on top of the defconfig during
 
 ### 4.2 Build DTBs
 
-Build all device tree blobs (62 DTBs and DTBOs in total):
+Build all device tree blobs (63 DTBs and DTBOs in total):
 
 ```bash
 make linux-dtbs
@@ -361,7 +362,7 @@ After staging, the following files are added to `board-support/built-images/`:
 | `Image` | ~18 MB | Uncompressed kernel image |
 | `Image.gz` | ~7.0 MB | Compressed kernel image |
 | `fitImage` | ~7.3 MB | Signed FIT image (kernel + DTBs), used for verified boot |
-| `dtb/ti/*.dtb` / `dtb/ti/*.dtbo` | — | 62 device tree blobs and overlays |
+| `dtb/ti/*.dtb` / `dtb/ti/*.dtbo` | — | 63 device tree blobs and overlays |
 
 > **Note:** `fitImage` is signed with the `custMpk` key from the U-Boot source tree. The signing step also triggers a rebuild of `tispl.bin` so it embeds the MO-62A DTB (`k3-am62a7-mo-62a.dtb`) in the A53 SPL. This means `make linux` will always update both `fitImage` and `tispl.bin` in `built-images/`.
 
@@ -782,11 +783,19 @@ menu title mo-62a MicroSD (extlinux.conf)
 timeout 30
 default microSD
 
+# 40-pin GPIO mode (default): all expansion pins as plain GPIO
 label microSD
   append console=ttyS2,115200n8 earlycon=ns16550a,mmio32,0x02800000 root=/dev/mmcblk1p2 rw rootfstype=ext4 rootwait
   kernel /Image
   fdt    /ti/k3-am62a7-mo-62a.dtb
-  # fdtoverlays /overlays/<file>.dtbo
+  # initrd /initrd.img
+
+# 40-pin peripheral mode: enable WKUP_I2C0 / UART5 / SPI0 / EHRPWM0 / MCASP2
+label microSD-periph
+  append console=ttyS2,115200n8 earlycon=ns16550a,mmio32,0x02800000 root=/dev/mmcblk1p2 rw rootfstype=ext4 rootwait
+  kernel /Image
+  fdt    /ti/k3-am62a7-mo-62a.dtb
+  fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo
   # initrd /initrd.img
 ```
 
@@ -795,7 +804,7 @@ The kernel command line sets:
 - Root device: `/dev/mmcblk1p2` (partition 2 on the SD/MMC device)
 - Root filesystem type: `ext4`
 
-To apply a device tree overlay, uncomment the `fdtoverlays` line and specify the `.dtbo` file path relative to the BOOT partition root.
+Two boot labels are provided. `microSD` is the default — all 40-pin header pins are plain GPIO. Select `microSD-periph` at the U-Boot boot menu (or set `default microSD-periph` in `extlinux.conf`) to apply the peripheral mode overlay, which enables WKUP\_I2C0, UART5, SPI0, EHRPWM0, and MCASP2 on the expansion header.
 
 ---
 
@@ -1077,6 +1086,23 @@ The 40-pin expansion header (silk: USER EXPN) provides GPIO signals at **3.3 V l
 | 40  | GPIO21      | GPIO (GPIO1\_2)         | gpiochip2 |  2   | MCASP2\_AXR1         |
 
 > `gpiochip0` = `mcu_gpio0` (MCU domain).  `gpiochip1` = `main_gpio0` (GPIO0\_x).  `gpiochip2` = `main_gpio1` (GPIO1\_x).
+
+##### Peripheral Mode — 40-Pin DT Overlay
+
+Optional peripheral functions are enabled by booting with the `microSD-periph` extlinux label. This applies the `k3-am62a7-mo-62a-exp-periph.dtbo` overlay, which activates the following interfaces:
+
+| Interface | Pins | Linux device |
+|-----------|------|--------------|
+| WKUP\_I2C0 | 3 (SDA), 5 (SCL) | `/dev/i2c-0` |
+| UART5 | 8 (TXD), 10 (RXD) | `/dev/ttyS3` |
+| SPI0 | 19 (MOSI), 21 (MISO), 23 (CLK), 24 (CS0), 26 (CS1) | `/sys/bus/spi/devices/spi0.*` (no `spidev` node by default) |
+| EHRPWM0\_A | 33 | `/sys/class/pwm/pwmchip0/pwm0` |
+| EHRPWM0\_B | 32 | `/sys/class/pwm/pwmchip0/pwm1` |
+| MCASP2 | 12 (ACLKX), 35 (AFSX), 38 (AXR0), 40 (AXR1) | no soundcard (no codec binding) |
+
+> When peripheral mode is active, I2C bus numbering shifts: `i2c-0` = WKUP\_I2C0 (expansion pins 3/5), `i2c-1` = main\_i2c0, `i2c-2` = main\_i2c1 (HDMI), `i2c-3` = main\_i2c2 (camera).
+
+To switch back to GPIO mode, reboot and select the `microSD` label at the U-Boot menu.
 
 #### 7.12.2 FPC 22-Pin CSI Camera (JP1)
 

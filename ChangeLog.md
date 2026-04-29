@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.0.5 — 2026-04-29
+
+### Kernel & Device Tree
+
+#### 40-Pin Expansion Header — Peripheral Mode DT Overlay
+
+- Add `k3-am62a7-mo-62a-exp-periph.dtso` — a new DT overlay that enables optional
+  peripheral functions on the 40-pin expansion header (J9):
+  - **Pins 3/5**: WKUP\_I2C0 SDA/SCL (`/dev/i2c-0`)
+  - **Pins 8/10**: UART5 TXD/RXD (`/dev/ttyS3`)
+  - **Pins 19/21/23/24/26**: SPI0 D0/D1/CLK/CS0/CS1
+  - **Pins 32/33**: EHRPWM0\_B/A (`/sys/class/pwm/pwmchip0` ch1/ch0)
+  - **Pins 12/35/38/40**: MCASP2 ACLKX/AFSX/AXR0/AXR1
+- The overlay provides reduced pinctrl groups for `mcu_gpio0` and `main_gpio1`
+  (excluding pins claimed by the above peripherals) to prevent GPIO controller
+  probe failures at boot.
+- Pad 0x0174 (GPIO0\_91 / pin 35) is removed from `gpio0-default-pins` in the overlay
+  to resolve a conflict between the SiI9022 HDMI bridge and MCASP2\_AFSX.
+- Add `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-periph.dtbo` to the kernel DTS
+  `Makefile`; the overlay is built automatically by `make linux-dtbs`.
+
+### Boot Configuration
+
+- Add `microSD-periph` label to `bin/extlinux/extlinux.conf` that loads the peripheral
+  mode overlay via `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo`. The default
+  label `microSD` (all-GPIO mode) is unchanged.
+
+---
+
 ## v1.0.4 — 2026-04-28
 
 ### Kernel & Device Tree
