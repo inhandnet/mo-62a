@@ -1,0 +1,135 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for MO-62A 40-pin expansion header — peripheral function mode
+ *
+ * Enables special functions for 40-pin header pins:
+ *   Pins  3, 5: WKUP_I2C0 SDA/SCL  (MCU_GPIO0_20/19)
+ *   Pins  8,10: UART5 TXD/RXD       (GPIO1_25/24)
+ *   Pins 19,21,23,24,26: SPI0       (GPIO1_18/19/17/15/16)
+ *   Pins 32,33: EHRPWM0_B/A         (GPIO1_14/13)
+ *   Pins 12,35,38,40: MCASP2        (GPIO1_0/GPIO0_91/GPIO1_5/GPIO1_2)
+ *
+ * Pins NOT changed by this overlay:
+ *   Pin  36: EHRPWM1_A stays GPIO — epwm1 already active for fan connector
+ *   Pins 27,28: I2C2 always enabled (camera bus)
+ *
+ * GPIO controller pinctrl is updated to exclude pins taken by peripherals,
+ * preventing probe failures in mcu_gpio0 and main_gpio1.
+ *
+ * Usage: add to extlinux.conf label:
+ *   fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#define PIN_DRIVE_STRENGTH_NOMINAL 0
+
+/* Reduced MCU GPIO0 pinctrl — excludes WKUP_I2C0 pins (0x004c/0x0050) */
+&mcu_pmx0 {
+	mcu_gpio0_exp_periph_pins: mcu-gpio0-exp-periph-pins {
+		pinctrl-single,pins = <
+			AM62AX_MCU_IOPAD(0x0010, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* MCU_GPIO0_4 */
+			/* MCU_GPIO0_19 (0x004c) excluded — claimed by wkup_i2c0 */
+			/* MCU_GPIO0_20 (0x0050) excluded — claimed by wkup_i2c0 */
+		>;
+	};
+};
+
+/* Reduced GPIO1 pinctrl — excludes UART5, SPI0, EHRPWM0, MCASP2 pins */
+/* Also remove GPIO0_91 (0x0174) from gpio0-default-pins: SiI9022 claims that group,
+ * which would block MCASP2_AFSX from using pad 0x0174. */
+&main_pmx0 {
+	gpio0-default-pins {
+		pinctrl-single,pins = <
+			AM62AX_IOPAD(0x0008, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_2 */
+			AM62AX_IOPAD(0x002c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_11 */
+			AM62AX_IOPAD(0x0030, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_12 */
+			AM62AX_IOPAD(0x0038, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_14 EXP Pin22 */
+			AM62AX_IOPAD(0x0088, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_33 EXP Pin31 */
+			AM62AX_IOPAD(0x0094, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_36 EXP Pin29 */
+			AM62AX_IOPAD(0x009c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_38 EXP Pin16 */
+			AM62AX_IOPAD(0x00a0, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_39 EXP Pin7 */
+			AM62AX_IOPAD(0x00a4, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_40 EXP Pin18 */
+			AM62AX_IOPAD(0x00a8, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_41 EXP Pin37 */
+			AM62AX_IOPAD(0x00ac, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_42 EXP Pin13 */
+			AM62AX_IOPAD(0x0164, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_87 CSI0_XSHUTDOWN */
+			AM62AX_IOPAD(0x0168, PIN_OUTPUT_PULLDOWN, 7)                  /* GPIO0_88 EXP_3V3_EN */
+			AM62AX_IOPAD(0x016c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_89 */
+			AM62AX_IOPAD(0x0170, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO0_90 SiI9022_INT */
+			/* GPIO0_91 (0x0174) excluded — claimed by MCASP2_AFSX in periph mode */
+		>;
+	};
+
+	gpio1_exp_periph_pins: gpio1-exp-periph-pins {
+		pinctrl-single,pins = <
+			/* GPIO1_0  (0x0178) excluded — claimed by MCASP2_ACLKX */
+			AM62AX_IOPAD(0x017c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_1  AUD_RSTn */
+			/* GPIO1_2  (0x0180) excluded — claimed by MCASP2_AXR1 */
+			AM62AX_IOPAD(0x0188, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_4 */
+			/* GPIO1_5  (0x018c) excluded — claimed by MCASP2_AXR0 */
+			AM62AX_IOPAD(0x0190, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_6  ETHINTn */
+			AM62AX_IOPAD(0x0194, PIN_INPUT, 7)                             /* GPIO1_7  EEP_WC */
+			AM62AX_IOPAD(0x019c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_9 */
+			/* GPIO1_13 (0x01ac) excluded — claimed by EHRPWM0_A */
+			/* GPIO1_14 (0x01b0) excluded — claimed by EHRPWM0_B */
+			/* GPIO1_15 (0x01b4) excluded — claimed by SPI0_CS0 */
+			/* GPIO1_16 (0x01b8) excluded — claimed by SPI0_CS1 */
+			/* GPIO1_17 (0x01bc) excluded — claimed by SPI0_CLK */
+			/* GPIO1_18 (0x01c0) excluded — claimed by SPI0_D0 */
+			/* GPIO1_19 (0x01c4) excluded — claimed by SPI0_D1 */
+			AM62AX_IOPAD(0x01d0, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_22 EXP Pin15 */
+			AM62AX_IOPAD(0x01d4, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_23 EXP Pin11 */
+			/* GPIO1_24 (0x01d8) excluded — claimed by UART5_RXD */
+			/* GPIO1_25 (0x01dc) excluded — claimed by UART5_TXD */
+			AM62AX_IOPAD(0x01f4, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_31 EXTINTn */
+		>;
+	};
+};
+
+/* Switch GPIO controllers to use reduced pinctrl groups */
+&mcu_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_gpio0_exp_periph_pins>;
+};
+
+&main_gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio1_exp_periph_pins>;
+};
+
+/* Pins 3,5 — WKUP_I2C0 SDA/SCL */
+&wkup_i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+};
+
+/* Pins 8,10 — UART5 TXD/RXD */
+&main_uart5 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_uart5_pins_default>;
+};
+
+/* Pins 19,21,23,24,26 — SPI0 D0/D1/CLK/CS0/CS1 */
+&main_spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_spi0_pins_default>;
+};
+
+/* Pins 32,33 — EHRPWM0_B/A */
+&epwm0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_ehtpwm0_pins_default>;
+};
+
+/* Pins 12,35,38,40 — MCASP2 ACLKX/AFSX/AXR0/AXR1 */
+&mcasp2 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_mcasp2_pins_default>;
+};

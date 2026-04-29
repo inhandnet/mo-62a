@@ -1029,17 +1029,54 @@ active database (the Debian-signed variant is removed). This eliminates the
 
 #### 7.12.1 40-Pin Header (J9 — USER EXPN)
 
-The 40-pin expansion header (silk: USER EXPN) exposes the following SoC signals:
+The 40-pin expansion header (silk: USER EXPN) provides GPIO signals at **3.3 V logic levels**. All user-accessible signal pins default to GPIO mode. Optional peripheral functions (I2C, SPI, UART, PWM) can be enabled via device tree overlay.
 
-| Function | SoC Signal(s) |
-|----------|---------------|
-| GPIO | GPIO0..21 (multiple) |
-| I2C | SOC_I2C2 (SDA/SCL) — also accessible as EXP40 pin 3/6 |
-| UART | SOC_UART5 × 2 (TX/RX) |
-| SPI | SOC_SPI0 (CLK/D0/D1/CS0/CS1) |
-| PWM | PWM × 3 |
-| I2S | MCASP2 (ACLKX, AFSX, AXR) |
-| WAKEUP I2C | WUKP_I2C0 |
+> **Note:** Pins 27/28 (I2C2) are permanently assigned to the internal I2C bus used by the camera module and cannot be used as general GPIO.
+
+| Pin | Name        | Default Function        | gpiochip  | Line | Optional Function    |
+|-----|-------------|-------------------------|-----------|------|----------------------|
+|  1  | 3V3         | 3.3 V power             | —         | —    | —                    |
+|  2  | 5V          | 5 V power               | —         | —    | —                    |
+|  3  | GPIO2       | GPIO (MCU\_GPIO0\_20)   | gpiochip0 | 20   | WKUP\_I2C0\_SDA      |
+|  4  | 5V          | 5 V power               | —         | —    | —                    |
+|  5  | GPIO3       | GPIO (MCU\_GPIO0\_19)   | gpiochip0 | 19   | WKUP\_I2C0\_SCL      |
+|  6  | GND         | Ground                  | —         | —    | —                    |
+|  7  | GPIO4       | GPIO (GPIO0\_39)        | gpiochip1 | 39   | —                    |
+|  8  | GPIO14      | GPIO (GPIO1\_25)        | gpiochip2 | 25   | UART5\_TXD           |
+|  9  | GND         | Ground                  | —         | —    | —                    |
+| 10  | GPIO15      | GPIO (GPIO1\_24)        | gpiochip2 | 24   | UART5\_RXD           |
+| 11  | GPIO17      | GPIO (GPIO1\_23)        | gpiochip2 | 23   | —                    |
+| 12  | GPIO18      | GPIO (GPIO1\_0)         | gpiochip2 |  0   | MCASP2\_ACLKX        |
+| 13  | GPIO27      | GPIO (GPIO0\_42)        | gpiochip1 | 42   | —                    |
+| 14  | GND         | Ground                  | —         | —    | —                    |
+| 15  | GPIO22      | GPIO (GPIO1\_22)        | gpiochip2 | 22   | —                    |
+| 16  | GPIO23      | GPIO (GPIO0\_38)        | gpiochip1 | 38   | —                    |
+| 17  | 3V3         | 3.3 V power             | —         | —    | —                    |
+| 18  | GPIO24      | GPIO (GPIO0\_40)        | gpiochip1 | 40   | —                    |
+| 19  | GPIO10      | GPIO (GPIO1\_18)        | gpiochip2 | 18   | SPI0\_D0 (MOSI)      |
+| 20  | GND         | Ground                  | —         | —    | —                    |
+| 21  | GPIO9       | GPIO (GPIO1\_19)        | gpiochip2 | 19   | SPI0\_D1 (MISO)      |
+| 22  | GPIO25      | GPIO (GPIO0\_14)        | gpiochip1 | 14   | —                    |
+| 23  | GPIO11      | GPIO (GPIO1\_17)        | gpiochip2 | 17   | SPI0\_CLK            |
+| 24  | GPIO8       | GPIO (GPIO1\_15)        | gpiochip2 | 15   | SPI0\_CS0            |
+| 25  | GND         | Ground                  | —         | —    | —                    |
+| 26  | GPIO7       | GPIO (GPIO1\_16)        | gpiochip2 | 16   | SPI0\_CS1            |
+| 27  | I2C2\_SDA   | I2C2 SDA (`i2c-2`)     | —         | —    | (camera bus, fixed)  |
+| 28  | I2C2\_SCL   | I2C2 SCL (`i2c-2`)     | —         | —    | (camera bus, fixed)  |
+| 29  | GPIO5       | GPIO (GPIO0\_36)        | gpiochip1 | 36   | —                    |
+| 30  | GND         | Ground                  | —         | —    | —                    |
+| 31  | GPIO6       | GPIO (GPIO0\_33)        | gpiochip1 | 33   | —                    |
+| 32  | GPIO12      | GPIO (GPIO1\_14)        | gpiochip2 | 14   | EHRPWM0\_B           |
+| 33  | GPIO13      | GPIO (GPIO1\_13)        | gpiochip2 | 13   | EHRPWM0\_A           |
+| 34  | GND         | Ground                  | —         | —    | —                    |
+| 35  | GPIO19      | GPIO (GPIO0\_91)        | gpiochip1 | 91   | MCASP2\_AFSX         |
+| 36  | GPIO16      | GPIO (GPIO1\_9)         | gpiochip2 |  9   | EHRPWM1\_A           |
+| 37  | GPIO26      | GPIO (GPIO0\_41)        | gpiochip1 | 41   | —                    |
+| 38  | GPIO20      | GPIO (GPIO1\_5)         | gpiochip2 |  5   | MCASP2\_AXR0         |
+| 39  | GND         | Ground                  | —         | —    | —                    |
+| 40  | GPIO21      | GPIO (GPIO1\_2)         | gpiochip2 |  2   | MCASP2\_AXR1         |
+
+> `gpiochip0` = `mcu_gpio0` (MCU domain).  `gpiochip1` = `main_gpio0` (GPIO0\_x).  `gpiochip2` = `main_gpio1` (GPIO1\_x).
 
 #### 7.12.2 FPC 22-Pin CSI Camera (JP1)
 
