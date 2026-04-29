@@ -4,8 +4,8 @@ s1-powerkey: S1 power button timing daemon for MO-62A.
 
 Mirrors Ubuntu laptop power-button behaviour:
   press         → XFCE4 shutdown dialog (immediately, while still held)
-  hold ≥ 3s     → systemctl poweroff (dialog bypassed)
-  release < 3s  → dialog stays open for user interaction
+  hold ≥ 5s     → systemctl poweroff (dialog bypassed)
+  release < 5s  → dialog stays open for user interaction
   ~7s           → PMIC hardware forced shutdown (FSD, not software-controlled)
 """
 import glob
@@ -26,7 +26,7 @@ log = logging.getLogger("s1-powerkey")
 DEVICE_NAME = "tps6594-pwrbutton"
 EV_KEY      = 1
 KEY_POWER   = 116
-T_POWEROFF  = 3.0   # hold ≥ 3s → force poweroff
+T_POWEROFF  = 5.0   # hold ≥ 5s → force poweroff
 
 # struct input_event on aarch64: timeval(8+8) + type(2) + code(2) + value(4) = 24 bytes
 EVENT_FMT  = "llHHi"
@@ -96,7 +96,7 @@ def main():
             if value == 1:  # press — show dialog immediately and start poweroff countdown
                 threading.Thread(target=show_xfce_dialog, daemon=True).start()
                 poweroff_timer = threading.Timer(T_POWEROFF, lambda: (
-                    log.info("3s hold → poweroff") or
+                    log.info("5s hold → poweroff") or
                     subprocess.run(["systemctl", "poweroff"])
                 ))
                 poweroff_timer.start()
