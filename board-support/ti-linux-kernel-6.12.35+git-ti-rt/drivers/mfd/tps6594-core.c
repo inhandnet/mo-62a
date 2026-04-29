@@ -615,29 +615,39 @@ struct tps6594_pwrbutton {
 	struct delayed_work  poll_work;
 };
 
-static struct tps6594 *tps6594_pwroff_tps;
-
 /*
- * Reboot notifier: runs during kernel_shutdown_prepare() while IRQs and I2C
- * are still fully operational — well before machine_power_off() disables IRQs.
- * Switch nPWRON back to ENABLE mode so S1 acts as a hardware restart trigger
- * after the SoC halts:
- *   S1 press   -> ENABLE deasserted -> PMIC cuts rails
- *   S1 release -> ENABLE asserted   -> PMIC powers up -> SoC boots
+ * sys-off PREPARE handler: command the PMIC to enter LP_STANDBY (lowest-power
+ * state, all rails off, NPWRON wake-up source alive) so that systemctl poweroff
+ * drops board power to the same level as a hardware FSD (~2 mA), while keeping
+ * S1 as the hardware wake-up source via NPWRON button mode.
+ *
+ * Use POWER_OFF_PREPARE (not POWER_OFF) because we need full I²C functionality
+ * to write two registers reliably: setting LP_STANDBY_SEL must succeed before
+ * the FSM trigger, otherwise the PMIC enters plain STANDBY whose PFSM transition
+ * table on this board does not include NPWRON_START as a wake source.
+ * PREPARE runs in normal context (sleeping allowed, IRQs enabled), so I²C
+ * completion interrupts work; POWER_OFF runs in atomic context where I²C is
+ * unreliable on this platform.
+ *
+ * A 100 ms delay before writing the trigger gives the UART time to flush
+ * any pending kernel messages (e.g. "Powering off.") before the rails drop.
+ * The PMIC cuts rails within a few ms of the trigger; the trailing msleep()
+ * never returns — the SoC loses power mid-sleep.
  */
-static int tps6594_reboot_notify(struct notifier_block *nb,
-				 unsigned long action, void *data)
+static int tps6594_power_off_prepare(struct sys_off_data *data)
 {
-	if (action == SYS_POWER_OFF)
-		regmap_update_bits(tps6594_pwroff_tps->regmap,
-				   TPS6594_REG_NPWRON_CONF,
-				   TPS6594_MASK_NPWRON_SEL, 0x00);
+	struct tps6594 *tps = data->cb_data;
+
+	msleep(100);
+	regmap_set_bits(tps->regmap, TPS6594_REG_RTC_CTRL_2,
+			TPS6594_BIT_LP_STANDBY_SEL);
+	regmap_write_bits(tps->regmap, TPS6594_REG_FSM_I2C_TRIGGERS,
+			  TPS6594_BIT_TRIGGER_I2C(0),
+			  TPS6594_BIT_TRIGGER_I2C(0));
+
+	msleep(2000);
 	return NOTIFY_DONE;
 }
-
-static struct notifier_block tps6594_reboot_nb = {
-	.notifier_call = tps6594_reboot_notify,
-};
 
 static void tps6594_s1_poll_release(struct work_struct *work)
 {
@@ -794,8 +804,20 @@ int tps6594_device_init(struct tps6594 *tps, bool enable_crc)
 		if (ret)
 			return ret;
 
-		tps6594_pwroff_tps = tps;
-		register_reboot_notifier(&tps6594_reboot_nb);
+		/*
+		 * Priority FIRMWARE+1 so we run before ti_sci's poweroff
+		 * handler.  Use the PREPARE mode because the PMIC trigger
+		 * sequence requires two I²C writes that must both reliably
+		 * complete — only PREPARE allows sleeping I²C transfers.
+		 */
+		ret = devm_register_sys_off_handler(dev,
+						    SYS_OFF_MODE_POWER_OFF_PREPARE,
+						    SYS_OFF_PRIO_FIRMWARE + 1,
+						    tps6594_power_off_prepare,
+						    tps);
+		if (ret)
+			return dev_err_probe(dev, ret,
+					     "Failed to register sys-off handler\n");
 	}
 
 	return 0;
