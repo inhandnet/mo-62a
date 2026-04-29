@@ -222,6 +222,18 @@
 		regulator-always-on;
 	};
 
+	/* VDD_1V2: fixed 1.2 V rail for SiI9022ACNU CVCC (TLV75512PDQN, U8).
+	 * Always-on; enabled by the 2.5 V supply power-good signal at boot. */
+	vdd_1v2_hdmi: regulator-7 {
+		compatible = "regulator-fixed";
+		regulator-name = "vdd_1v2_hdmi";
+		regulator-min-microvolt = <1200000>;
+		regulator-max-microvolt = <1200000>;
+		vin-supply = <&vcc_3v3_sys>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
 	leds {
 		compatible = "gpio-leds";
 		pinctrl-names = "default";
@@ -468,6 +480,8 @@
 		reset-gpios = <&main_gpio1 3 GPIO_ACTIVE_LOW>;
 		#sound-dai-cells = <0>;
 		sil,i2s-data-lanes = < 0 >;
+		iovcc-supply = <&vcc_3v3_sys>;
+		cvcc12-supply = <&vdd_1v2_hdmi>;
 
 		ports {
 			#address-cells = <1>;
@@ -797,6 +811,11 @@
 		ti,mbox-rx = <0 0 0>;
 		ti,mbox-tx = <1 0 0>;
 	};
+};
+
+/* cluster3 is not used on AM62A7 (no second C7x or additional R5F) */
+&mailbox0_cluster3 {
+	status = "disabled";
 };
 
 &wkup_r5fss0 {
