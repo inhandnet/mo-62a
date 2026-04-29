@@ -1,8 +1,28 @@
 # 更新日志
 
-## v1.0.4 — 2026-04-27
+## v1.0.4 — 2026-04-28
 
 ### 内核与设备树
+
+#### SiI9022A HDMI 桥接芯片 — 电源轨注册（k3-am62a7-mo-62a.dts）
+- 新增 `vdd_1v2_hdmi: regulator-7` 固定稳压器节点（1.2 V，常开），对应为
+  SiI9022ACNU CVCC12 供电的 TLV75512PDQN（U8）LDO。
+- 在 `sii9022` 桥接节点中添加 `iovcc-supply = <&vcc_3v3_sys>` 和
+  `cvcc12-supply = <&vdd_1v2_hdmi>`，使驱动能够正确找到两条电源轨。
+  此前驱动在每次启动时均会打印
+  `supply iovcc not found, using dummy regulator` 及
+  `supply cvcc12 not found, using dummy regulator` 告警，修复后不再出现。
+
+#### omap-mailbox — 禁用未使用的 Cluster 3（k3-am62a7-mo-62a.dts）
+- 在 DTS 中将 `mailbox0_cluster3` 设置为 `status = "disabled"`。
+  AM62A7 共有四个 mailbox 硬件实例，但仅有三个 remoteproc 消费者
+  （C7x DSP + MCU-R5F + MAIN-R5F），Cluster 3 无任何已注册的 mbox 设备，
+  导致内核在每次启动时打印 `omap mailbox: no available mbox devices found`。
+
+#### 设备树依赖循环 — 降低日志级别（drivers/base/core.c）
+- 将 `Fixed dependency cycle(s) with` 消息从 `pr_info` 改为 `pr_debug`。
+  内核会自动解决这些循环依赖，相关消息仅为信息提示，修改后在默认控制台日志
+  级别下不再显示。
 
 #### S1 电源键 — TPS6593-Q1 PMIC 驱动（tps6594-core.c）
 - 当 PMIC 设备树节点设有 `system-power-controller` 属性时，在 probe 阶段将
@@ -21,14 +41,26 @@
 
 ### 根文件系统
 
+#### Wi-Fi 信道规范库 — 切换为 upstream 签名版本
+- 从 rootfs 压缩包中删除 Debian 签名的 `regulatory.db` 及其独立签名文件
+  （`/lib/firmware/regulatory.db-debian` 和 `regulatory.db.p7s-debian`）。
+  内核仅内置了 `sforshee` 和 `wens` 的 X.509 证书；Debian 签名版本无法通过
+  这些证书验证，导致启动时打印
+  `cfg80211: loaded regulatory.db is malformed or signature is missing/invalid`。
+- `update-alternatives` 自动模式下，upstream 签名版本
+  （符号链接 `/lib/firmware/regulatory.db → regulatory.db-upstream`）被选为
+  活动数据库，内核可正常验证，告警消除。
+- 后续通过 `apt upgrade` 更新 `wireless-regdb` 包时，`regulatory.db-upstream`
+  会就地更新；自动模式仍选择 upstream 版本，内核验证继续正常工作。
+
 #### S1 电源键计时守护进程
 - 新增 `board-support/extra-applications/s1-powerkey/` Python 守护进程，
   行为与标准 Ubuntu 笔记本电源键一致：
   - **按下** → 立即弹出 `xfce4-session-logout` XFCE 关机对话框（通过守护线程
     非阻塞触发，无需松开按键）
-  - **3 秒内松开** → 取消关机计时器；对话框保持显示，等待用户操作
-  - **持续按住 ≥ 3 秒** → `systemctl poweroff`（绕过对话框，强制关机）
-  - 无 XFCE 会话（停留在登录界面）时：弹窗步骤静默跳过，3 秒关机计时器仍正常触发
+  - **5 秒内松开** → 取消关机计时器；对话框保持显示，等待用户操作
+  - **持续按住 ≥ 5 秒** → `systemctl poweroff`（绕过对话框，强制关机）
+  - 无 XFCE 会话（停留在登录界面）时：弹窗步骤静默跳过，5 秒关机计时器仍正常触发
 - 新增 `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`：
   简单服务，设置 `Restart=always`；仅 `WantedBy=multi-user.target`，去除
   `After=graphical.target` / `Wants=graphical.target` 依赖——原有依赖会在

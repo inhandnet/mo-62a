@@ -1,8 +1,28 @@
 # Changelog
 
-## v1.0.4 — 2026-04-27
+## v1.0.4 — 2026-04-28
 
 ### Kernel & Device Tree
+
+#### SiI9022A HDMI Bridge — Supply Rail Registration (k3-am62a7-mo-62a.dts)
+- Add `vdd_1v2_hdmi: regulator-7` fixed-regulator node (1.2 V, always-on) to represent
+  the TLV75512PDQN (U8) LDO that powers the SiI9022ACNU CVCC12 rail.
+- Add `iovcc-supply = <&vcc_3v3_sys>` and `cvcc12-supply = <&vdd_1v2_hdmi>` to the
+  `sii9022` bridge node so the driver can locate both supply rails.
+  Previously the driver printed `supply iovcc not found, using dummy regulator` and
+  `supply cvcc12 not found, using dummy regulator` at every boot; both warnings are
+  now eliminated.
+
+#### omap-mailbox — Disable Unused Cluster 3 (k3-am62a7-mo-62a.dts)
+- Disable `mailbox0_cluster3` in DTS (`status = "disabled"`).
+  AM62A7 has four mailbox hardware instances but only three remoteproc consumers
+  (C7x DSP + MCU-R5F + MAIN-R5F); cluster 3 has no registered mbox devices, causing
+  the kernel to print `omap mailbox: no available mbox devices found` at every boot.
+
+#### Device-Tree Dependency Cycles — Reduce Log Verbosity (drivers/base/core.c)
+- Change the `Fixed dependency cycle(s) with` message from `pr_info` to `pr_debug`.
+  The kernel auto-resolves these cycles; the messages are informational only and
+  are no longer visible at the default console log level.
 
 #### S1 Power Button — TPS6593-Q1 PMIC Driver (tps6594-core.c)
 - Configure `NPWRON_SEL` (bits [7:6] of `NPWRON_CONF` register, address 0x3C) to
@@ -22,15 +42,28 @@
 
 ### Rootfs
 
+#### Wi-Fi Regulatory Database — Switch to Upstream-Signed Version
+- Remove the Debian-signed `regulatory.db` and its detached signature from the rootfs
+  tarball (`/lib/firmware/regulatory.db-debian` and `regulatory.db.p7s-debian`).
+  The kernel is built with the `sforshee` and `wens` X.509 certificates only; the
+  Debian-signed variant cannot be verified against these keys and caused the boot message
+  `cfg80211: loaded regulatory.db is malformed or signature is missing/invalid`.
+- The `update-alternatives` auto mode selects the upstream-signed `regulatory.db` (symlink
+  `/lib/firmware/regulatory.db → regulatory.db-upstream`) as the active database.
+  This is the version the kernel can verify; the warning is eliminated.
+- Subsequent `apt upgrade` of the `wireless-regdb` package will update
+  `regulatory.db-upstream` in-place; the upstream variant remains selected in auto mode
+  and the kernel continues to verify it successfully.
+
 #### S1 Power Button Timing Daemon
 - Add `board-support/extra-applications/s1-powerkey/` Python daemon that mirrors
   standard Ubuntu laptop power-button behaviour:
   - **Press** → `xfce4-session-logout` XFCE shutdown dialog appears immediately
     (non-blocking, fired via a daemon thread while the button is still held)
-  - **Release before 3 s** → poweroff timer cancelled; dialog stays open for user
+  - **Release before 5 s** → poweroff timer cancelled; dialog stays open for user
     interaction
-  - **Hold ≥ 3 s** → `systemctl poweroff` (dialog bypassed)
-  - No XFCE session (login screen): dialog step silently skipped; 3 s poweroff
+  - **Hold ≥ 5 s** → `systemctl poweroff` (dialog bypassed)
+  - No XFCE session (login screen): dialog step silently skipped; 5 s poweroff
     timer still fires normally
 - Add `board-support/rootfs-overlay/etc/systemd/system/s1-powerkey.service`: simple
   service with `Restart=always`; `WantedBy=multi-user.target` only — no

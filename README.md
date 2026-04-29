@@ -985,6 +985,15 @@ The MO-62A is built around the **TI AM62A74** SoC. The top-level block diagram c
 | Antenna connector | U.FL × 1 (CON1) |
 | Supply | SOC_DVDD1V8 (1.8 V), VCC_3V3_SYS (3.3 V) |
 
+**Regulatory Database**
+
+The kernel is compiled with the `sforshee` and `wens` X.509 public keys and can only
+verify the upstream-signed `regulatory.db`. The rootfs is pre-configured so that
+`update-alternatives` auto mode selects `/lib/firmware/regulatory.db-upstream` as the
+active database (the Debian-signed variant is removed). This eliminates the
+`cfg80211: loaded regulatory.db is malformed` boot message and ensures all
+`wireless-regdb` package upgrades continue to work correctly.
+
 ---
 
 ### 7.10 Audio
@@ -1188,14 +1197,14 @@ The S1 button is connected to the `NPWRON` pin of the TPS6593-Q1 PMIC (I²C bus 
 | Event | Action | Notes |
 |-------|--------|-------|
 | Press | XFCE4 shutdown dialog | Appears immediately while button is still held |
-| Release before 3 s | Dialog stays open | User can choose from dialog options |
-| Hold ≥ 3 s | `systemctl poweroff` | Dialog bypassed; poweroff forced |
+| Release before 5 s | Dialog stays open | User can choose from dialog options |
+| Hold ≥ 5 s | `systemctl poweroff` | Dialog bypassed; poweroff forced |
 | Hold ~7 s | PMIC hardware forced shutdown | FSD — hardware safety, not software-controlled |
 | After soft poweroff | Short S1 press restarts system | PMIC switched to ENABLE mode by reboot notifier |
 
 This matches standard Ubuntu laptop power-button behaviour.
 
-When no XFCE session is active (e.g. device is at the login screen), the dialog step is silently skipped — the 3 s poweroff timer still fires normally.
+When no XFCE session is active (e.g. device is at the login screen), the dialog step is silently skipped — the 5 s poweroff timer still fires normally.
 
 After `systemctl poweroff`, the kernel reboot notifier switches the PMIC `NPWRON_SEL` register back to ENABLE mode (`00`). This restores the default power-on behaviour so that a short S1 press can restart the system without requiring a power-cycle on the USB-C connector.
 
@@ -1204,7 +1213,7 @@ After `systemctl poweroff`, the kernel reboot notifier switches the PMIC `NPWRON
 | Component | Location | Role |
 |-----------|----------|------|
 | Kernel driver | `drivers/mfd/tps6594-core.c` | Configures `NPWRON_SEL = 01` (button mode); registers `NPWRON_START` IRQ; reports `KEY_POWER` events via `tps6594-pwrbutton` input device; reboot notifier switches back to ENABLE mode on poweroff |
-| `s1-powerkey` daemon | `/usr/local/bin/s1-powerkey` | Python daemon that reads `KEY_POWER` events from `/dev/input/eventN` and fires `threading.Timer` callbacks at 3 s and 5 s |
+| `s1-powerkey` daemon | `/usr/local/bin/s1-powerkey` | Python daemon that reads `KEY_POWER` events from `/dev/input/eventN` and fires `threading.Timer` callback at 5 s |
 | systemd service | `/etc/systemd/system/s1-powerkey.service` | Starts the daemon at boot (`WantedBy=multi-user.target`); `Restart=always` |
 | logind override | `/etc/systemd/logind.conf.d/s1-powerkey.conf` | Sets `HandlePowerKey=ignore` and `HandlePowerKeyLongPress=ignore` so logind does not consume `KEY_POWER` events before the daemon |
 

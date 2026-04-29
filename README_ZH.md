@@ -874,6 +874,14 @@ MO-62A 以 **TI AM62A74** SoC 为核心，顶层框图连接以下子系统：
 | 天线连接器 | U.FL × 1（CON1） |
 | 供电 | SOC_DVDD1V8（1.8 V），VCC_3V3_SYS（3.3 V） |
 
+**信道规范库（Regulatory Database）**
+
+内核编译时仅内置了 `sforshee` 和 `wens` 的 X.509 公钥，只能验证 upstream 签名的
+`regulatory.db`。rootfs 已预先配置为通过 `update-alternatives` 自动模式选择
+`/lib/firmware/regulatory.db-upstream` 作为活动数据库（Debian 签名版本已删除）。
+这消除了启动时的 `cfg80211: loaded regulatory.db is malformed` 告警，并确保后续
+`wireless-regdb` 包升级仍能正常工作。
+
 ---
 
 ### 7.10 音频
@@ -1077,14 +1085,14 @@ S1 按键连接至 TPS6593-Q1 PMIC（I²C 总线 0，地址 0x48）的 `NPWRON` 
 | 事件 | 动作 | 说明 |
 |------|------|------|
 | 按下 | 弹出 XFCE4 关机对话框 | 按住期间立即弹出，无需松开 |
-| 3 秒内松开 | 对话框保持显示 | 用户可在对话框中选择操作 |
-| 持续按住 ≥ 3 秒 | `systemctl poweroff` | 绕过对话框，强制关机 |
+| 5 秒内松开 | 对话框保持显示 | 用户可在对话框中选择操作 |
+| 持续按住 ≥ 5 秒 | `systemctl poweroff` | 绕过对话框，强制关机 |
 | 持续按住约 7 秒 | PMIC 硬件强制断电 | FSD——硬件安全机制，非软件控制 |
 | 软关机后 | S1 短按重新启动系统 | reboot notifier 已将 PMIC 切换为使能模式 |
 
 此行为与标准 Ubuntu 笔记本电源键逻辑一致。
 
-若当前无 XFCE 会话（例如设备停留在登录界面），弹窗步骤静默跳过——3 秒关机计时器仍正常触发。
+若当前无 XFCE 会话（例如设备停留在登录界面），弹窗步骤静默跳过——5 秒关机计时器仍正常触发。
 
 执行 `systemctl poweroff` 后，内核 reboot notifier 会将 PMIC `NPWRON_SEL` 寄存器切回使能模式（`00`），恢复默认上电行为，使得 S1 短按可在软关机后直接重启系统，无需重新插拔 USB-C 电源。
 
@@ -1093,7 +1101,7 @@ S1 按键连接至 TPS6593-Q1 PMIC（I²C 总线 0，地址 0x48）的 `NPWRON` 
 | 组件 | 路径 | 职责 |
 |------|------|------|
 | 内核驱动 | `drivers/mfd/tps6594-core.c` | 配置 `NPWRON_SEL = 01`（按键模式）；注册 `NPWRON_START` IRQ；通过 `tps6594-pwrbutton` 输入设备上报 `KEY_POWER` 事件；reboot notifier 在关机时切回使能模式 |
-| `s1-powerkey` 守护进程 | `/usr/local/bin/s1-powerkey` | Python 守护进程，读取 `/dev/input/eventN` 的 `KEY_POWER` 事件，使用 `threading.Timer` 在 3 秒和 5 秒时触发对应动作 |
+| `s1-powerkey` 守护进程 | `/usr/local/bin/s1-powerkey` | Python 守护进程，读取 `/dev/input/eventN` 的 `KEY_POWER` 事件，使用 `threading.Timer` 在 5 秒时触发关机动作 |
 | systemd 服务 | `/etc/systemd/system/s1-powerkey.service` | 开机自动启动（`WantedBy=multi-user.target`）；`Restart=always` |
 | logind 配置 | `/etc/systemd/logind.conf.d/s1-powerkey.conf` | 设置 `HandlePowerKey=ignore` 和 `HandlePowerKeyLongPress=ignore`，阻止 logind 在守护进程之前消费 `KEY_POWER` 事件 |
 
