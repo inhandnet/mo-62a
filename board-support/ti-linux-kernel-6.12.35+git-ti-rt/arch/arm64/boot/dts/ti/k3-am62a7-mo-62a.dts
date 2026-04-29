@@ -65,7 +65,7 @@
 
 		c7x_0_memory_region: c7x-memory@99900000 {
 			compatible = "shared-dma-pool";
-			reg = <0x00 0x99900000 0x00 0xf00000>;
+			reg = <0x00 0x99900000 0x00 0x1f00000>;
 			no-map;
 		};
 
