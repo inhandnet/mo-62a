@@ -1,0 +1,21 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * MO-62A with 8 GB LPDDR4 (HW_REV0=0, HW_REV1=0, HW_REV2=1)
+ *
+ * Identical to k3-am62a7-mo-62a.dts except the memory node exposes
+ * both DDR windows: 2 GB in the 32-bit space + 6 GB in the upper
+ * 36-bit window (same layout used by AM62P5-SK and J722S-EVM).
+ */
+
+#include "k3-am62a7-mo-62a.dts"
+
+/ {
+	model = "MO 62A (8GB)";
+
+	memory@80000000 {
+		device_type = "memory";
+		/* 8G RAM: 2G lower + 6G upper */
+		reg = <0x00000000 0x80000000 0x00000000 0x80000000>,
+		      <0x00000008 0x80000000 0x00000001 0x80000000>;
+	};
+};

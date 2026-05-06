@@ -1,0 +1,13 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * MO-62A with 4 GB LPDDR4 (HW_REV0=0, HW_REV1=1, HW_REV2=0)
+ *
+ * Thin wrapper that re-exports the default 4 GB board DTS so that
+ * all three LPDDR4 variants follow the same -Xgb naming convention.
+ */
+
+#include "k3-am62a7-mo-62a.dts"
+
+/ {
+	model = "MO 62A (4GB)";
+};

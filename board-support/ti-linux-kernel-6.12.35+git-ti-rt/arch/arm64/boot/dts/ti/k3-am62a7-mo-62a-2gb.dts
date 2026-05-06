@@ -1,0 +1,19 @@
+// SPDX-License-Identifier: GPL-2.0-only OR MIT
+/*
+ * MO-62A with 2 GB LPDDR4 (HW_REV0=1, HW_REV1=0, HW_REV2=0)
+ *
+ * Identical to k3-am62a7-mo-62a.dts except the memory node is
+ * restricted to the single lower 2 GB DDR window.
+ */
+
+#include "k3-am62a7-mo-62a.dts"
+
+/ {
+	model = "MO 62A (2GB)";
+
+	memory@80000000 {
+		device_type = "memory";
+		/* 2G RAM */
+		reg = <0x00000000 0x80000000 0x00000000 0x80000000>;
+	};
+};
