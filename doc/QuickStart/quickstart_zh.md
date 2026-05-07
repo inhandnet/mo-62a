@@ -431,6 +431,42 @@ echo 500000 | sudo tee /sys/class/pwm/pwmchip0/pwm0/duty_cycle
 echo 1 | sudo tee /sys/class/pwm/pwmchip0/pwm0/enable
 ```
 
+**SPI 回环测试（引脚 19 MOSI ↔ 引脚 21 MISO 短接，CS0 = 引脚 24）：**
+
+> 前提条件：
+> 1. extlinux.conf 使用 `microSD-periph` 条目（已启用 40-pin 外设模式 overlay）
+> 2. 安装 `python3-spidev`：`sudo apt-get install -y python3-spidev`
+
+```bash
+sudo python3 - <<'EOF'
+import spidev, sys
+
+spi = spidev.SpiDev()
+spi.open(0, 0)           # spi0, CS0
+spi.max_speed_hz = 1_000_000
+spi.mode = 0
+
+tx = [0xAA, 0x55, 0x12, 0x34, 0xDE, 0xAD, 0xBE, 0xEF]
+rx = spi.xfer2(tx)
+spi.close()
+
+print(f"TX: {[hex(b) for b in tx]}")
+print(f"RX: {[hex(b) for b in rx]}")
+if tx == rx:
+    print("PASS: loopback 数据一致")
+else:
+    print("FAIL: 数据不一致")
+    sys.exit(1)
+EOF
+```
+
+验证设备节点是否已创建（外设模式启动后）：
+
+```bash
+ls /dev/spidev*          # 期望：/dev/spidev0.0
+ls /sys/bus/spi/devices/ # 期望：spi0.0
+```
+
 ---
 
 ## 9. 常见问题与技巧

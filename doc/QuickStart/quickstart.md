@@ -416,6 +416,42 @@ gpiomon --edges=rising -c gpiochip2 23
 i2cdetect -y 2
 ```
 
+**SPI loopback test (short Pin 19 MOSI ↔ Pin 21 MISO, CS0 = Pin 24):**
+
+> Prerequisites:
+> 1. Boot with the `microSD-periph` extlinux entry (40-pin peripheral mode overlay enabled)
+> 2. Install `python3-spidev`: `sudo apt-get install -y python3-spidev`
+
+```bash
+sudo python3 - <<'EOF'
+import spidev, sys
+
+spi = spidev.SpiDev()
+spi.open(0, 0)           # spi0, CS0
+spi.max_speed_hz = 1_000_000
+spi.mode = 0
+
+tx = [0xAA, 0x55, 0x12, 0x34, 0xDE, 0xAD, 0xBE, 0xEF]
+rx = spi.xfer2(tx)
+spi.close()
+
+print(f"TX: {[hex(b) for b in tx]}")
+print(f"RX: {[hex(b) for b in rx]}")
+if tx == rx:
+    print("PASS: loopback data matches")
+else:
+    print("FAIL: data mismatch")
+    sys.exit(1)
+EOF
+```
+
+Verify device nodes are present after booting in peripheral mode:
+
+```bash
+ls /dev/spidev*          # expect: /dev/spidev0.0
+ls /sys/bus/spi/devices/ # expect: spi0.0
+```
+
 ---
 
 ## 9. Common Issues & Tips
