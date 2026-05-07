@@ -1,6 +1,6 @@
 # Changelog
 
-## v1.0.5 — 2026-04-29
+## v1.0.5 — 2026-05-07
 
 ### Kernel & Device Tree
 
@@ -21,11 +21,36 @@
 - Add `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-periph.dtbo` to the kernel DTS
   `Makefile`; the overlay is built automatically by `make linux-dtbs`.
 
+#### 40-Pin SPI0 — spidev Nodes
+
+- Add `spidev@0` (CS0, Pin 24) and `spidev@1` (CS1, Pin 26) child nodes under
+  `main_spi0` in the overlay, using `compatible = "rohm,dh2228fv"` (modern kernels
+  reject the plain `"spidev"` compatible string).
+- `/dev/spidev0.0` is available after boot. Verified with an 8-byte hardware loopback
+  test (Pin 19 MOSI ↔ Pin 21 MISO shorted) — TX and RX data identical.
+
+#### 40-Pin Audio — Waveshare WM8960 Audio HAT Support
+
+- Add `wm8960@1a` (`compatible = "wlf,wm8960"`) under `wkup_i2c0` in the overlay;
+  the WM8960 driver probes successfully over WKUP\_I2C0 (pins 3/5, i2c-0).
+- Extend `mcasp2` overlay node with `op-mode = IIS`, `tdm-slots = 2`, `serial-dir`
+  (AXR0 = RX microphone, AXR1 = TX headphone), and
+  `system-clock-frequency = 24576000` (same technique used by the HDMI audio path to
+  provide an integer BCLK divisor despite the SoC fck being 24 615 384 Hz).
+- Add `sound-wm8960 simple-audio-card` at the root node via an `&{/}` overlay fragment;
+  MCASP2 is I2S master, WM8960 is codec slave.
+- Verified on hardware:
+  - WM8960 probes at address 0x1a (`i2cdetect` shows `UU`)
+  - ALSA card `WM8960-Sound` registered; 48 kHz stereo playback confirmed audible
+  - 5-second capture (S32\_LE, onboard dual MEMS microphones) played back correctly
+
 ### Boot Configuration
 
 - Add `microSD-periph` label to `bin/extlinux/extlinux.conf` that loads the peripheral
-  mode overlay via `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo`. The default
-  label `microSD` (all-GPIO mode) is unchanged.
+  mode overlay via `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo`.
+- **Change the default boot label from `microSD` (all-GPIO mode) to `microSD-periph`
+  (peripheral mode), so SPI0, WKUP\_I2C0, UART5, EHRPWM0 and MCASP2 are active
+  out of the box.**
 
 ---
 

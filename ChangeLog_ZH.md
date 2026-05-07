@@ -1,6 +1,6 @@
 # 更新日志
 
-## v1.0.5 — 2026-04-29
+## v1.0.5 — 2026-05-07
 
 ### 内核与设备树
 
@@ -19,11 +19,33 @@
 - 在内核 DTS `Makefile` 中新增 `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-periph.dtbo`，
   执行 `make linux-dtbs` 时自动编译该 overlay。
 
+#### 40-Pin SPI0 — spidev 节点
+
+- 在 overlay 的 `main_spi0` 下新增 `spidev@0`（CS0，引脚 24）和 `spidev@1`（CS1，引脚 26）
+  子节点，`compatible = "rohm,dh2228fv"`（内核新版本拒绝 `"spidev"` 字符串）。
+- 节点生效后 `/dev/spidev0.0` 可用，已通过引脚 19（MOSI）↔ 引脚 21（MISO）短接
+  硬件环回测试，8 字节 `xfer2` 收发一致，验证通过。
+
+#### 40-Pin 音频 — Waveshare WM8960 Audio HAT 支持
+
+- 在 overlay 的 `wkup_i2c0` 下新增 `wm8960@1a`（`compatible = "wlf,wm8960"`），
+  WM8960 驱动通过 WKUP\_I2C0（引脚 3/5，i2c-0）探测成功。
+- 完善 `mcasp2` 节点配置：`op-mode = IIS`、`tdm-slots = 2`、`serial-dir`
+  （AXR0 = RX 麦克风，AXR1 = TX 耳机）、`system-clock-frequency = 24576000`
+  （告知驱动使用 24.576 MHz 计算 BCLK 分频，与 HDMI 音频采用相同方法）。
+- 通过 `&{/}` fragment 在根节点新增 `sound-wm8960 simple-audio-card`，
+  MCASP2 为 I2S master，WM8960 为 codec slave。
+- 验证结果：
+  - WM8960 驱动以 0x1a 探测成功（`i2cdetect` 显示 `UU`）
+  - ALSA 声卡 `WM8960-Sound` 注册，48 kHz 立体声播放正常
+  - 5 秒录音（S32\_LE，板载双 MEMS 麦克风）回放验证通过
+
 ### 启动配置
 
 - 在 `bin/extlinux/extlinux.conf` 中新增 `microSD-periph` 启动项，通过
   `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo` 加载外设模式 overlay。
-  默认启动项 `microSD`（全 GPIO 模式）保持不变。
+- **将默认启动项从 `microSD`（全 GPIO 模式）切换为 `microSD-periph`（外设模式），
+  SPI0、WKUP\_I2C0、UART5、EHRPWM0、MCASP2 开机自动启用。**
 
 ---
 
