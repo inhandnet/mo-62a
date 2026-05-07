@@ -99,11 +99,18 @@
 	pinctrl-0 = <&gpio1_exp_periph_pins>;
 };
 
-/* Pins 3,5 — WKUP_I2C0 SDA/SCL */
+/* Pins 3,5 — WKUP_I2C0 SDA/SCL + WM8960 Audio HAT */
 &wkup_i2c0 {
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
+
+	wm8960: wm8960@1a {
+		compatible = "wlf,wm8960";
+		reg = <0x1a>;
+		#sound-dai-cells = <0>;
+		wlf,shared-lrclk;
+	};
 };
 
 /* Pins 8,10 — UART5 TXD/RXD */
@@ -141,9 +148,46 @@
 	pinctrl-0 = <&main_ehtpwm0_pins_default>;
 };
 
-/* Pins 12,35,38,40 — MCASP2 ACLKX/AFSX/AXR0/AXR1 */
+/* Pins 12,35,38,40 — MCASP2 I2S master for WM8960 Audio HAT
+ * Pin 12 = ACLKX (BCLK, also used as WM8960 MCLK)
+ * Pin 35 = AFSX  (LRCLK)
+ * Pin 38 = AXR0  (RX: mic data from WM8960 to SoC)
+ * Pin 40 = AXR1  (TX: playback data from SoC to WM8960)
+ */
 &mcasp2 {
 	status = "okay";
+	#sound-dai-cells = <0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_mcasp2_pins_default>;
+	op-mode = <0>;          /* MCASP_IIS_MODE */
+	tdm-slots = <2>;
+	serial-dir = <          /* 0: INACTIVE, 1: TX, 2: RX */
+		2 1 0 0
+		0 0 0 0
+		0 0 0 0
+		0 0 0 0
+	>;
+	/* Set fck to exact audio clock: 24.576 MHz = 512 × 48 kHz */
+	assigned-clock-rates = <24576000>;
+};
+
+/* ASoC sound card: MCASP2 (I2S master) + WM8960 (codec slave) */
+&{/} {
+	sound-wm8960 {
+		compatible = "simple-audio-card";
+		simple-audio-card,name = "WM8960-Sound";
+		simple-audio-card,format = "i2s";
+		simple-audio-card,bitclock-master = <&wm8960_cpu>;
+		simple-audio-card,frame-master = <&wm8960_cpu>;
+
+		wm8960_cpu: simple-audio-card,cpu {
+			sound-dai = <&mcasp2>;
+			system-clock-direction-out;
+			system-clock-frequency = <24576000>;
+		};
+
+		simple-audio-card,codec {
+			sound-dai = <&wm8960>;
+		};
+	};
 };
