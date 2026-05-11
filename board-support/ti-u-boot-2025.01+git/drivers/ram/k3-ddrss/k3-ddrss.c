@@ -27,6 +27,11 @@
 #include "lpddr4_structs_if.h"
 #include "lpddr4_ctl_regs.h"
 
+/* LPDDR4 Mode Register identifiers (JEDEC JEP106 / JESD209-4) */
+#define LPDDR4_MR5_MFR_MICRON   0xFFU   /* Micron manufacturer ID */
+#define LPDDR4_MR5_MFR_SAMSUNG  0x01U   /* Samsung manufacturer ID */
+#define LPDDR4_MR8_DENSITY_8Gb  0x03U   /* MR8[3:0]: 8Gb per die */
+
 #define SRAM_MAX 512
 
 #define CTRLMMR_DDR4_FSP_CLKCHNG_REQ_OFFS	0x80
@@ -623,6 +628,86 @@ void k3_lpddr4_hardware_reg_init(struct k3_ddrss_desc *ddrss)
 	}
 }
 
+/*
+ * Read one LPDDR4 Mode Register via the MRR (Mode Register Read) mechanism.
+ * The DDR must be fully initialised (k3_lpddr4_start called) before calling
+ * this function.  Returns the Channel A value of the requested MR.
+ */
+static u32 k3_lpddr4_read_mr(struct k3_ddrss_desc *ddrss, u32 mr_num)
+{
+	lpddr4_privatedata *pd = &ddrss->pd;
+	/* readModeRegVal: bit[16]=1 (trigger), bits[8]=rank0, bits[7:0]=MR# */
+	u32 readval = (0x10000U | (mr_num & 0xFFU));
+	u64 mmrvalue = 0U;
+	u8 mmrstatus = 0U;
+
+	lpddr4_getmmrregister(pd, readval, &mmrvalue, &mmrstatus);
+	if (mmrstatus)
+		dev_warn(ddrss->dev, "MR%u read error: status=0x%x\n",
+			 mr_num, (u32)mmrstatus);
+
+	/* bits[7:0] = Channel A value */
+	return (u32)(mmrvalue & 0xFFU);
+}
+
+/*
+ * Re-initialise the DDR subsystem with the compatibility config read from
+ * the DTS ti,compat-* properties.  Called when the detected chip (via MR5/MR8)
+ * does not match the primary (default) config.
+ *
+ * The function re-uses all existing init helpers but loads register data from
+ * ti,compat-ctl-data / ti,compat-pi-data / ti,compat-phy-data instead of the
+ * primary ti,ctl-data / ti,pi-data / ti,phy-data arrays.
+ */
+static void k3_lpddr4_hardware_reg_init_compat(struct k3_ddrss_desc *ddrss)
+{
+	u32 status = 0U;
+	struct reginitdata reginitdata;
+	lpddr4_obj *driverdt = ddrss->driverdt;
+	lpddr4_privatedata *pd = &ddrss->pd;
+	int ret, i;
+
+	ret = dev_read_u32_array(ddrss->dev, "ti,compat-ctl-data",
+				 (u32 *)reginitdata.ctl_regs,
+				 LPDDR4_INTR_CTL_REG_COUNT);
+	if (ret)
+		printf("%s: Error reading compat CTL data: %d\n", __func__, ret);
+	for (i = 0; i < LPDDR4_INTR_CTL_REG_COUNT; i++)
+		reginitdata.ctl_regs_offs[i] = i;
+
+	ret = dev_read_u32_array(ddrss->dev, "ti,compat-pi-data",
+				 (u32 *)reginitdata.pi_regs,
+				 LPDDR4_INTR_PHY_INDEP_REG_COUNT);
+	if (ret)
+		printf("%s: Error reading compat PI data: %d\n", __func__, ret);
+	for (i = 0; i < LPDDR4_INTR_PHY_INDEP_REG_COUNT; i++)
+		reginitdata.pi_regs_offs[i] = i;
+
+	ret = dev_read_u32_array(ddrss->dev, "ti,compat-phy-data",
+				 (u32 *)reginitdata.phy_regs,
+				 LPDDR4_INTR_PHY_REG_COUNT);
+	if (ret)
+		printf("%s: Error reading compat PHY data: %d\n", __func__, ret);
+	for (i = 0; i < LPDDR4_INTR_PHY_REG_COUNT; i++)
+		reginitdata.phy_regs_offs[i] = i;
+
+	status = driverdt->writectlconfig(pd, reginitdata.ctl_regs,
+					  reginitdata.ctl_regs_offs,
+					  LPDDR4_INTR_CTL_REG_COUNT);
+	if (!status)
+		status = driverdt->writephyindepconfig(pd, reginitdata.pi_regs,
+						       reginitdata.pi_regs_offs,
+						       LPDDR4_INTR_PHY_INDEP_REG_COUNT);
+	if (!status)
+		status = driverdt->writephyconfig(pd, reginitdata.phy_regs,
+						  reginitdata.phy_regs_offs,
+						  LPDDR4_INTR_PHY_REG_COUNT);
+	if (status) {
+		printf("%s: FAIL\n", __func__);
+		hang();
+	}
+}
+
 void k3_lpddr4_start(struct k3_ddrss_desc *ddrss)
 {
 	u32 status = 0U;
@@ -1156,6 +1241,63 @@ static int k3_ddrss_probe(struct udevice *dev)
 		k3_ddrss_deassert_retention(ddrss);
 
 	k3_lpddr4_start(ddrss);
+
+	/*
+	 * Two-pass DDR compatibility detection.
+	 *
+	 * After the first init (primary/default config), read MR5 (manufacturer)
+	 * and MR8 (die density) to identify the actual installed chip.  If a
+	 * ti,compat-mr5 / ti,compat-mr8 pair is present in the DTS and matches
+	 * the detected values, re-initialise with the compat config.
+	 *
+	 * This allows a single firmware image to support multiple LPDDR4 vendors
+	 * and densities without compile-time selection.
+	 */
+	if (!is_lpm_resume) {
+		u32 compat_mr5, compat_mr8;
+
+		if (!dev_read_u32(dev, "ti,compat-mr5", &compat_mr5) &&
+		    !dev_read_u32(dev, "ti,compat-mr8", &compat_mr8)) {
+			u32 mr5 = k3_lpddr4_read_mr(ddrss, 5);
+			u32 mr8 = k3_lpddr4_read_mr(ddrss, 8);
+
+			printf("DDR: MR5=0x%02x MR8=0x%02x", mr5, mr8);
+
+			if (mr5 == compat_mr5 && mr8 == compat_mr8) {
+				u32 freq1, freq2, fhs_cnt, size_u32;
+
+				printf(" -> compat match, re-initializing\n");
+
+				dev_read_u32(dev, "ti,compat-freq1",   &freq1);
+				dev_read_u32(dev, "ti,compat-freq2",   &freq2);
+				dev_read_u32(dev, "ti,compat-fhs-cnt", &fhs_cnt);
+				dev_read_u32(dev, "ti,compat-ddr-size", &size_u32);
+
+				ddrss->ddr_freq1    = freq1;
+				ddrss->ddr_freq2    = freq2;
+				ddrss->ddr_fhs_cnt  = fhs_cnt;
+				ddrss->ddr_ram_size = (u64)size_u32;
+
+				/* Re-configure V2A_CTL with correct SDRAM_IDX */
+				k3_ddrss_ddr_reg_init(ddrss);
+
+				/* Re-init driver and write compat registers */
+				k3_lpddr4_probe(ddrss);
+				k3_lpddr4_init(ddrss);
+				k3_lpddr4_hardware_reg_init_compat(ddrss);
+
+				ret = k3_ddrss_init_freq(ddrss);
+				if (ret)
+					return ret;
+
+				k3_lpddr4_start(ddrss);
+			} else if (mr5 == LPDDR4_MR5_MFR_MICRON) {
+				printf(" -> primary Micron config confirmed\n");
+			} else {
+				printf(" -> unknown chip, using primary config\n");
+			}
+		}
+	}
 
 	if (is_lpm_resume)
 		k3_ddrss_lpm_resume(ddrss);
