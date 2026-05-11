@@ -1260,42 +1260,47 @@ static int k3_ddrss_probe(struct udevice *dev)
 		    !dev_read_u32(dev, "ti,compat-mr8", &compat_mr8)) {
 			u32 mr5 = k3_lpddr4_read_mr(ddrss, 5);
 			u32 mr8 = k3_lpddr4_read_mr(ddrss, 8);
+			bool use_compat = (mr5 == compat_mr5 && mr8 == compat_mr8);
 
-			printf("DDR: MR5=0x%02x MR8=0x%02x", mr5, mr8);
+			printf("DDR: MR5=0x%02x MR8=0x%02x -> %s\n", mr5, mr8,
+			       use_compat ? "compat chip detected" : "primary chip confirmed");
 
-			if (mr5 == compat_mr5 && mr8 == compat_mr8) {
+			/*
+			 * The MRR command (READ_MODEREG write) disturbs the DDR
+			 * controller state.  Always re-initialise after MRR to
+			 * restore a clean controller state, regardless of which
+			 * chip was detected.  For the primary chip this means a
+			 * second init with the same Micron config; for a compat
+			 * chip the compat config is used instead.
+			 */
+			if (use_compat) {
 				u32 freq1, freq2, fhs_cnt, size_u32;
 
-				printf(" -> compat match, re-initializing\n");
-
-				dev_read_u32(dev, "ti,compat-freq1",   &freq1);
-				dev_read_u32(dev, "ti,compat-freq2",   &freq2);
-				dev_read_u32(dev, "ti,compat-fhs-cnt", &fhs_cnt);
+				dev_read_u32(dev, "ti,compat-freq1",    &freq1);
+				dev_read_u32(dev, "ti,compat-freq2",    &freq2);
+				dev_read_u32(dev, "ti,compat-fhs-cnt",  &fhs_cnt);
 				dev_read_u32(dev, "ti,compat-ddr-size", &size_u32);
 
 				ddrss->ddr_freq1    = freq1;
 				ddrss->ddr_freq2    = freq2;
 				ddrss->ddr_fhs_cnt  = fhs_cnt;
 				ddrss->ddr_ram_size = (u64)size_u32;
-
-				/* Re-configure V2A_CTL with correct SDRAM_IDX */
-				k3_ddrss_ddr_reg_init(ddrss);
-
-				/* Re-init driver and write compat registers */
-				k3_lpddr4_probe(ddrss);
-				k3_lpddr4_init(ddrss);
-				k3_lpddr4_hardware_reg_init_compat(ddrss);
-
-				ret = k3_ddrss_init_freq(ddrss);
-				if (ret)
-					return ret;
-
-				k3_lpddr4_start(ddrss);
-			} else if (mr5 == LPDDR4_MR5_MFR_MICRON) {
-				printf(" -> primary Micron config confirmed\n");
-			} else {
-				printf(" -> unknown chip, using primary config\n");
 			}
+
+			k3_ddrss_ddr_reg_init(ddrss);
+			k3_lpddr4_probe(ddrss);
+			k3_lpddr4_init(ddrss);
+
+			if (use_compat)
+				k3_lpddr4_hardware_reg_init_compat(ddrss);
+			else
+				k3_lpddr4_hardware_reg_init(ddrss);
+
+			ret = k3_ddrss_init_freq(ddrss);
+			if (ret)
+				return ret;
+
+			k3_lpddr4_start(ddrss);
 		}
 	}
 
