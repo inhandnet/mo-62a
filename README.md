@@ -14,9 +14,10 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [2.4 Toolchain](#24-toolchain)
 - [3. U-Boot](#3-u-boot)
   - [3.1 Related Files](#31-related-files)
-  - [3.2 Build U-Boot](#32-build-u-boot)
-  - [3.3 Stage Build Artifacts](#33-stage-build-artifacts)
-  - [3.4 Build Output](#34-build-output)
+  - [3.2 Signing Keys](#32-signing-keys)
+  - [3.3 Build U-Boot](#33-build-u-boot)
+  - [3.4 Stage Build Artifacts](#34-stage-build-artifacts)
+  - [3.5 Build Output](#35-build-output)
 - [4. Linux Kernel](#4-linux-kernel)
   - [4.1 Related Files](#41-related-files)
   - [4.2 Build DTBs](#42-build-dtbs)
@@ -111,7 +112,7 @@ sudo apt-get install \
   build-essential libncurses5-dev autoconf automake \
   dos2unix screen lrzsz lzop flex libssl-dev \
   u-boot-tools make git parted dosfstools e2fsprogs \
-  pv xz-utils zip wget curl
+  pv xz-utils zip wget curl cmake
 ```
 
 ### 2.2 Clone This Repository
@@ -241,7 +242,23 @@ Prebuilt firmware required during the build (from TI, not modified):
 | `board-support/prebuilt-images/am62a-evm/bl32.bin` | OP-TEE OS |
 | `board-support/prebuilt-images/am62a-evm/ti-dm/am62axx/dm_edgeai_mcu1_0_release_strip.out` | TI Device Manager firmware |
 
-### 3.2 Build U-Boot
+### 3.2 Signing Keys
+
+The TI K3 binman packaging requires two RSA private key files in PEM format under
+`board-support/ti-u-boot-2025.01+git/arch/arm/mach-k3/keys/`:
+
+| File | Used for | Note |
+|------|----------|------|
+| `custMpk.pem` | Signs `tiboot3-*-hs-*.bin` and `tiboot3-*-hs-fs-*.bin` (HS / HS-FS devices) | Copied from `custMpk.key` on first build |
+| `ti-degenerate-key.pem` | Signs `tiboot3-*-gp-*.bin` (GP devices) | Generated locally; AM62A ROM does not verify the RSA signature in GP mode, so any valid RSA key is functionally equivalent |
+
+Both files are covered by `*.pem` in the U-Boot tree's `.gitignore` and are therefore never committed. `make u-boot` (via the `u-boot-keys` prerequisite) generates them automatically on first use — no manual steps are required.
+
+> **Security note:** `custMpk.key` / `custMpk.pem` is the signing key for HS / HS-FS device firmware. Keep it confidential — any party who holds this key can sign firmware that boots on HS-mode MO-62A boards programmed with the matching public certificate.
+>
+> **Reproducibility note:** `ti-degenerate-key.pem` is generated locally with `openssl genrsa 4096` and will differ from the key in TI's official Processor SDK. This means `tiboot3-*-gp-*.bin` will not be byte-identical to TI's official build. MO-62A boards ship as HS-FS and the GP binary is not used in production; if byte-identical GP output is required, replace the generated file with the key from a full TI Processor SDK installation.
+
+### 3.3 Build U-Boot
 
 U-Boot is built in two separate passes — R5 SPL first, then A53 U-Boot. Both are invoked via the top-level `make` from the SDK root.
 
@@ -267,7 +284,7 @@ This configures the A53 build with `am62ax_mo_62a_a53_defconfig` and compiles us
 make u-boot
 ```
 
-### 3.3 Stage Build Artifacts
+### 3.4 Stage Build Artifacts
 
 After a successful build, copy the output binaries to `board-support/built-images/`:
 
@@ -275,7 +292,7 @@ After a successful build, copy the output binaries to `board-support/built-image
 make u-boot_stage
 ```
 
-### 3.4 Build Output
+### 3.5 Build Output
 
 After staging, the following files are available in `board-support/built-images/`:
 
