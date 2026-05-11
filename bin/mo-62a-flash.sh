@@ -154,14 +154,17 @@ install_external_apps_into_rootfs() {
   [[ -d "${ROOTFS_MNT:-}" ]] || die "ROOTFS_MNT not mounted; cannot install external apps"
   [[ -d "$ext_dir" ]] || { echo "No external directory found, skipping."; return 0; }
 
+  local sdk_cross="$SDK_ROOT/linux-devkit/sysroots/x86_64-arago-linux/usr/bin/aarch64-oe-linux/aarch64-oe-linux-"
+  local sdk_sysroot="$SDK_ROOT/linux-devkit/sysroots/aarch64-oe-linux"
+
   for app_dir in "$ext_dir"/*/; do
     [[ -f "$app_dir/Makefile" ]] || continue
     echo "Building external app: $(basename "$app_dir")"
-    make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- clean
-    make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- \
+    make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" clean
+    make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" \
       VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
       || die "Failed to build $(basename "$app_dir")"
-    make -C "$app_dir" CROSS_COMPILE=aarch64-linux-gnu- install \
+    make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" install \
       APP_INSTALL_DIR="$ROOTFS_MNT/usr/bin" \
       VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
       || die "Failed to install $(basename "$app_dir")"
@@ -206,10 +209,10 @@ copy_boot_files() {
 
   [[ -d "$BUILT_IMAGES_DIR/dtb/ti" ]] || die "Missing DTB dir: $BUILT_IMAGES_DIR/dtb/ti"
   rm -rf "$BOOT_MNT/ti" || true
-  cp -a "$BUILT_IMAGES_DIR/dtb/ti" "$BOOT_MNT/"
+  cp -r "$BUILT_IMAGES_DIR/dtb/ti" "$BOOT_MNT/"
 
   rm -rf "$BOOT_MNT/extlinux" || true
-  cp -a "$EXTLINUX_SRC_DIR" "$BOOT_MNT/"
+  cp -r "$EXTLINUX_SRC_DIR" "$BOOT_MNT/"
 
   if [[ -f "$SDK_ROOT/bin/uEnv.txt" ]]; then
     cp -v "$SDK_ROOT/bin/uEnv.txt" "$BOOT_MNT/uEnv.txt"

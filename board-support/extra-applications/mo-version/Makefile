@@ -3,8 +3,9 @@ TARGET     = mo-version
 VERSION    ?= unknown
 BUILD_DATE ?= $(shell date +%Y-%m-%d)
 LOCAL_BIN  := $(APP_INSTALL_DIR)/../local/bin
+SYSROOT    ?=
 
-CFLAGS = -O2 -DVERSION=\"$(VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"
+CFLAGS = -O2 $(if $(SYSROOT),--sysroot=$(SYSROOT),) -DVERSION=\"$(VERSION)\" -DBUILD_DATE=\"$(BUILD_DATE)\"
 
 .PHONY: all clean install
 

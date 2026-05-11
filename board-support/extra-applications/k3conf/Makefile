@@ -1,8 +1,10 @@
 BUILD_DIR  := build
 LOCAL_BIN  := $(APP_INSTALL_DIR)/../local/bin
+SYSROOT    ?=
 
 CMAKE_ARGS := \
 	-DCMAKE_C_COMPILER=$(CROSS_COMPILE)gcc \
+	$(if $(SYSROOT),-DCMAKE_SYSROOT=$(SYSROOT),) \
 	-DCMAKE_SYSTEM_NAME=Linux \
 	-DCMAKE_SYSTEM_PROCESSOR=aarch64 \
 	-Dstatic_exe=ON
