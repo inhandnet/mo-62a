@@ -5,9 +5,8 @@
  */
 
 #include "k3-am62a7-mo-62a.dts"
-#include "k3-am62a7-mo-62a-lp4-Micron-4GB.dtsi"
+#include "k3-am62a7-mo-62a-lp4-4GB.dtsi"
 #include "k3-am62a-ddr.dtsi"
-#include "k3-am62a7-mo-62a-lp4-Samsung-2GB.dtsi"
 
 #include "k3-am62a7-mo-62a-u-boot.dtsi"
 
