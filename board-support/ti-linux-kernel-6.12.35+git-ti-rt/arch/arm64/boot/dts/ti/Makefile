@@ -53,6 +53,7 @@ dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-uart5.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-spi0.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-ehrpwm0.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-audio.dtbo
+dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-cam-imx219.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-csi2-ox05b1s.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-sk-m2-cc3351.dtbo
 dtb-$(CONFIG_ARCH_K3) += k3-am62a7-phyboard-lyra-rdk.dtb

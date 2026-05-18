@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for MO-62A — Sony IMX219 CSI2 Camera (CSI0 connector)
+ *
+ * Enables the IMX219 sensor and the entire CSI2 capture pipeline:
+ *   - IMX219 sensor on main_i2c2 (addr 0x10)
+ *   - Cadence CSI2RX wrapper (cdns_csi2rx0)
+ *   - TI CSI2RX shim (ti_csi2rx0)
+ *   - MIPI D-PHY (dphy0)
+ *
+ * Pin/clock/power resources:
+ *   - I2C2 bus is already enabled in base DTS (no I2C children removed)
+ *   - csi0_mclk_pins_default: 24 MHz MCLK from CLKOUT0
+ *   - vcc_cam: 3.3 V camera supply via GPIO0_88/TPS22965
+ *   - reset-gpio: GPIO0_87 (CSI0_XSHUTDOWN)
+ *
+ * Usage: add to extlinux.conf label:
+ *   fdtoverlays /ti/k3-am62a7-mo-62a-cam-imx219.dtbo
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include <dt-bindings/gpio/gpio.h>
+
+&main_i2c2 {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	imx219: camera@10 {
+		compatible = "sony,imx219";
+		reg = <0x10>;
+		clocks = <&k3_clks 157 20>;
+		clock-names = "xclk";
+		assigned-clocks = <&k3_clks 157 20>;
+		assigned-clock-parents = <&k3_clks 157 22>;
+		assigned-clock-rates = <25000000>;
+		pinctrl-names = "default";
+		pinctrl-0 = <&csi0_mclk_pins_default>;
+		VANA-supply = <&vcc_cam>;   /* 3.3V VSYS_3V3_EXP via GPIO0_88/TPS22965 */
+		VDIG-supply = <&vcc_cam>;   /* FPC only has 3V3; module has internal 1.8V reg */
+		VDDL-supply = <&vcc_cam>;   /* FPC only has 3V3; module has internal 1.2V reg */
+		reset-gpios = <&main_gpio0 87 GPIO_ACTIVE_HIGH>; /* GPIO0_87/CSI0_XSHUTDOWN */
+		status = "okay";
+
+		port {
+			csi2_cam0: endpoint {
+				remote-endpoint = <&csi2rx0_in_sensor>;
+				link-frequencies = /bits/ 64 <455000000>;
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&cdns_csi2rx0 {
+	status = "okay";
+
+	ports {
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		csi0_port0: port@0 {
+			reg = <0>;
+			status = "okay";
+
+			csi2rx0_in_sensor: endpoint {
+				remote-endpoint = <&csi2_cam0>;
+				bus-type = <4>; /* CSI2 DPHY */
+				clock-lanes = <0>;
+				data-lanes = <1 2>;
+			};
+		};
+	};
+};
+
+&ti_csi2rx0 {
+	status = "okay";
+};
+
+&dphy0 {
+	status = "okay";
+};
