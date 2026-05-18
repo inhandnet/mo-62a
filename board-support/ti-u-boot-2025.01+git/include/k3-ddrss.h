@@ -12,5 +12,6 @@
 struct udevice;
 
 int k3_ddrss_ddr_fdt_fixup(struct udevice *dev, void *blob, struct bd_info *bd);
+int k3_ddrss_fdt_fixup_memory(struct udevice *dev, void *blob);
 
 #endif

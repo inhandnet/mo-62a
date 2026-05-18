@@ -26,6 +26,12 @@
 #include "lpddr4_if.h"
 #include "lpddr4_structs_if.h"
 #include "lpddr4_ctl_regs.h"
+#include "lp4_micron_4gb.h"
+
+/* LPDDR4 Mode Register identifiers (JEDEC JEP106 / JESD209-4) */
+#define LPDDR4_MR5_MFR_MICRON   0xFFU   /* Micron manufacturer ID */
+#define LPDDR4_MR5_MFR_SAMSUNG  0x01U   /* Samsung manufacturer ID */
+#define LPDDR4_MR8_DENSITY_8Gb  0x03U   /* MR8[3:0]: 8Gb per die */
 
 #define SRAM_MAX 512
 
@@ -623,6 +629,176 @@ void k3_lpddr4_hardware_reg_init(struct k3_ddrss_desc *ddrss)
 	}
 }
 
+/*
+ * Read one LPDDR4 Mode Register via the MRR (Mode Register Read) mechanism.
+ * The DDR must be fully initialised (k3_lpddr4_start called) before calling
+ * this function.  Returns the Channel A value of the requested MR.
+ */
+static u32 k3_lpddr4_read_mr(struct k3_ddrss_desc *ddrss, u32 mr_num)
+{
+	lpddr4_privatedata *pd = &ddrss->pd;
+	/* readModeRegVal: bit[16]=1 (trigger), bits[8]=rank0, bits[7:0]=MR# */
+	u32 readval = (0x10000U | (mr_num & 0xFFU));
+	u64 mmrvalue = 0U;
+	u8 mmrstatus = 0U;
+
+	lpddr4_getmmrregister(pd, readval, &mmrvalue, &mmrstatus);
+	if (mmrstatus)
+		dev_warn(ddrss->dev, "MR%u read error: status=0x%x\n",
+			 mr_num, (u32)mmrstatus);
+
+	/* bits[7:0] = Channel A value */
+	return (u32)(mmrvalue & 0xFFU);
+}
+
+static void k3_ddrss_ddr_reg_init(struct k3_ddrss_desc *ddrss);
+void k3_lpddr4_start(struct k3_ddrss_desc *ddrss);
+
+struct k3_ddrss_compat_chip {
+	const char *name;
+	u8   mr5;
+	u32  fhs_cnt;
+	u64  ram_size;
+	u64  bank1_base;
+	u64  bank1_size;
+	const u32 *ctl;
+	const u32 *pi;
+	const u32 *phy;
+};
+
+static const struct k3_ddrss_compat_chip k3_ddrss_compat_chips[] = {
+	{
+		.name       = "Micron 4GB LPDDR4 @ 1866MT/s",
+		.mr5        = LP4_MICRON_4GB_MR5,
+		.fhs_cnt    = LP4_MICRON_4GB_FHS_CNT,
+		.ram_size   = 0x100000000ULL,
+		.bank1_base = 0x880000000ULL,
+		.bank1_size = 0x80000000ULL,
+		.ctl        = lp4_micron_4gb_ctl,
+		.pi         = lp4_micron_4gb_pi,
+		.phy        = lp4_micron_4gb_phy,
+	},
+};
+
+/*
+ * AM62Ax Main PSC (0x00400000) direct-write DDR reset.
+ *
+ * TI-SCI power_domain_off() is ineffective on SHARED power domains: DM
+ * firmware holds its own reference so the DDR hardware never loses power.
+ * The Cadence PHY FSP signal path latches "training done" after the first
+ * k3_lpddr4_start() and will not re-arm without a true hardware reset.
+ * Bypassing TI-SCI with direct MDCTL writes is the only reliable way to
+ * achieve that reset from R5 SPL.
+ *
+ * AM62Ax PSC base = 0x400000.
+ *   LPSC 60 = DDR CTL  (device 170)   MDCTL = PSC_BASE + 0xA00 + 60*4
+ *   LPSC 62 = DDR data (device  55)   MDCTL = PSC_BASE + 0xA00 + 62*4
+ *   Both modules belong to PD13; PTCMD/PTSTAT bit 13 = 0x2000.
+ */
+#define AM62AX_PSC_BASE		0x00400000U
+#define AM62AX_PSC_PTCMD	(AM62AX_PSC_BASE + 0x120U)
+#define AM62AX_PSC_PTSTAT	(AM62AX_PSC_BASE + 0x128U)
+#define AM62AX_PSC_MDCTL(m)	(AM62AX_PSC_BASE + 0xA00U + (m) * 4U)
+#define AM62AX_DDR_PD_BIT	BIT(13)
+#define AM62AX_DDR_LPSC_CTL	60U
+#define AM62AX_DDR_LPSC_DATA	62U
+#define PSC_MDCTL_NEXT_MASK	0xFFFFFF00U
+#define PSC_MDCTL_SWRSTDISABLE	0x1U
+#define PSC_MDCTL_ENABLE	0x3U
+
+static void k3_ddrss_psc_reset(void)
+{
+	u32 val;
+
+	printf("DDRSS: PSC reset start\n");
+
+	val = readl(AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_CTL));
+	writel((val & PSC_MDCTL_NEXT_MASK) | PSC_MDCTL_SWRSTDISABLE,
+	       AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_CTL));
+	writel(AM62AX_DDR_PD_BIT, AM62AX_PSC_PTCMD);
+	while (readl(AM62AX_PSC_PTSTAT) & AM62AX_DDR_PD_BIT)
+		;
+
+	val = readl(AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_DATA));
+	writel((val & PSC_MDCTL_NEXT_MASK) | PSC_MDCTL_SWRSTDISABLE,
+	       AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_DATA));
+	writel(AM62AX_DDR_PD_BIT, AM62AX_PSC_PTCMD);
+	while (readl(AM62AX_PSC_PTSTAT) & AM62AX_DDR_PD_BIT)
+		;
+
+	val = readl(AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_CTL));
+	writel((val & PSC_MDCTL_NEXT_MASK) | PSC_MDCTL_ENABLE,
+	       AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_CTL));
+	writel(AM62AX_DDR_PD_BIT, AM62AX_PSC_PTCMD);
+	while (readl(AM62AX_PSC_PTSTAT) & AM62AX_DDR_PD_BIT)
+		;
+
+	val = readl(AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_DATA));
+	writel((val & PSC_MDCTL_NEXT_MASK) | PSC_MDCTL_ENABLE,
+	       AM62AX_PSC_MDCTL(AM62AX_DDR_LPSC_DATA));
+	writel(AM62AX_DDR_PD_BIT, AM62AX_PSC_PTCMD);
+	while (readl(AM62AX_PSC_PTSTAT) & AM62AX_DDR_PD_BIT)
+		;
+
+	printf("DDRSS: PSC reset done\n");
+}
+
+static int k3_ddrss_compat_reinit(struct k3_ddrss_desc *ddrss,
+				   const struct k3_ddrss_compat_chip *chip)
+{
+	lpddr4_obj *driverdt = ddrss->driverdt;
+	lpddr4_privatedata *pd = &ddrss->pd;
+	u16 offs[LPDDR4_INTR_PHY_REG_COUNT];
+	u32 status;
+	int i, ret;
+
+	ddrss->ddr_fhs_cnt      = chip->fhs_cnt;
+	ddrss->ddr_ram_size     = chip->ram_size;
+	ddrss->ddr_bank_base[1] = chip->bank1_base;
+	ddrss->ddr_bank_size[1] = chip->bank1_size;
+
+	k3_ddrss_psc_reset();
+
+	k3_ddrss_ddr_reg_init(ddrss);
+	k3_lpddr4_init(ddrss);
+
+	for (i = 0; i < LPDDR4_INTR_CTL_REG_COUNT; i++)
+		offs[i] = i;
+	status = driverdt->writectlconfig(pd, (u32 *)chip->ctl, offs,
+					  LPDDR4_INTR_CTL_REG_COUNT);
+	if (status) {
+		printf("%s: CTL write FAIL\n", __func__);
+		hang();
+	}
+
+	for (i = 0; i < LPDDR4_INTR_PHY_INDEP_REG_COUNT; i++)
+		offs[i] = i;
+	status = driverdt->writephyindepconfig(pd, (u32 *)chip->pi, offs,
+					       LPDDR4_INTR_PHY_INDEP_REG_COUNT);
+	if (status) {
+		printf("%s: PI write FAIL\n", __func__);
+		hang();
+	}
+
+	for (i = 0; i < LPDDR4_INTR_PHY_REG_COUNT; i++)
+		offs[i] = i;
+	status = driverdt->writephyconfig(pd, (u32 *)chip->phy, offs,
+					  LPDDR4_INTR_PHY_REG_COUNT);
+	if (status) {
+		printf("%s: PHY write FAIL\n", __func__);
+		hang();
+	}
+
+	ret = k3_ddrss_init_freq(ddrss);
+	if (ret)
+		return ret;
+
+	k3_lpddr4_start(ddrss);
+	printf("DDRSS: %s init done (%uMB)\n", chip->name,
+	       (u32)(chip->ram_size >> 20));
+	return 0;
+}
+
 void k3_lpddr4_start(struct k3_ddrss_desc *ddrss)
 {
 	u32 status = 0U;
@@ -1157,6 +1333,26 @@ static int k3_ddrss_probe(struct udevice *dev)
 
 	k3_lpddr4_start(ddrss);
 
+	if (!is_lpm_resume) {
+		u32 mr5 = k3_lpddr4_read_mr(ddrss, 5);
+		u32 mr8 = k3_lpddr4_read_mr(ddrss, 8);
+		int i;
+
+		printf("DDRSS: MR5=0x%02x MR8=0x%02x\n", mr5, mr8);
+
+		for (i = 0; i < ARRAY_SIZE(k3_ddrss_compat_chips); i++) {
+			if (mr5 == k3_ddrss_compat_chips[i].mr5) {
+				printf("DDRSS: detected %s, reinitializing\n",
+				       k3_ddrss_compat_chips[i].name);
+				ret = k3_ddrss_compat_reinit(ddrss,
+							     &k3_ddrss_compat_chips[i]);
+				if (ret)
+					return ret;
+				break;
+			}
+		}
+	}
+
 	if (is_lpm_resume)
 		k3_ddrss_lpm_resume(ddrss);
 
@@ -1240,6 +1436,14 @@ static int k3_ddrss_probe(struct udevice *dev)
 	}
 
 	return ret;
+}
+
+int k3_ddrss_fdt_fixup_memory(struct udevice *dev, void *blob)
+{
+	struct k3_ddrss_desc *ddrss = dev_get_priv(dev);
+
+	return fdt_fixup_memory_banks(blob, ddrss->ddr_bank_base,
+				      ddrss->ddr_bank_size, CONFIG_NR_DRAM_BANKS);
 }
 
 int k3_ddrss_ddr_fdt_fixup(struct udevice *dev, void *blob, struct bd_info *bd)
