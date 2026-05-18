@@ -1,6 +1,7 @@
 bin/out/
 board-support/built-images/
 board-support/u-boot-build/
+board-support/extra-applications/mo-version/mo-version
 .claude/
 tools/mo62a-tester/__pycache__/
 tools/mo62a-tester/**/__pycache__/
