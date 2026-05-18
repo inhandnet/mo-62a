@@ -40,12 +40,39 @@
   - ALSA 声卡 `WM8960-Sound` 注册，48 kHz 立体声播放正常
   - 5 秒录音（S32\_LE，板载双 MEMS 麦克风）回放验证通过
 
+#### 40-Pin 扩展接口 — 单独外设 DT Overlay 文件
+
+- 新增 5 个独立外设 overlay 文件，每个文件仅启用一组外设：
+  - `k3-am62a7-mo-62a-exp-i2c0.dtso`：仅启用 WKUP\_I2C0（引脚 3/5）；
+    MCU GPIO0 pinctrl 精简，排除 `MCU_GPIO0_19/20`。
+  - `k3-am62a7-mo-62a-exp-uart5.dtso`：仅启用 UART5（引脚 8/10）；
+    GPIO1 pinctrl 精简，排除 `GPIO1_24/25`。
+  - `k3-am62a7-mo-62a-exp-spi0.dtso`：仅启用 SPI0（引脚 19/21/23/24/26），
+    含两个 spidev 节点；GPIO1 pinctrl 精简，排除 `GPIO1_15–19`。
+  - `k3-am62a7-mo-62a-exp-ehrpwm0.dtso`：仅启用 EHRPWM0（引脚 32/33）；
+    GPIO1 pinctrl 精简，排除 `GPIO1_13/14`。
+  - `k3-am62a7-mo-62a-exp-audio.dtso`：WM8960 Audio HAT——将 WKUP\_I2C0
+    （Codec I²C 控制，引脚 3/5）与 MCASP2（I²S 音频数据，引脚 12/35/38/40）
+    组合使用；MCU GPIO0、GPIO1 及 `gpio0-default-pins` 的 pinctrl 组均单独
+    更新，仅排除本 overlay 所占用的引脚。
+- 每个 overlay 携带精确裁剪的 GPIO pinctrl 组，仅移除该外设占用的引脚，
+  无论加载哪个单独 overlay，均不会导致 GPIO 控制器 probe 失败。
+- 在内核 DTS `Makefile` 中新增对应的 5 条
+  `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-<name>.dtbo` 构建目标。
+
 ### 启动配置
 
-- 在 `bin/extlinux/extlinux.conf` 中新增 `microSD-periph` 启动项，通过
-  `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo` 加载外设模式 overlay。
-- **将默认启动项从 `microSD`（全 GPIO 模式）切换为 `microSD-periph`（外设模式），
-  SPI0、WKUP\_I2C0、UART5、EHRPWM0、MCASP2 开机自动启用。**
+- `bin/extlinux/extlinux.conf` 重构为 7 个启动项：
+  - `microSD` — 全 GPIO 模式（**默认**）
+  - `microSD-i2c0` — WKUP\_I2C0（引脚 3/5）
+  - `microSD-uart5` — UART5（引脚 8/10）
+  - `microSD-spi0` — SPI0，含两路 spidev CS（引脚 19/21/23/24/26）
+  - `microSD-ehrpwm0` — EHRPWM0 PWM 输出（引脚 32/33）
+  - `microSD-audio` — WM8960 Audio HAT（WKUP\_I2C0 + MCASP2，引脚 3/5/12/35/38/40）
+  - `microSD-periph` — 所有特殊功能同时启用
+- **默认启动项为 `microSD`（全 GPIO 模式）。** 如需启用某种外设模式，
+  可修改 extlinux.conf 中的 `default` 行，或在启动时中断 U-Boot 并交互式
+  选择所需启动项。
 
 ---
 

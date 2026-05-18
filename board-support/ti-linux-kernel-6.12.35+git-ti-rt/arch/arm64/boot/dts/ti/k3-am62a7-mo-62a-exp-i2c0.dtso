@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for MO-62A 40-pin expansion header — WKUP_I2C0 mode
+ *
+ * Enables WKUP_I2C0 on 40-pin header:
+ *   Pins  3, 5: WKUP_I2C0 SDA/SCL (MCU_GPIO0_20/19)
+ *
+ * MCU GPIO0 pinctrl updated to exclude WKUP_I2C0 pins (MCU_GPIO0_19/20).
+ * All other 40-pin header pins remain GPIO.
+ *
+ * Note: For WM8960 Audio HAT use the exp-audio overlay instead,
+ *       which combines WKUP_I2C0 with MCASP2 for full audio support.
+ *
+ * Usage: add to extlinux.conf label:
+ *   fdtoverlays /ti/k3-am62a7-mo-62a-exp-i2c0.dtbo
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#define PIN_DRIVE_STRENGTH_NOMINAL 0
+
+/* Reduced MCU GPIO0 pinctrl — excludes WKUP_I2C0 pins (MCU_GPIO0_19/20) */
+&mcu_pmx0 {
+	mcu_gpio0_i2c0_mode_pins: mcu-gpio0-i2c0-mode-pins {
+		pinctrl-single,pins = <
+			AM62AX_MCU_IOPAD(0x0010, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* MCU_GPIO0_4 */
+			/* MCU_GPIO0_19 (0x004c) excluded — claimed by wkup_i2c0 SCL */
+			/* MCU_GPIO0_20 (0x0050) excluded — claimed by wkup_i2c0 SDA */
+		>;
+	};
+};
+
+&mcu_gpio0 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&mcu_gpio0_i2c0_mode_pins>;
+};
+
+/* Pins 3,5 — WKUP_I2C0 SDA/SCL */
+&wkup_i2c0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&wkup_i2c0_pins_default>;
+};

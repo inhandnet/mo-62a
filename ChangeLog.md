@@ -44,13 +44,40 @@
   - ALSA card `WM8960-Sound` registered; 48 kHz stereo playback confirmed audible
   - 5-second capture (S32\_LE, onboard dual MEMS microphones) played back correctly
 
+#### 40-Pin Expansion Header — Per-Peripheral DT Overlay Files
+
+- Add five individual DT overlay files, each enabling exactly one peripheral group:
+  - `k3-am62a7-mo-62a-exp-i2c0.dtso`: WKUP\_I2C0 only (pins 3/5); MCU GPIO0 pinctrl
+    reduced to exclude `MCU_GPIO0_19/20`.
+  - `k3-am62a7-mo-62a-exp-uart5.dtso`: UART5 only (pins 8/10); GPIO1 pinctrl reduced
+    to exclude `GPIO1_24/25`.
+  - `k3-am62a7-mo-62a-exp-spi0.dtso`: SPI0 only (pins 19/21/23/24/26) with two spidev
+    nodes; GPIO1 pinctrl reduced to exclude `GPIO1_15–19`.
+  - `k3-am62a7-mo-62a-exp-ehrpwm0.dtso`: EHRPWM0 only (pins 32/33); GPIO1 pinctrl
+    reduced to exclude `GPIO1_13/14`.
+  - `k3-am62a7-mo-62a-exp-audio.dtso`: WM8960 Audio HAT — combines WKUP\_I2C0 (codec
+    I²C control, pins 3/5) with MCASP2 (I²S data, pins 12/35/38/40); MCU GPIO0,
+    GPIO1, and `gpio0-default-pins` pinctrl groups each updated to exclude only the
+    pads claimed by this overlay.
+- Each overlay carries its own precisely-reduced GPIO pinctrl group so that only the
+  pads of the activated peripheral are removed from the GPIO controllers, preventing
+  probe failures regardless of which single overlay is loaded.
+- Add five corresponding `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-<name>.dtbo`
+  entries to the kernel DTS `Makefile`.
+
 ### Boot Configuration
 
-- Add `microSD-periph` label to `bin/extlinux/extlinux.conf` that loads the peripheral
-  mode overlay via `fdtoverlays /ti/k3-am62a7-mo-62a-exp-periph.dtbo`.
-- **Change the default boot label from `microSD` (all-GPIO mode) to `microSD-periph`
-  (peripheral mode), so SPI0, WKUP\_I2C0, UART5, EHRPWM0 and MCASP2 are active
-  out of the box.**
+- `bin/extlinux/extlinux.conf` restructured with 7 labels:
+  - `microSD` — all-GPIO mode (**default**)
+  - `microSD-i2c0` — WKUP\_I2C0 (pins 3/5)
+  - `microSD-uart5` — UART5 (pins 8/10)
+  - `microSD-spi0` — SPI0 with two spidev CS (pins 19/21/23/24/26)
+  - `microSD-ehrpwm0` — EHRPWM0 PWM outputs (pins 32/33)
+  - `microSD-audio` — WM8960 Audio HAT via WKUP\_I2C0 + MCASP2 (pins 3/5/12/35/38/40)
+  - `microSD-periph` — all special functions enabled simultaneously
+- **Default boot label is `microSD` (all-GPIO mode).** Select a peripheral mode by
+  editing the `default` line in extlinux.conf or by interrupting U-Boot at boot and
+  choosing a label interactively.
 
 ---
 

@@ -1,0 +1,71 @@
+// SPDX-License-Identifier: GPL-2.0
+/*
+ * DT Overlay for MO-62A 40-pin expansion header — SPI0 mode
+ *
+ * Enables SPI0 on 40-pin header:
+ *   Pins 19,21,23,24,26: SPI0 D0/D1/CLK/CS0/CS1 (GPIO1_18/19/17/15/16)
+ *
+ * GPIO1 pinctrl updated to exclude SPI0 pins (GPIO1_15-19).
+ * All other 40-pin header pins remain GPIO.
+ *
+ * Usage: add to extlinux.conf label:
+ *   fdtoverlays /ti/k3-am62a7-mo-62a-exp-spi0.dtbo
+ */
+
+/dts-v1/;
+/plugin/;
+
+#include "k3-pinctrl.h"
+#define PIN_DRIVE_STRENGTH_NOMINAL 0
+
+/* Reduced GPIO1 pinctrl — excludes SPI0 pins (GPIO1_15/16/17/18/19) */
+&main_pmx0 {
+	gpio1_spi0_mode_pins: gpio1-spi0-mode-pins {
+		pinctrl-single,pins = <
+			AM62AX_IOPAD(0x0178, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_0  EXP Pin12 */
+			AM62AX_IOPAD(0x017c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_1  AUD_RSTn */
+			AM62AX_IOPAD(0x0180, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_2  EXP Pin40 */
+			AM62AX_IOPAD(0x0188, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_4 */
+			AM62AX_IOPAD(0x018c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_5  EXP Pin38 */
+			AM62AX_IOPAD(0x0190, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_6  ETHINTn */
+			AM62AX_IOPAD(0x0194, PIN_INPUT, 7)                             /* GPIO1_7  EEP_WC */
+			AM62AX_IOPAD(0x019c, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_9 */
+			AM62AX_IOPAD(0x01ac, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_13 EXP Pin33 */
+			AM62AX_IOPAD(0x01b0, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_14 EXP Pin32 */
+			/* GPIO1_15 (0x01b4) excluded — claimed by SPI0_CS0 */
+			/* GPIO1_16 (0x01b8) excluded — claimed by SPI0_CS1 */
+			/* GPIO1_17 (0x01bc) excluded — claimed by SPI0_CLK */
+			/* GPIO1_18 (0x01c0) excluded — claimed by SPI0_D0 */
+			/* GPIO1_19 (0x01c4) excluded — claimed by SPI0_D1 */
+			AM62AX_IOPAD(0x01d0, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_22 EXP Pin15 */
+			AM62AX_IOPAD(0x01d4, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_23 EXP Pin11 */
+			AM62AX_IOPAD(0x01d8, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_24 EXP Pin10 */
+			AM62AX_IOPAD(0x01dc, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_25 EXP Pin8 */
+			AM62AX_IOPAD(0x01f4, PIN_INPUT|PIN_DRIVE_STRENGTH_NOMINAL, 7) /* GPIO1_31 EXTINTn */
+		>;
+	};
+};
+
+&main_gpio1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&gpio1_spi0_mode_pins>;
+};
+
+/* Pins 19,21,23,24,26 — SPI0 D0/D1/CLK/CS0/CS1 */
+&main_spi0 {
+	status = "okay";
+	pinctrl-names = "default";
+	pinctrl-0 = <&main_spi0_pins_default>;
+
+	spidev@0 {
+		compatible = "rohm,dh2228fv";
+		reg = <0>;
+		spi-max-frequency = <10000000>;
+	};
+
+	spidev@1 {
+		compatible = "rohm,dh2228fv";
+		reg = <1>;
+		spi-max-frequency = <10000000>;
+	};
+};
