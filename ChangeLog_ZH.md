@@ -60,6 +60,38 @@
 - 在内核 DTS `Makefile` 中新增对应的 5 条
   `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-<name>.dtbo` 构建目标。
 
+### U-Boot
+
+#### LPDDR4 双芯片兼容 — 三星 2GB / 镁光 4GB 运行时自动检测
+
+- 将 R5 DDR 参数文件从 `lp4-4GB.dtsi` 重命名为 `lp4-Samsung-2GB-1866MHz.dtsi`，
+  并对齐经过验证的三星 LPDDR4 时序参数；更新 `k3-am62a7-r5-mo-62a.dts`，以重命名
+  后的文件作为默认 DDR 配置。
+- 新增 `lp4_micron_4gb.h`，包含镁光 4GB 完整 CTL/PI/PHY 寄存器表（2805 个条目），
+  供运行时 DDR 重新初始化使用。
+- 将 A53 侧 `k3-am62a7-mo-62a.dts` 中的内存节点更新为 2GB（三星默认值），实际
+  大小由运行时 FDT fixup 动态修正。
+- 从 `am62ax_mo_62a_r5_defconfig` 中删除未使用的 SPI/NAND/I2C Kconfig 符号。
+- 在 `k3-ddrss.c`（R5 SPL / tiboot3.bin）中实现运行时厂商检测：
+  - 三星 2GB 初始训练完成后，通过 Cadence DDR 驱动的 `getmmrregister` 接口
+    读取 LPDDR4 MR5（厂商 ID）。
+  - **MR5 = 0x01（三星）**：不做任何额外操作，保持单 bank 2GB 配置。
+  - **MR5 = 0xFF（镁光）**：通过直接写 PSC `MDCTL` 寄存器执行 DDR 子系统复位
+    （TI-SCI 在 SPL 阶段无法对共享时钟域断电重启），再以镁光 4GB CTL/PI/PHY 寄存器
+    表重新初始化，并设置 `ddr_bank1_size = 0x80000000`，基地址 `0x880000000`。
+- 扩展 `board/ti/am62ax/evm.c` 中的 `spl_perform_fixups()`：对于
+  `CONFIG_K3_DDRSS` 且未启用 inline ECC 的构建，调用
+  `k3_ddrss_fdt_fixup_memory()`，将实际内存布局通过 FDT 链逐级传递：
+  - R5 SPL 用真实 bank 布局修正 tispl FDT
+  - A53 SPL 读取更新后的 FDT 并修正 U-Boot FDT
+  - A53 U-Boot 显示 `DRAM:  2 GiB (total 4 GiB)` 并修正 Linux DTB
+  - Linux 内核通过 `/memory` 节点看到完整 4GB
+- 三星 2GB 板完全不受影响：MR5 = 0x01 不匹配任何兼容性入口，`bank1_size` 保持
+  为零，FDT fixup 仅写入单 bank 2GB；同一张 SD 卡镜像可在两种硬件上正确启动。
+- 实测结果：
+  - 三星 2GB：`DRAM:  2 GiB`，Linux `/proc/meminfo` 显示约 2GB
+  - 镁光 4GB：`DRAM:  2 GiB (total 4 GiB)`，Linux `/proc/meminfo` 显示约 4GB
+
 ### 启动配置
 
 - `bin/extlinux/extlinux.conf` 重构为 7 个启动项：

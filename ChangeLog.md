@@ -65,6 +65,40 @@
 - Add five corresponding `dtb-$(CONFIG_ARCH_K3) += k3-am62a7-mo-62a-exp-<name>.dtbo`
   entries to the kernel DTS `Makefile`.
 
+### U-Boot
+
+#### LPDDR4 Dual-Chip Compatibility — Samsung 2 GB / Micron 4 GB Runtime Detection
+
+- Rename R5 DDR parameter file from `lp4-4GB.dtsi` to `lp4-Samsung-2GB-1866MHz.dtsi`
+  and align its contents with verified Samsung LPDDR4 timing parameters; update
+  `k3-am62a7-r5-mo-62a.dts` to include the renamed file as the default DDR config.
+- Add `lp4_micron_4gb.h` containing a complete Micron 4 GB CTL/PI/PHY register table
+  (2 805 entries) for runtime DDR re-initialisation.
+- Update the U-Boot memory node in `k3-am62a7-mo-62a.dts` (A53 side) to declare
+  2 GB (Samsung default); actual size is patched at runtime via FDT fixup.
+- Remove unused `SPI`/`NAND`/`I2C` Kconfig symbols from `am62ax_mo_62a_r5_defconfig`.
+- Implement runtime manufacturer detection in `k3-ddrss.c` (R5 SPL / tiboot3.bin):
+  - After Samsung 2 GB initial training, read LPDDR4 MR5 (vendor ID) via the
+    Cadence DDR driver `getmmrregister` interface.
+  - **MR5 = 0x01 (Samsung)**: no further action; single 2 GB bank retained.
+  - **MR5 = 0xFF (Micron)**: perform a full DDR subsystem reset using direct PSC
+    `MDCTL` register writes (TI-SCI cannot power-cycle shared clock domains at
+    SPL stage), re-initialise with Micron 4 GB CTL/PI/PHY tables, and set
+    `ddr_bank1_size = 0x80000000` at base `0x880000000`.
+- Extend `spl_perform_fixups()` in `board/ti/am62ax/evm.c` to call
+  `k3_ddrss_fdt_fixup_memory()` for `CONFIG_K3_DDRSS` builds (without inline ECC),
+  propagating the actual memory layout through the full FDT chain:
+  - R5 SPL patches tispl FDT with the real bank layout
+  - A53 SPL reads the updated FDT and patches the U-Boot FDT
+  - A53 U-Boot displays `DRAM:  2 GiB (total 4 GiB)` and patches the Linux DTB
+  - Linux kernel sees the full 4 GiB via the `/memory` node
+- Samsung 2 GB boards are unaffected: MR5 = 0x01 matches no compat entry,
+  `bank1_size` remains zero, FDT fixup writes only the single 2 GB bank.
+  The same SD card image boots correctly on both hardware variants.
+- Verified on hardware:
+  - Samsung 2 GB: `DRAM:  2 GiB`, Linux `/proc/meminfo` ≈ 2 GB
+  - Micron 4 GB:  `DRAM:  2 GiB (total 4 GiB)`, Linux `/proc/meminfo` ≈ 4 GB
+
 ### Boot Configuration
 
 - `bin/extlinux/extlinux.conf` restructured with 7 labels:
