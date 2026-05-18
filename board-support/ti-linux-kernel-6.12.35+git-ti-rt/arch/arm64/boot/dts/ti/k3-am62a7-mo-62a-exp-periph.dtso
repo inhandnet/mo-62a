@@ -101,6 +101,8 @@
 
 /* Pins 3,5 — WKUP_I2C0 SDA/SCL + WM8960 Audio HAT */
 &wkup_i2c0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&wkup_i2c0_pins_default>;
@@ -122,6 +124,8 @@
 
 /* Pins 19,21,23,24,26 — SPI0 D0/D1/CLK/CS0/CS1 */
 &main_spi0 {
+	#address-cells = <1>;
+	#size-cells = <0>;
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_spi0_pins_default>;
