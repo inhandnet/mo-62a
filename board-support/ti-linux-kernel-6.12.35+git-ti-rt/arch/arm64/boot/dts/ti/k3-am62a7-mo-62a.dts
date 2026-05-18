@@ -29,6 +29,7 @@
 		mmc1    = &sdhci1;
 		mmc2    = &sdhci2;
 		rtc0    = &pcf85263;
+		rtc1    = &tps659312;
 		ethernet0 = &cpsw_port1;
 	};
 

@@ -56,6 +56,7 @@
 	status = "okay";
 	pinctrl-names = "default";
 	pinctrl-0 = <&main_spi0_pins_default>;
+	num-cs = <2>;
 
 	spidev@0 {
 		compatible = "rohm,dh2228fv";
