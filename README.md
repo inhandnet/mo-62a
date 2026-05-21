@@ -25,6 +25,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [4.4 Stage Build Artifacts](#44-stage-build-artifacts)
   - [4.5 Build Output](#45-build-output)
   - [4.6 Build Checklist by Change Type](#46-build-checklist-by-change-type)
+  - [4.7 Known DTS and Overlay Issues](#47-known-dts-and-overlay-issues)
 - [5. Flashing the SD Card](#5-flashing-the-sd-card)
   - [5.1 Prerequisites](#51-prerequisites)
   - [5.2 Launch the Flash Tool](#52-launch-the-flash-tool)
@@ -32,6 +33,7 @@ MO-62A single-board computer SDK, powered by the TI AM62A7 platform, offering up
   - [5.4 Offline Image Creation (balenaEtcher)](#54-offline-image-creation-balenaetcher)
   - [5.5 Customising the Rootfs Tarball (Adding apt Packages)](#55-customising-the-rootfs-tarball-adding-apt-packages)
   - [5.6 Rootfs Maintenance — Known Pitfalls and Fixes](#56-rootfs-maintenance--known-pitfalls-and-fixes)
+    - [5.6.5 /tmp Not Mounted as tmpfs](#565-tmp-not-mounted-as-tmpfs)
 - [6. Partition Layout](#6-partition-layout)
   - [6.1 BOOT Partition Contents](#boot-partition-contents)
   - [6.2 Boot Configuration](#boot-configuration)
@@ -320,7 +322,10 @@ MO-62A specific files added to the Linux kernel source tree:
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/configs/am62ax_mo_62a_defconfig` | MO-62A base kernel defconfig |
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a.dts` | MO-62A main device tree |
 | `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-pinmux.dtsi` | Pin mux configuration |
-| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-exp-periph.dtso` | 40-pin peripheral mode DT overlay |
+| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-exp-periph.dtso` | 40-pin peripheral mode DT overlay (I2C + UART + SPI + PWM + MCASP2 + WM8960) |
+| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-exp-spi0.dtso` | 40-pin SPI0-only DT overlay |
+| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-exp-audio.dtso` | WM8960 Audio HAT DT overlay (I2C + MCASP2 only) |
+| `board-support/ti-linux-kernel-6.12.35+git-ti-rt/arch/arm64/boot/dts/ti/k3-am62a7-mo-62a-cam-imx219.dtso` | Sony IMX219 CSI2 camera DT overlay |
 
 The following kernel config fragments are applied on top of the defconfig during the build:
 
@@ -415,6 +420,60 @@ make u-boot_stage
 # 4. Flash
 sudo bash bin/mo-62a-flash.sh
 ```
+
+### 4.7 Known DTS and Overlay Issues
+
+This section documents device tree problems that have been encountered and the fixes applied.
+
+---
+
+#### 4.7.1 PCF85363 RTC Registered as rtc1 Instead of rtc0
+
+**Symptom:** After boot, `/dev/rtc0` is assigned to the TPS6594 PMIC internal RTC instead of the PCF85363. Tools that expect the system RTC at `/dev/rtc0` (e.g. `hwclock`) communicate with the wrong device.
+
+**Root cause:** The Linux RTC subsystem assigns device IDs by looking up `rtc` aliases in the DT `aliases` node. The `tps6594-rtc` driver is an MFD sub-device with no `of_node` of its own; the kernel falls back to its parent's `of_node` (`tps659312`) for alias lookup. Because `tps659312` had no `rtc` alias, the PMIC RTC was assigned dynamic ID 0, preempting the PCF85363.
+
+**Fix:** Added `rtc1 = &tps659312` to the `aliases` node in `k3-am62a7-mo-62a.dts`, forcing the TPS6594 internal RTC to request ID 1. The PCF85363 now correctly registers as `/dev/rtc0`.
+
+> The TPS6594 internal RTC has no coin-cell battery backup and is not the intended system RTC. The PCF85363 with its J2 battery connector is the authoritative timekeeping device.
+
+---
+
+#### 4.7.2 SPI0 CS1 Registration Failure (`cs1 >= max 1`)
+
+**Symptom:** When booting with the `exp-spi0` or `exp-periph` overlay, the kernel log shows:
+
+```
+spi-rockchip: cs1 >= max 1
+```
+
+`/dev/spidev0.1` is not created; only CS0 is available.
+
+**Root cause:** The `&main_spi0` node in the overlay did not set `num-cs`, so the SPI controller defaulted to one chip-select. Any child with `reg = <1>` exceeded the maximum.
+
+**Fix:** Added `num-cs = <2>;` to `&main_spi0` in both `k3-am62a7-mo-62a-exp-spi0.dtso` and `k3-am62a7-mo-62a-exp-periph.dtso`. Both `/dev/spidev0.0` and `/dev/spidev0.1` are now created correctly.
+
+---
+
+#### 4.7.3 DTC `reg_format` Warnings in DT Overlays
+
+**Symptom:** Compiling overlay files with the kernel DTC produces warnings such as:
+
+```
+Warning (reg_format): wm8960@1a: reg property has invalid length (expected 4, got 4)
+Warning (reg_format): spidev@0: reg property has invalid length
+```
+
+**Root cause:** DTC cannot inherit `#address-cells` / `#size-cells` from parent nodes when compiling an overlay in isolation. Without these declarations, the compiler cannot validate `reg` property lengths.
+
+**Fix:** Added `#address-cells = <1>; #size-cells = <0>;` to every overlay node that contains child devices with `reg` properties:
+
+| Overlay file | Node patched |
+|---|---|
+| `exp-periph.dtso` | `&wkup_i2c0`, `&main_spi0` |
+| `exp-audio.dtso` | `&wkup_i2c0` |
+| `exp-spi0.dtso` | `&main_spi0` |
+| `cam-imx219.dtso` | `&main_i2c2` |
 
 ---
 
@@ -759,6 +818,22 @@ rm /tmp/dpkg_missing.txt
 ```
 
 > **Note:** The tarball shipped from this repository has already had this fix applied. The issue only recurs if `localepurge` runs again on the live device without `USE_DPKG` mode enabled.
+
+---
+
+#### 5.6.5 `/tmp` Not Mounted as tmpfs
+
+The default Debian rootfs tarball does not mount `/tmp` as a tmpfs. All writes to `/tmp` fall through to the SD card ext4 partition, which has significantly higher latency than memory (SD card random-write IOPS are orders of magnitude lower than RAM). Applications such as Chromium that write socket files and temporary data to `/tmp` are affected.
+
+**Symptom:** `findmnt /tmp` returns nothing; `df -Th /tmp` shows `Filesystem: /dev/root, Type: ext4`.
+
+**Fix:** A corrected `etc/fstab` is provided in the rootfs overlay at `board-support/rootfs-overlay/etc/fstab`. The added line is:
+
+```
+tmpfs    /tmp    tmpfs    nosuid,nodev,size=50%    0    0
+```
+
+`size=50%` allocates up to half of available RAM for `/tmp` (≈ 690 MB on the 2 GB board, ≈ 1.9 GB on the 4 GB board), matching the systemd `tmp.mount` default. The `install_rootfs_overlay` step in the flash tool applies this file automatically during flashing — no manual tarball repacking is required.
 
 ---
 
