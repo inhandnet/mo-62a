@@ -1,0 +1,17 @@
+[Unit]
+Description=EdgeAI first-boot: install Python 3.12 wheels and resize root partition
+# sysinit.target ensures udev has settled and block devices (/dev/mmcblk*) are visible.
+After=sysinit.target local-fs.target
+ConditionPathExists=!/opt/ti/.edgeai-installed
+
+[Service]
+Type=oneshot
+RemainAfterExit=no
+ExecStart=/usr/local/sbin/edgeai-firstboot-install.sh
+StandardOutput=journal+console
+StandardError=journal+console
+# Phase 1 (whl install) can take several minutes on first boot.
+TimeoutStartSec=900
+
+[Install]
+WantedBy=multi-user.target
