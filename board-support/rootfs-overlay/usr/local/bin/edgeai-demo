@@ -1,0 +1,248 @@
+#!/bin/bash
+# edgeai-demo - EdgeAI inference demo for Mo-62A
+#
+# Supports CSI cameras (VPAC VISS/MSC pipeline) and USB cameras (direct v4l2).
+# Camera is auto-detected from /etc/csi-camera/csi-camera.conf (written by
+# init-imx219 or similar commands).
+#
+# Usage:
+#   edgeai-demo                        List models + interactive menu
+#   edgeai-demo list                   List available models
+#   edgeai-demo run <index|name>       Run with auto-detected camera
+#   edgeai-demo run <index> --camera csi|usb   Force camera type
+#   edgeai-demo status                 Show active camera info
+set -uo pipefail
+
+MODEL_ZOO="${EDGEAI_MODEL_ZOO:-/opt/model_zoo}"
+CSI_CONF="/etc/csi-camera/csi-camera.conf"
+APP="${EDGEAI_APP:-/opt/edgeai-gst-apps/apps_python/app_edgeai.py}"
+RPROC=/sys/class/remoteproc/remoteproc0/state
+SELF=/usr/local/bin/edgeai-demo
+
+c_yel=$'\e[33m'; c_dim=$'\e[2m'; c_rst=$'\e[0m'
+err() { echo "edgeai-demo: $*" >&2; }
+
+# ── Model list ──────────────────────────────────────────────────────────────
+declare -a MODELS
+type_label() { case "$1" in OD) echo "Detection";; SS) echo "Segmentation";; CL) echo "Classification";; KD|6DOF) echo "Pose";; *) echo "Other";; esac; }
+rt_label()   { case "$1" in ONR) echo "ONNX";; TFL) echo "TFLite";; TVM) echo "TVM";; *) echo "$1";; esac; }
+rt_note()    { case "$1" in TFL|TVM) echo " ${c_yel}(unverified)${c_rst}";; *) echo "";; esac; }
+
+build_model_list() {
+    MODELS=(); local entries=() d name type rank
+    for d in "$MODEL_ZOO"/*/; do
+        [ -d "${d}artifacts" ] || continue
+        name="$(basename "$d")"
+        type="$(echo "$name" | cut -d- -f2)"
+        case "$type" in OD) rank=1;; SS) rank=2;; CL) rank=3;; KD|6DOF) rank=4;; *) rank=5;; esac
+        entries+=("$rank|$name")
+    done
+    local n
+    while IFS='|' read -r _ n; do [ -n "$n" ] && MODELS+=("$n"); done \
+        < <(printf '%s\n' "${entries[@]}" | sort -t'|' -k1,1n -k2)
+}
+
+cmd_list() {
+    build_model_list
+    [ "${#MODELS[@]}" -gt 0 ] || { err "No models found in $MODEL_ZOO"; return 1; }
+    echo "Available models (in $MODEL_ZOO):"
+    local i=0 prev="" name type rt
+    for name in "${MODELS[@]}"; do
+        i=$((i+1)); type="$(echo "$name" | cut -d- -f2)"; rt="$(echo "$name" | cut -d- -f1)"
+        [ "$type" != "$prev" ] && { echo; echo " ${c_dim}-- $(type_label "$type") --${c_rst}"; prev="$type"; }
+        printf "  %2d) %-52s [%s]%b\n" "$i" "$name" "$(rt_label "$rt")" "$(rt_note "$rt")"
+    done
+    echo
+    echo "${c_dim}Run: edgeai-demo run <index|name> [--camera csi|usb]${c_rst}"
+}
+
+resolve_model() {
+    build_model_list; local sel="$1" m hit=""
+    if [[ "$sel" =~ ^[0-9]+$ ]]; then
+        local idx=$(( sel - 1 ))
+        [ "$idx" -ge 0 ] && [ "$idx" -lt "${#MODELS[@]}" ] && { echo "${MODELS[$idx]}"; return 0; }
+        return 1
+    fi
+    for m in "${MODELS[@]}"; do [ "$m" = "$sel" ] && { echo "$m"; return 0; }; done
+    for m in "${MODELS[@]}"; do case "$m" in *"$sel"*) hit="$m";; esac; done
+    [ -n "$hit" ] && { echo "$hit"; return 0; }
+    return 1
+}
+
+# ── Camera detection ─────────────────────────────────────────────────────────
+detect_usb_camera() {
+    local v name
+    for v in /dev/video*; do
+        [ -e "$v" ] || continue
+        name=$(cat "/sys/class/video4linux/$(basename "$v")/name" 2>/dev/null)
+        case "$name" in *ticsi2rx*|*wave5*|*e5010*|"") continue;; esac
+        v4l2-ctl -d "$v" --info 2>/dev/null | grep -q "Video Capture" && { echo "$v"; return 0; }
+    done
+    return 1
+}
+
+load_camera() {
+    local force="${1:-}"
+    if [ "$force" = "csi" ] || { [ -z "$force" ] && [ -f "$CSI_CONF" ]; }; then
+        [ -f "$CSI_CONF" ] || { err "CSI camera not initialized. Run: sudo init-imx219"; return 1; }
+        # shellcheck disable=SC1090
+        . "$CSI_CONF"
+        CAM_TYPE="csi"
+        CAM_VIDEO="$VIDEO"; CAM_SUBDEV="$SUBDEV"
+        CAM_W="$WIDTH"; CAM_H="$HEIGHT"; CAM_FMT="$FORMAT"; CAM_FPS="$FRAMERATE"
+        CAM_INIT="${INIT:-}"
+        [ -e "$CAM_VIDEO" ] || { err "$CAM_VIDEO not found. Run: sudo init-imx219"; return 1; }
+        return 0
+    fi
+    local usb_dev
+    usb_dev=$(detect_usb_camera) || { err "No USB camera found."; return 1; }
+    CAM_TYPE="usb"; CAM_VIDEO="$usb_dev"; CAM_SUBDEV=""
+    CAM_W=1280; CAM_H=720; CAM_FMT="bgr"; CAM_FPS=30; CAM_INIT=""
+    CAMERA_ID="usb"; CAMERA_NAME="USB Camera ($usb_dev)"
+    return 0
+}
+
+cmd_status() {
+    echo "=== Active CSI camera ==="
+    if [ -f "$CSI_CONF" ]; then
+        grep -v "^#" "$CSI_CONF" | grep -v "^$"
+    else
+        echo "  Not initialized (run: sudo init-imx219)"
+    fi
+    echo ""
+    echo "=== USB cameras ==="
+    local v name found=0
+    for v in /dev/video*; do
+        [ -e "$v" ] || continue
+        name=$(cat "/sys/class/video4linux/$(basename "$v")/name" 2>/dev/null)
+        case "$name" in *ticsi2rx*|*wave5*|*e5010*|"") continue;; esac
+        echo "  $v  ($name)"; found=1
+    done
+    [ "$found" -eq 0 ] && echo "  None found"
+}
+
+# ── Build yaml ───────────────────────────────────────────────────────────────
+build_yaml() {
+    local model="$1" out=/tmp/edgeai-demo.yaml
+    if [ "$CAM_TYPE" = "csi" ]; then
+        cat > "$out" << EOF
+title: "edgeai-demo CSI - $model"
+log_level: 2
+inputs:
+    input0:
+        source: $CAM_VIDEO
+        subdev-id: $CAM_SUBDEV
+        width: $CAM_W
+        height: $CAM_H
+        format: $CAM_FMT
+        framerate: $CAM_FPS
+models:
+    model0:
+        model_path: $MODEL_ZOO/$model
+        viz_threshold: 0.4
+outputs:
+    output0:
+        sink: kmssink
+        width: 1920
+        height: 1080
+        overlay-perf-type: graph
+flows:
+    flow0: [input0,model0,output0,[320,150,1280,720]]
+EOF
+    else
+        cat > "$out" << EOF
+title: "edgeai-demo USB - $model"
+log_level: 2
+inputs:
+    input0:
+        source: $CAM_VIDEO
+        width: $CAM_W
+        height: $CAM_H
+        format: $CAM_FMT
+        framerate: $CAM_FPS
+models:
+    model0:
+        model_path: $MODEL_ZOO/$model
+        viz_threshold: 0.4
+outputs:
+    output0:
+        sink: kmssink
+        width: 1920
+        height: 1080
+        overlay-perf-type: graph
+flows:
+    flow0: [input0,model0,output0,[320,150,1280,720]]
+EOF
+    fi
+    echo "$out"
+}
+
+# ── Run demo ─────────────────────────────────────────────────────────────────
+kill_app() { pkill -KILL -f "^python3 .*app_edgeai\.py" 2>/dev/null || true; }
+c7x_reset() {
+    echo stop > "$RPROC" 2>/dev/null || true; sleep 2
+    echo start > "$RPROC" 2>/dev/null || true; sleep 4
+}
+
+cmd_run() {
+    local sel="$1" force_cam="${2:-}"
+    [ "$(id -u)" -eq 0 ] || exec sudo -E "$SELF" run "$sel" "$force_cam"
+
+    local model; model="$(resolve_model "$sel")" || { err "Model not found: '$sel' (see: edgeai-demo list)"; exit 1; }
+    load_camera "$force_cam" || exit 1
+
+    echo "[edgeai-demo] Camera : ${CAMERA_ID:-$CAM_TYPE} ($CAM_TYPE) - $CAM_VIDEO"
+    echo "[edgeai-demo] Model  : $model"
+
+    local yaml; yaml="$(build_yaml "$model")"
+    export SOC=am62a TERM="${TERM:-xterm}"
+    export GST_PLUGIN_PATH=/opt/ti/edgeai/gstreamer/plugins
+    export LD_LIBRARY_PATH=/opt/ti/edgeai/lib:/opt/ti/edgeai/gstreamer/lib
+
+    kill_app
+    systemctl stop lightdm 2>/dev/null || true
+    sleep 2
+
+    echo "[edgeai-demo] Resetting C7x..."
+    c7x_reset
+
+    # CSI: v4l2src resets media-ctl format on close; re-init before each run.
+    if [ "$CAM_TYPE" = "csi" ] && [ -n "${CAM_INIT:-}" ] && [ -x "$CAM_INIT" ]; then
+        echo "[edgeai-demo] Re-initializing camera ($CAM_INIT)..."
+        "$CAM_INIT" >/dev/null 2>&1 || true
+    fi
+
+    echo "[edgeai-demo] Running (HDMI display, Ctrl+C to exit)..."
+    cd "$(dirname "$APP")"
+    python3 "$APP" "$yaml" || true
+
+    # Cleanup always runs after python exits (Ctrl+C, crash, or normal exit)
+    echo "[edgeai-demo] Cleaning up..."
+    kill_app
+    sleep 1
+    c7x_reset
+    systemctl start lightdm 2>/dev/null || true
+    echo "[edgeai-demo] Ready for next run."
+}
+
+cmd_menu() {
+    cmd_list || exit 1
+    local sel; read -r -p $'\nEnter index to run (Enter to cancel): ' sel
+    [ -n "$sel" ] || { echo "Cancelled."; exit 0; }
+    cmd_run "$sel" ""
+}
+
+# ── Main ──────────────────────────────────────────────────────────────────────
+case "${1:-}" in
+    list)    cmd_list ;;
+    status)  cmd_status ;;
+    run)
+        [ -n "${2:-}" ] || { err "Usage: edgeai-demo run <index|name> [--camera csi|usb]"; exit 1; }
+        force=""
+        [ "${3:-}" = "--camera" ] && force="${4:-}"
+        cmd_run "$2" "$force"
+        ;;
+    ""|menu) cmd_menu ;;
+    -h|--help|help) sed -n '2,13p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    *) cmd_run "$1" "" ;;
+esac

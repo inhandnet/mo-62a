@@ -1,0 +1,195 @@
+#!/bin/bash
+# csi-camera-init — Mo-62A CSI 摄像头选择/初始化框架
+#
+# CSI 摄像头需要在 U-Boot 阶段叠加对应 dtbo 才能"存在"(无法运行时热插),
+# 因此选择摄像头需要重启一次;重启后再配置 media-ctl 链路使其"能用"。
+#
+# 用法:
+#   csi-camera-init list              列出支持的 CSI 摄像头及当前状态
+#   csi-camera-init status            显示当前选择/dtbo/媒体节点状态
+#   csi-camera-init select <id> [-y]  选择摄像头(注入 dtbo 到默认启动项, 提示重启; -y 自动重启)
+#   csi-camera-init <id> [-y]         select <id> 的简写
+#   csi-camera-init none [-y]         取消摄像头(移除 dtbo, 提示重启)
+#   csi-camera-init apply             (开机后)按当前选择执行该摄像头的 media-ctl 初始化
+#
+# 框架:每款摄像头一个 /etc/csi-camera/cameras.d/<id>.conf(ID/NAME/DTBO/INIT)。
+set -uo pipefail
+
+CONF_DIR="${CSI_CONF_DIR:-/etc/csi-camera/cameras.d}"
+SELECTED="${CSI_SELECTED:-/etc/csi-camera/selected}"
+BOOTDIR="${CSI_BOOTDIR:-/boot/firmware}"   # FAT(label BOOT), fstab 已挂载
+EXTLINUX="$BOOTDIR/extlinux/extlinux.conf"
+SELF=/usr/local/bin/csi-camera-init
+
+c_red=$'\e[31m'; c_grn=$'\e[32m'; c_yel=$'\e[33m'; c_dim=$'\e[2m'; c_rst=$'\e[0m'
+err() { echo "${c_red}csi-camera-init: $*${c_rst}" >&2; }
+need_root() { [ "$(id -u)" -eq 0 ] || exec sudo -E "$SELF" "$@"; }
+
+# ---- 摄像头描述符读取 ------------------------------------------------------
+list_ids() { ls "$CONF_DIR"/*.conf 2>/dev/null | sed 's#.*/##; s#\.conf$##'; }
+
+# 读取某 id 的 .conf, 导出 CAM_ID/CAM_NAME/CAM_DTBO/CAM_INIT
+load_cam() {
+  local id="$1" f="$CONF_DIR/$1.conf"
+  [ -f "$f" ] || { err "未知摄像头 '$id' (见 csi-camera-init list)"; return 1; }
+  local ID="" NAME="" DTBO="" INIT=""
+  # shellcheck disable=SC1090
+  . "$f"
+  CAM_ID="${ID:-$id}"; CAM_NAME="${NAME:-$id}"; CAM_DTBO="${DTBO:-}"; CAM_INIT="${INIT:-}"
+  [ -n "$CAM_DTBO" ] || { err "$id.conf 缺少 DTBO="; return 1; }
+}
+
+current_default_label() {
+  awk '/^[ \t]*default[ \t]+/{print $2; exit}' "$EXTLINUX" 2>/dev/null
+}
+
+# 当前 default 启动项的 fdtoverlays 行里是否含某 dtbo
+dtbo_active() {
+  local dtbo="$1" lbl; lbl="$(current_default_label)"
+  awk -v lbl="$lbl" -v d="$dtbo" '
+    $0 ~ "^[ \t]*label[ \t]+" lbl "[ \t]*$" {inb=1; next}
+    /^[ \t]*label[ \t]/ {inb=0}
+    inb && /^[ \t]*fdtoverlays[ \t]/ && index($0,"/ti/"d) {found=1}
+    END{exit found?0:1}
+  ' "$EXTLINUX" 2>/dev/null
+}
+
+# ---- extlinux 编辑:往/从 default 启动项 fdtoverlays 增删 dtbo ----------------
+edit_extlinux() {              # edit_extlinux add|del <dtbo>
+  local op="$1" dtbo="$2" lbl; lbl="$(current_default_label)"
+  [ -f "$EXTLINUX" ] || { err "找不到 $EXTLINUX (boot 分区未挂载?)"; return 1; }
+  [ -n "$lbl" ] || { err "extlinux.conf 无 default 项"; return 1; }
+  local dtbore="${dtbo//./\\.}"
+  local tmp; tmp="$(mktemp)"
+  awk -v target="$lbl" -v dtbo="$dtbo" -v dtbore="$dtbore" -v op="$op" '
+    function flush(  i,fo,fdt,ind){
+      fo=-1; fdt=-1
+      for(i=0;i<nb;i++){
+        if(blk[i] ~ /^[ \t]*fdtoverlays[ \t]/) fo=i
+        else if(blk[i] ~ /^[ \t]*fdt[ \t]/)    fdt=i
+      }
+      if(op=="add"){
+        if(fo>=0){
+          if(blk[fo] !~ ("/ti/" dtbore "([ \t]|$)")) blk[fo]=blk[fo] " /ti/" dtbo
+        } else if(fdt>=0){
+          match(blk[fdt],/^[ \t]*/); ind=substr(blk[fdt],1,RLENGTH)
+          for(i=nb;i>fdt+1;i--) blk[i]=blk[i-1]
+          blk[fdt+1]= ind "fdtoverlays /ti/" dtbo; nb++
+        }
+      } else {
+        if(fo>=0){
+          gsub("[ \t]*/ti/" dtbore "([ \t]|$)"," ",blk[fo])
+          if(blk[fo] !~ /\/ti\//){ for(i=fo;i<nb-1;i++) blk[i]=blk[i+1]; nb-- }
+          else { sub(/[ \t]+$/,"",blk[fo]) }
+        }
+      }
+      for(i=0;i<nb;i++) print blk[i]
+      inb=0; nb=0
+    }
+    /^[ \t]*label[ \t]/ {
+      if(inb) flush()
+      if($0 ~ "^[ \t]*label[ \t]+" target "[ \t]*$"){ inb=1; nb=0; blk[nb++]=$0; next }
+    }
+    inb { blk[nb++]=$0; next }
+    { print }
+    END { if(inb) flush() }
+  ' "$EXTLINUX" > "$tmp" || { rm -f "$tmp"; return 1; }
+  cat "$tmp" > "$EXTLINUX"; rm -f "$tmp"; sync
+}
+
+maybe_reboot() {               # maybe_reboot <auto 0|1>
+  if [ "$1" -eq 1 ]; then echo "重启中..."; sleep 1; reboot; return; fi
+  echo
+  read -r -p "需要重启才能生效。现在重启? [y/N] " a
+  case "$a" in y|Y|yes) echo "重启中..."; sleep 1; reboot;; *) echo "稍后请手动 'sudo reboot' 使之生效。";; esac
+}
+
+# ---- 子命令 ----------------------------------------------------------------
+cmd_list() {
+  local sel=""; [ -f "$SELECTED" ] && sel="$(cat "$SELECTED" 2>/dev/null)"
+  echo "支持的 CSI 摄像头:"
+  local any=0
+  for id in $(list_ids); do
+    any=1; load_cam "$id" || continue
+    local mark="  " act="" dtboerr=""
+    [ "$id" = "$sel" ] && mark="${c_grn}* ${c_rst}"
+    dtbo_active "$CAM_DTBO" && act="${c_grn}[dtbo已启用]${c_rst}" || act="${c_dim}[dtbo未启用]${c_rst}"
+    [ -f "$BOOTDIR/ti/$CAM_DTBO" ] || dtboerr=" ${c_red}(缺 $CAM_DTBO)${c_rst}"
+    printf "%b%-10s %s %b%b\n" "$mark" "$id" "$CAM_NAME" "$act" "$dtboerr"
+  done
+  [ "$any" -eq 1 ] || echo "  (无, 在 $CONF_DIR 放 <id>.conf 以新增)"
+  echo "${c_dim}* = 当前选择${c_rst}"
+}
+
+cmd_status() {
+  local sel="(none)"; [ -f "$SELECTED" ] && sel="$(cat "$SELECTED" 2>/dev/null)"
+  echo "当前选择 : $sel"
+  echo "默认启动项: $(current_default_label)"
+  if [ "$sel" != "(none)" ] && load_cam "$sel" 2>/dev/null; then
+    dtbo_active "$CAM_DTBO" && echo "dtbo 状态 : 已注入默认启动项 ($CAM_DTBO)" \
+                            || echo "dtbo 状态 : ${c_yel}未注入(需 select 后重启)${c_rst}"
+  fi
+  # 运行时媒体节点
+  if ls /dev/media* >/dev/null 2>&1 && command -v media-ctl >/dev/null; then
+    local m hit=""
+    for m in /dev/media*; do media-ctl -d "$m" -p 2>/dev/null | grep -qiE "imx219|ov5640|sensor" && hit="$m"; done
+    [ -n "$hit" ] && echo "媒体节点  : ${c_grn}检测到传感器 ($hit)${c_rst}" \
+                   || echo "媒体节点  : ${c_dim}未检测到 CSI 传感器${c_rst}"
+  fi
+}
+
+cmd_select() {
+  need_root select "$@"
+  local id="$1"; shift || true
+  local auto=0; for a in "$@"; do [ "$a" = "-y" ] || [ "$a" = "--reboot" ] && auto=1; done
+  load_cam "$id" || exit 1
+  if [ ! -f "$BOOTDIR/ti/$CAM_DTBO" ]; then
+    err "boot 分区缺 $CAM_DTBO ($BOOTDIR/ti/),无法选择该摄像头"; exit 1
+  fi
+  echo "选择摄像头: $CAM_NAME"
+  edit_extlinux add "$CAM_DTBO" || { err "写 extlinux 失败"; exit 1; }
+  mkdir -p "$(dirname "$SELECTED")"; echo "$id" > "$SELECTED"
+  echo "${c_grn}已注入 dtbo 到默认启动项 '$(current_default_label)' 并记录选择。${c_rst}"
+  maybe_reboot "$auto"
+}
+
+cmd_none() {
+  need_root none "$@"
+  local auto=0; for a in "$@"; do [ "$a" = "-y" ] || [ "$a" = "--reboot" ] && auto=1; done
+  local sel=""; [ -f "$SELECTED" ] && sel="$(cat "$SELECTED" 2>/dev/null)"
+  if [ -n "$sel" ] && load_cam "$sel" 2>/dev/null; then
+    edit_extlinux del "$CAM_DTBO" || true
+    echo "已从默认启动项移除 $CAM_DTBO"
+  fi
+  rm -f "$SELECTED"
+  echo "${c_grn}已取消 CSI 摄像头选择。${c_rst}"
+  maybe_reboot "$auto"
+}
+
+cmd_apply() {                  # 开机后由 service 或手动调用:跑当前选择的 media-ctl init
+  [ -f "$SELECTED" ] || { echo "csi-camera-init: 未选择摄像头, 跳过"; exit 0; }
+  local id; id="$(cat "$SELECTED" 2>/dev/null)"
+  load_cam "$id" 2>/dev/null || { err "选择的 '$id' 描述符丢失"; exit 0; }
+  [ -n "$CAM_INIT" ] || { echo "csi-camera-init: $id 无需 media 初始化"; exit 0; }
+  [ -x "$CAM_INIT" ] || { err "$CAM_INIT 不可执行"; exit 1; }
+  need_root apply "$@"
+  echo "csi-camera-init: apply $id -> $CAM_INIT"
+  exec "$CAM_INIT"
+}
+
+usage() { sed -n '2,18p' "$SELF" | sed 's/^# \{0,1\}//'; }
+
+main() {
+  local sub="${1:-list}"; shift || true
+  case "$sub" in
+    list)         cmd_list ;;
+    status)       cmd_status ;;
+    select)       [ $# -ge 1 ] || { err "用法: csi-camera-init select <id>"; exit 1; }; cmd_select "$@" ;;
+    none|clear)   cmd_none "$@" ;;
+    apply)        cmd_apply "$@" ;;
+    -h|--help|help) usage ;;
+    *)            # 简写: csi-camera-init <id>
+                  if [ -f "$CONF_DIR/$sub.conf" ]; then cmd_select "$sub" "$@"; else err "未知命令/摄像头 '$sub'"; usage; exit 1; fi ;;
+  esac
+}
+main "$@"

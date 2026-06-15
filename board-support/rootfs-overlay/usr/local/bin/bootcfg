@@ -1,0 +1,107 @@
+#!/bin/bash
+# bootcfg - Boot configuration manager for Mo-62A
+# Manages the 'default' label in /boot/firmware/extlinux/extlinux.conf
+# Usage: bootcfg show | list | switch <label>
+
+set -uo pipefail
+
+EXTLINUX="/boot/firmware/extlinux/extlinux.conf"
+
+die()  { echo "Error: $*" >&2; exit 1; }
+info() { echo "$*"; }
+
+# extlinux.conf accessible? (show/list are read-only; only switch needs root)
+[ -f "$EXTLINUX" ] || die "$EXTLINUX not found. Is the boot partition mounted?"
+
+# ---- helpers ---------------------------------------------------------------
+
+get_current() {
+    awk '/^[[:space:]]*default[[:space:]]/{print $2; exit}' "$EXTLINUX"
+}
+
+get_labels() {
+    awk '/^[[:space:]]*label[[:space:]]/{print $2}' "$EXTLINUX"
+}
+
+label_exists() {
+    get_labels | grep -qx "$1"
+}
+
+# ---- subcommands -----------------------------------------------------------
+
+cmd_show() {
+    local cur; cur="$(get_current)"
+    [ -n "$cur" ] || die "No 'default' entry found in $EXTLINUX."
+    info "Current default: $cur"
+}
+
+cmd_list() {
+    local cur; cur="$(get_current)"
+    info "Available boot labels (* = current default):"
+    while IFS= read -r label; do
+        if [ "$label" = "$cur" ]; then
+            info "  * $label"
+        else
+            info "    $label"
+        fi
+    done < <(get_labels)
+}
+
+cmd_switch() {
+    local target="${1:-}"
+    [ -n "$target" ] || die "Usage: bootcfg switch <label>"
+
+    # switch modifies extlinux.conf and reboots — requires root
+    [ "$(id -u)" -eq 0 ] || die "bootcfg switch must be run as root (try: sudo bootcfg switch $target)."
+
+    label_exists "$target" || {
+        die "'$target' is not a valid label. Run 'bootcfg list' to see available labels."
+    }
+
+    local cur; cur="$(get_current)"
+    if [ "$cur" = "$target" ]; then
+        info "'$target' is already the current default. No change made."
+        exit 0
+    fi
+
+    info "Switching default boot label:"
+    info "  $cur  ->  $target"
+    echo ""
+    read -r -p "Reboot is required for the change to take effect. Proceed? [Y/N] " ans
+    case "$ans" in
+        y|Y) ;;
+        *) info "Aborted. No change made."; exit 0 ;;
+    esac
+
+    # Backup and apply
+    cp "$EXTLINUX" "${EXTLINUX}.bak"
+    sed -i "s/^\\([[:space:]]*default[[:space:]]\\+\\).*/\\1${target}/" "$EXTLINUX"
+
+    # Verify
+    local new; new="$(get_current)"
+    [ "$new" = "$target" ] || die "Failed to update $EXTLINUX. Backup at ${EXTLINUX}.bak"
+
+    info ""
+    info "Done. Default boot label set to '$target'."
+    info "Rebooting now..."
+    reboot
+}
+
+# ---- main ------------------------------------------------------------------
+
+case "${1:-}" in
+    show)   cmd_show ;;
+    list)   cmd_list ;;
+    switch) cmd_switch "${2:-}" ;;
+    *)
+        echo "Usage: bootcfg <command> [args]"
+        echo ""
+        echo "Commands:"
+        echo "  show              Show the current default boot label"
+        echo "  list              List all available boot labels"
+        echo "  switch <label>    Switch the default boot label"
+        echo ""
+        echo "Note: Requires root. Changes take effect after reboot."
+        exit 1
+        ;;
+esac

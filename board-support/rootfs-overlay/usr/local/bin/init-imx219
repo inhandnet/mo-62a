@@ -1,0 +1,114 @@
+#!/bin/bash
+# init-imx219 - IMX219 CSI camera initialization for Mo-62A (AM62A7)
+#
+# Configures the IMX219 media-ctl pipeline and creates stable device symlinks:
+#   /dev/video-imx219-cam0   -> actual ticsi2rx capture node
+#   /dev/v4l-imx219-subdev0  -> actual imx219 subdev node
+#
+# On success, writes /etc/csi-camera/csi-camera.conf so edgeai-demo
+# can discover the active camera without extra arguments.
+#
+# Run manually before using the camera. No auto-start on boot.
+# Usage: sudo init-imx219
+
+set -uo pipefail
+
+# =============================================================================
+# Camera configuration
+# =============================================================================
+CSI_FMT="${IMX219_FMT:-SRGGB8_1X8/1920x1080}"
+SYMLINK_VIDEO="/dev/video-imx219-cam0"
+SYMLINK_SUBDEV="/dev/v4l-imx219-subdev0"
+CAPTURE_NODE_PATTERN="ticsi2rx context 0"
+CSI_CAMERA_CONF="/etc/csi-camera/csi-camera.conf"
+
+# =============================================================================
+# Initialization
+# =============================================================================
+find_media_device() {
+    for m in /dev/media*; do
+        [ -e "$m" ] || continue
+        media-ctl -d "$m" -p 2>/dev/null | grep -q "imx219" && { echo "$m"; return 0; }
+    done
+    return 1
+}
+
+find_imx219_entity() {
+    media-ctl -d "$MEDIA" -p 2>/dev/null | grep -oE "imx219 [0-9]+-[0-9a-f]+" | head -1
+}
+
+find_csi_bridge() {
+    media-ctl -d "$MEDIA" -p 2>/dev/null | grep -oE "cdns_csi2rx\.[0-9a-f]+\.csi-bridge" | head -1
+}
+
+find_capture_node() {
+    for v in /dev/video*; do
+        local name
+        name=$(cat "/sys/class/video4linux/$(basename "$v")/name" 2>/dev/null)
+        case "$name" in *"$CAPTURE_NODE_PATTERN"*) echo "$v"; return 0;; esac
+    done
+    return 1
+}
+
+echo "[init-imx219] Searching for IMX219 sensor on CSI bus..."
+
+MEDIA=$(find_media_device) || {
+    echo "[init-imx219] No IMX219 found. Check cable and dtbo overlay." >&2
+    exit 1
+}
+echo "[init-imx219] Media device: $MEDIA"
+
+IMX_ENT=$(find_imx219_entity)
+BRIDGE=$(find_csi_bridge)
+
+echo "[init-imx219] Sensor entity : ${IMX_ENT:-(not found)}"
+echo "[init-imx219] CSI bridge    : ${BRIDGE:-(not found)}"
+echo "[init-imx219] Format        : $CSI_FMT"
+
+[ -n "$IMX_ENT" ] && \
+    media-ctl -d "$MEDIA" -V "'$IMX_ENT':0 [fmt:$CSI_FMT]" 2>/dev/null
+
+[ -n "$BRIDGE" ] && {
+    media-ctl -d "$MEDIA" -V "'$BRIDGE':0 [fmt:$CSI_FMT]" 2>/dev/null
+    media-ctl -d "$MEDIA" -V "'$BRIDGE':1 [fmt:$CSI_FMT]" 2>/dev/null
+}
+
+SUBDEV=""
+[ -n "$IMX_ENT" ] && SUBDEV=$(media-ctl -d "$MEDIA" -e "$IMX_ENT" 2>/dev/null)
+
+VIDEO=$(find_capture_node) || true
+
+[ -n "$VIDEO"  ] && { ln -sf "$VIDEO"  "$SYMLINK_VIDEO";  echo "[init-imx219] $SYMLINK_VIDEO  -> $VIDEO";  }
+[ -n "$SUBDEV" ] && { ln -sf "$SUBDEV" "$SYMLINK_SUBDEV"; echo "[init-imx219] $SYMLINK_SUBDEV -> $SUBDEV"; }
+
+if [ -z "$VIDEO" ] && [ -z "$SUBDEV" ]; then
+    echo "[init-imx219] Warning: could not resolve video/subdev nodes." >&2
+    exit 1
+fi
+
+# Set the capture video node format to match the subdev/bridge link.
+# media-ctl -V only sets subdev pad formats; the V4L2 capture node itself
+# still defaults to 640x480 UYVY, which makes v4l2src fail caps negotiation
+# ("Could not get allowed GstCaps of device"). Force it to 1920x1080 RGGB.
+if [ -n "$VIDEO" ]; then
+    v4l2-ctl -d "$VIDEO" --set-fmt-video=width=1920,height=1080,pixelformat=RGGB >/dev/null 2>&1
+    echo "[init-imx219] Capture node format: $(v4l2-ctl -d "$VIDEO" --get-fmt-video 2>/dev/null | awk -F: '/Width\/Height/{print $2}' | tr -d ' ')/RGGB"
+fi
+
+# Write camera config for edgeai-demo auto-detection
+mkdir -p "$(dirname "$CSI_CAMERA_CONF")"
+cat > "$CSI_CAMERA_CONF" << EOF
+# Active CSI camera config — written by init-imx219 on $(date -Iseconds)
+CAMERA_ID=imx219
+CAMERA_NAME="Raspberry Pi Camera v2 / Sony IMX219 (CSI0)"
+CAMERA_TYPE=csi
+INIT=/usr/local/bin/init-imx219
+VIDEO=$SYMLINK_VIDEO
+SUBDEV=$SYMLINK_SUBDEV
+WIDTH=1920
+HEIGHT=1080
+FORMAT=rggb
+FRAMERATE=30
+EOF
+echo "[init-imx219] Config written: $CSI_CAMERA_CONF"
+echo "[init-imx219] Done."
