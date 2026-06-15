@@ -1,0 +1,10 @@
+# height/2 is odd
+TFL-CL-0100-efficientNet-edgeTPU-m
+TFL-CL-0140-efficientNet-lite4
+TFL-CL-0170-efficientNet-lite1
+TFL-CL-0190-efficientNet-edgeTPU-l
+# High latency
+ONR-SS-8730-deeplabv3-mobv3-lite-large-cocoseg21-512x512
+# odd resolution
+TVM-CL-3430-gluoncv-mxnet-xception
+TFL-CL-0040-InceptionNetV3

@@ -1,0 +1,202 @@
+[35;1m========================= [Model Compilation Started] =========================
+
+[0mModel compilation will perform the following stages:
+1. Parsing
+2. Graph Optimization
+3. Quantization & Calibration
+4. Memory Planning
+
+[35;1m============================== [Version Summary] ==============================
+
+[0m-------------------------------------------------------------------------------
+|          TIDL Tools Version          |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|         C7x Firmware Version         |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|            Runtime Version           |                [32;1m1.15.0[0m                |
+-------------------------------------------------------------------------------
+|          Model Opset Version         |                   [32;1m9[0m                  |
+-------------------------------------------------------------------------------
+
+[35;1m============================== [Parsing Started] ==============================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Network not identified as Object Detection network : (1) Ignore if network is not Object Detection network (2) If network is Object Detection network, please specify "model_type":"OD" as part of OSRT compilation options[0m
+
+------------------------- Subgraph Information Summary -------------------------
+-------------------------------------------------------------------------------
+|          Core           |      No. of Nodes       |   Number of Subgraphs   |
+-------------------------------------------------------------------------------
+| C7x                     |                     103 |                       1 |
+| CPU                     |                       0 |                       x |
+-------------------------------------------------------------------------------
+[35;1m============================= [Parsing Completed] =============================
+
+[0m[35;1m==================== [Optimization for subgraph_0 Started] ====================
+
+[0m----------------------------- Optimization Summary -----------------------------
+---------------------------------------------------------------------------------
+|          Layer         | Nodes before optimization | Nodes after optimization |
+---------------------------------------------------------------------------------
+| TIDL_BatchNormLayer    |                         0 |                        1 |
+| TIDL_ReLULayer         |                        40 |                        [32;1m0[0m |
+| TIDL_FlattenLayer      |                         1 |                        [32;1m0[0m |
+| TIDL_ConvolutionLayer  |                        44 |                       44 |
+| TIDL_EltWiseLayer      |                        15 |                       [32;1m13[0m |
+| TIDL_InnerProductLayer |                         1 |                        1 |
+| TIDL_CastLayer         |                         1 |                        [32;1m0[0m |
+| TIDL_PoolingLayer      |                         1 |                        1 |
+---------------------------------------------------------------------------------
+
+Total nodes in subgraph: 65
+
+[35;1m=================== [Optimization for subgraph_0 Completed] ===================
+
+[0mThe soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.9s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[35;1m============= [Quantization & Calibration for subgraph_0 Started] =============
+
+[0m[33m[TIDL Import] [QUANTIZATION] WARNING: Could not open /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/model/regnetx-200mf_qparams.prototxt for importing mixed precision info.
+This will be generated after model compilation.[0m
+P[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051455: starting - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx
+[34m
+INFO:[33m20250722-051455: running - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx
+[34m
+INFO:[33m20250722-051455: pipeline_config - [39m{'task_type': 'classification', 'dataset_category': 'imagenet', 'calibration_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f1c0>, 'input_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f220>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704fabe2770>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f93f45e0>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f93f4640>, 'model_info': {'metric_reference': {'accuracy_top1%': 68.9}, 'model_shortlist': 1, 'compact_name': 'regNetx-200mf', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051456: import 1/17 - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx - this may take some time...
+[34mINFO:[33m20250722-051456: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+[34mINFO:[33m20250722-051456: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/model/regnetx-200mf.onnx
+[34mINFO:[33m20250722-051456: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/model/regnetx-200mf_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+Converted model is valid!
+[34m
+INFO:[33m20250722-051534: import completed 1/17 - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx - 38 sec
+[32m
+
+SUCCESS:[33m20250722-051534: benchmark results - [39m{}
+
+arameters unavailable, running calibration
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+Parameters unavailable, running calibration
+Output network quant params prototxt file path: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/artifacts/tempDir/subgraph_0_tidl_net_quant_params.prototxt
+Calibrated quant parameters stored in protoTxt format
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m
+
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 110699133 bytes 
+MEM: Free's : 26 free's  of 110699133 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!
+[34m
+INFO:[33m20250722-051536: starting - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx
+[34m
+INFO:[33m20250722-051536: running - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx
+[34m
+INFO:[33m20250722-051536: pipeline_config - [39m{'task_type': 'classification', 'dataset_category': 'imagenet', 'calibration_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f1c0>, 'input_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f220>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704fabe2770>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f93f45e0>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f93f4640>, 'model_info': {'metric_reference': {'accuracy_top1%': 68.9}, 'model_shortlist': 1, 'compact_name': 'regNetx-200mf', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051536: infer 1/17 - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx - this may take some time...
+[34mINFO:[33m20250722-051536: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/fbr-pycls/regnetx-200mf.onnx
+[34mINFO:[33m20250722-051536: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/model/regnetx-200mf.onnx
+[34mINFO:[33m20250722-051536: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx/model/regnetx-200mf_qparams.prototxt
+infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|   0%|          || 0/1000 [00:00<?, ?it/s]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|          |     0% 0/1000| [< ]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|  23%|██▎       || 226/1000 [00:10<00:34, 22.60it/s]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|  45%|████▌     || 452/1000 [00:20<00:24, 22.56it/s]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|  68%|██████▊   || 678/1000 [00:30<00:14, 21.71it/s]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m|  89%|████████▊ || 886/1000 [00:41<00:05, 20.74it/s]infer 1/17: cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200m| 100%|██████████|| 1000/1000 [00:55<00:00, 18.15it/s]
+[34m
+INFO:[33m20250722-051632: infer completed 1/17 - [39mcl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx - 56 sec
+[32m
+
+SUCCESS:[33m20250722-051632: benchmark results - [39m{'infer_path': 'cl-6360_onnxrt_imagenet1k_fbr-pycls_regnetx-200mf_onnx', 'accuracy_top1%': 70.2, 'num_subgraphs': 1, 'perfsim_time_ms': 2.3155, 'perfsim_ddr_transfer_mb': 4.9, 'perfsim_gmacs': 0.1999}
+
+libtidl_onnxrt_EP loaded 0x55a1e7376c90 
+Final number of subgraphs created are : 1, - Offloaded Nodes - 103, Total Nodes - 103 
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.7s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 23823408 bytes 
+MEM: Free's : 26 free's  of 23823408 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!

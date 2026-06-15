@@ -1,0 +1,49 @@
+title: "IMX390 Camera"
+log_level: 2
+inputs:
+    # Needs fusion board and imx390 cameras conneted over FPD links
+    # Overlay for fusion board and cameras should be applied in /run/media/BOOT-mmcblk1p1/uEnv.txt (Refer to Documentation)
+    input0:
+        source: /dev/video-imx390-cam0
+        subdev-id: /dev/v4l-imx390-subdev0
+        width: 1936
+        height: 1100
+        format: rggb12
+        framerate: 30
+        sen-id: imx390
+        ldc: True
+models:
+    model0:
+        model_path: /opt/model_zoo/TVM-CL-3090-mobileNetV2-tv
+        topN: 5
+    model1:
+        model_path: /opt/model_zoo/ONR-OD-8200-yolox-nano-lite-mmdet-coco-416x416
+        viz_threshold: 0.6
+    model2:
+        model_path: /opt/model_zoo/ONR-SS-8610-deeplabv3lite-mobv2-ade20k32-512x512
+        alpha: 0.4
+outputs:
+    output0:
+        sink: kmssink
+        width: 1920
+        height: 1080
+        overlay-perf-type: graph
+    output1:
+        sink: /opt/edgeai-test-data/output/output_video.mkv
+        width: 1920
+        height: 1080
+    output2:
+        sink: /opt/edgeai-test-data/output/output_image_%04d.jpg
+        width: 1920
+        height: 1080
+    output3:
+        sink: remote
+        width: 1920
+        height: 1080
+        port: 8081
+        host: 127.0.0.1
+        encoding: jpeg
+        overlay-perf-type: graph
+
+flows:
+    flow0: [input0,model1,output0,[320,150,1280,720]]

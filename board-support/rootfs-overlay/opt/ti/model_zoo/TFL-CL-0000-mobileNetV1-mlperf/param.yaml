@@ -1,0 +1,39 @@
+metric:
+  label_offset_pred: -1
+postprocess: {}
+preprocess:
+  add_flip_image: false
+  crop: 224
+  data_layout: NHWC
+  pad_color: 0
+  resize: 256
+  resize_with_pad: false
+  reverse_channels: false
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NHWC
+  input_details:
+  - index: 88
+    name: input
+    shape:
+    - 1
+    - 224
+    - 224
+    - 3
+    type: <class 'numpy.uint8'>
+  input_mean: null
+  input_optimization: true
+  input_scale: null
+  model_folder: model
+  model_path: model/mobilenet_v1_1.0_224.tflite
+  output_details:
+  - index: 87
+    name: MobilenetV1/Predictions/Reshape_1
+    shape:
+    - 1
+    - 1001
+    type: <class 'numpy.float32'>
+  run_dir: cl-0000_tflitert_imagenet1k_mlperf_mobilenet_v1_1.0_224_tflite
+  session_name: tflitert
+  target_device: AM62A
+task_type: classification

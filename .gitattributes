@@ -6,3 +6,17 @@ filesystem/**/*.tar.gz filter=lfs diff=lfs merge=lfs -text
 *.tar.gz filter=lfs diff=lfs merge=lfs -text
 linux-devkit/** filter=lfs diff=lfs merge=lfs -text
 k3r5-devkit/** filter=lfs diff=lfs merge=lfs -text
+
+# EdgeAI cp313 runtime+C7x firmware+ISP DCC (large binary uses LFS)
+board-support/rootfs-overlay/opt/ti/firmware/am62a-c71_0-fw filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/usr/local/lib/python3.13/dist-packages/**/*.so filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/imaging/**/*.bin filter=lfs diff=lfs merge=lfs -text
+doc/ai-runtime-cp313/*.whl filter=lfs diff=lfs merge=lfs -text
+doc/ai-runtime-cp313/*.tar.gz filter=lfs diff=lfs merge=lfs -text
+# Overlay model_zoo (TIDL artifacts+model) using LFS
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.bin filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.onnx filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.tflite filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.so filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.svg filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/opt/ti/model_zoo/**/*.prototxt filter=lfs diff=lfs merge=lfs -text

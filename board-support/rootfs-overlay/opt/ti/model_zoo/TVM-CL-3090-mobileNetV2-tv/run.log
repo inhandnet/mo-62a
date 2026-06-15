@@ -1,0 +1,151 @@
+[05:15:17] /root/tvm/src/runtime/threading_backend.cc:343: Warning: more than two frequencies detected! Forced big_count_ to 8
+[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051456: starting - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx
+[34m
+INFO:[33m20250722-051456: running - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx
+[34m
+INFO:[33m20250722-051456: pipeline_config - [39m{'task_type': 'classification', 'dataset_category': 'imagenet', 'calibration_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f1c0>, 'input_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f220>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704fabe2770>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f93f7760>, 'session': <edgeai_benchmark.sessions.tvmdlr_session.TVMDLRSession object at 0x7704f93f77c0>, 'model_info': {'metric_reference': {'accuracy_top1%': 71.88}, 'model_shortlist': 10, 'compact_name': 'mobileNetV2-tv', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051456: import 3/17 - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx - this may take some time...
+[34mINFO:[33m20250722-051456: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+[34mINFO:[33m20250722-051456: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx/model/mobilenet_v2_tv.onnx
+[34mINFO:[33m20250722-051456: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx/model/mobilenet_v2_tv_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+Converted model is valid!
+Generating subgraph boundary tensors for calibration...
+Building graph on host for tensor data collection...
+Running graph on host for tensor data collection...
+Importing subgraph into TIDL...
+TIDL import of 1 Relay IR subgraphs succeeded.
+TIDL artifacts are stored at /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx/artifacts
+[34m
+INFO:[33m20250722-051610: import completed 3/17 - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx - 73 sec
+[32m
+
+SUCCESS:[33m20250722-051610: benchmark results - [39m{}
+
+----------------------------- Optimization Summary -----------------------------
+---------------------------------------------------------------------------------
+|          Layer         | Nodes before optimization | Nodes after optimization |
+---------------------------------------------------------------------------------
+| TIDL_InnerProductLayer |                         1 |                        1 |
+| TIDL_EltWiseLayer      |                        10 |                       10 |
+| TIDL_FlattenLayer      |                         1 |                        [32;1m0[0m |
+| TIDL_ConvolutionLayer  |                        52 |                       52 |
+| TIDL_BatchNormLayer    |                         1 |                        [32;1m0[0m |
+| TIDL_ReLULayer         |                        35 |                        [32;1m0[0m |
+| TIDL_BiasLayer         |                        54 |                        [32;1m0[0m |
+| TIDL_IdentityLayer     |                         1 |                        [32;1m0[0m |
+| TIDL_PoolingLayer      |                         1 |                        1 |
+---------------------------------------------------------------------------------
+
+Total nodes in subgraph: 69
+
+[33m[TIDL Import]  WARNING: Raw data format used is same as inElementType 0, as it was not provided by user [0m
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+
+
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m2025-07-22 05:16:12,663 INFO Could not find libdlr.so in model artifact. Using dlr from /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.5s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[05:16:12] /root/neo-ai-dlr/src/dlr.cc:343: Error: [05:16:12] /root/neo-ai-dlr/3rdparty/tvm/src/runtime/contrib/tidl/tidl_runtime.cc:264: Failed to initialize TIDLRT for subgraph 0
+
+Stack trace:
+  [bt] (0) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x170edc) [0x7705bde75edc]
+  [bt] (1) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::detail::LogFatal::Entry::Finalize()+0x45) [0x7705bdd414d9]
+  [bt] (2) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::TIDLJ7Module::GetFunction(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tvm::runtime::ObjectPtr<tvm::runtime::Object> const&)+0x947) [0x7705bde31a37]
+  [bt] (3) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x17401c) [0x7705bde7901c]
+  [bt] (4) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::ConstLoaderModuleNode::GetFunction(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tvm::runtime::ObjectPtr<tvm::runtime::Object> const&)+0x2eb) [0x7705bdd7044b]
+  [bt] (5) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x17401c) [0x7705bde7901c]
+  [bt] (6) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e46d1) [0x7705bdee96d1]
+  [bt] (7) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e8ed3) [0x7705bdeeded3]
+  [bt] (8) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e9a81) [0x7705bdeeea81]
+
+
+2025-07-22 05:16:12,829 ERROR error in DLRModel instantiation 
+Traceback (most recent call last):
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/api.py", line 89, in __init__
+    self._impl = DLRModelImpl(model_path, dev_type, dev_id, error_log_file, use_default_dlr)
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/dlr_model.py", line 79, in __init__
+    self._check_call(self._lib.CreateDLRModel(byref(self.handle),
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/dlr_model.py", line 160, in _check_call
+    raise DLRError(self._lib.DLRGetLastError().decode('ascii'))
+dlr.dlr_model.DLRError
+[34m
+INFO:[33m20250722-051612: starting - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx
+[34m
+INFO:[33m20250722-051612: running - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx
+[34m
+INFO:[33m20250722-051612: pipeline_config - [39m{'task_type': 'classification', 'dataset_category': 'imagenet', 'calibration_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f1c0>, 'input_dataset': <edgeai_benchmark.datasets.imagenet.ImageNetCls object at 0x7704f948f220>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704fabe2770>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f93f7760>, 'session': <edgeai_benchmark.sessions.tvmdlr_session.TVMDLRSession object at 0x7704f93f77c0>, 'model_info': {'metric_reference': {'accuracy_top1%': 71.88}, 'model_shortlist': 10, 'compact_name': 'mobileNetV2-tv', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051612: infer 3/17 - [39mcl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx - this may take some time...
+[34mINFO:[33m20250722-051612: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/classification/imagenet1k/torchvision/mobilenet_v2_tv.onnx
+[34mINFO:[33m20250722-051612: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx/model/mobilenet_v2_tv.onnx
+[34mINFO:[33m20250722-051612: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/cl-3090_tvmdlr_imagenet1k_torchvision_mobilenet_v2_tv_onnx/model/mobilenet_v2_tv_qparams.prototxt

@@ -1,0 +1,234 @@
+[35;1m========================= [Model Compilation Started] =========================
+
+[0mModel compilation will perform the following stages:
+1. Parsing
+2. Graph Optimization
+3. Quantization & Calibration
+4. Memory Planning
+
+[35;1m============================== [Version Summary] ==============================
+
+[0m-------------------------------------------------------------------------------
+|          TIDL Tools Version          |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|         C7x Firmware Version         |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|            Runtime Version           |                [32;1m1.15.0[0m                |
+-------------------------------------------------------------------------------
+|          Model Opset Version         |                  [32;1m11[0m                  |
+-------------------------------------------------------------------------------
+
+[35;1m============================== [Parsing Started] ==============================
+
+[0mssd is meta arch name 
+
+Number of OD backbone nodes = 150 
+
+------------------------- Subgraph Information Summary -------------------------
+-------------------------------------------------------------------------------
+|          Core           |      No. of Nodes       |   Number of Subgraphs   |
+-------------------------------------------------------------------------------
+| C7x                     |                     469 |                       1 |
+| CPU                     |                       0 |                       x |
+-------------------------------------------------------------------------------
+[35;1m============================= [Parsing Completed] =============================
+
+[0mTIDL Meta pipeLine (proto) file  : /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model.prototxt  
+ssd
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[33m[TIDL Import]  WARNING: Image dimensions is not provided, Please provide it as part of prior_box_param in form of either (img_w & img_h) or img_size. Proceeding with img_w = 512 and img_h = 512 in prior box decoding[0m
+[35;1m==================== [Optimization for subgraph_0 Started] ====================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Requested output data convert layer is not added to the network, It is currently not optimal[0m
+[33m[TIDL Import] [PARSER] WARNING: Requested output data convert layer is not added to the network, It is currently not optimal[0m
+----------------------------- Optimization Summary -----------------------------
+--------------------------------------------------------------------------------[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+-----
+|            Layer           | Nodes before optimization | Nodes after optimization |
+-------------------------------------------------------------------------------------
+| TIDL_OdOutputReformatLayer |                         0 |                        2 |
+| TIDL_BatchNormLayer        |                         0 |                        1 |
+| TIDL_ReLULayer             |                        54 |                        [32;1m0[0m |
+| TIDL_ConvolutionLayer      |                        83 |                       83 |
+| TIDL_EltWiseLayer          |                        12 |                       [32;1m10[0m |
+| TIDL_DetectionOutputLayer  |                         0 |                        1 |
+| TIDL_CastLayer             |                         1 |                        [32;1m0[0m |
+-------------------------------------------------------------------------------------
+
+Total nodes in subgraph: 101
+
+[35;1m=================== [Optimization for subgraph_0 Completed] ===================
+
+[0mThe soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.13s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[35;1m============= [Quantization & Calibration for subgraph_0 Started] =============
+
+[0m[33m[TIDL Import] [QUANTIZATION] WARNING: Could not open /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model_qparams.prototxt for importing mixed precision info.
+This will be generated after model compilation.[0m
+Parameters unavailable, running calibration
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+Parameters unavailable, running calibration
+Output network quant params prototxt file path: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/artifacts/tempDir/subgraph_0_tidl_net_quant_params.prototxt
+Calibrated quant parameters stored in protoTxt format
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] ====------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051457: starting - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx
+[34m
+INFO:[33m20250722-051457: running - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx
+[34m
+INFO:[33m20250722-051457: pipeline_config - [39m{'task_type': 'detection', 'dataset_category': 'coco', 'calibration_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7704f94c4910>, 'input_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7705c1447310>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f943c490>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f943c4f0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f943c790>, 'metric': {'label_offset_pred': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 13, 12: 14, 13: 15, 14: 16, 15: 17, 16: 18, 17: 19, 18: 20, 19: 21, 20: 22, 21: 23, 22: 24, 23: 25, 24: 27, 25: 28, 26: 31, 27: 32, 28: 33, 29: 34, 30: 35, 31: 36, 32: 37, 33: 38, 34: 39, 35: 40, 36: 41, 37: 42, 38: 43, 39: 44, 40: 46, 41: 47, 42: 48, 43: 49, 44: 50, 45: 51, 46: 52, 47: 53, 48: 54, 49: 55, 50: 56, 51: 57, 52: 58, 53: 59, 54: 60, 55: 61, 56: 62, 57: 63, 58: 64, 59: 65, 60: 67, 61: 70, 62: 72, 63: 73, 64: 74, 65: 75, 66: 76, 67: 77, 68: 78, 69: 79, 70: 80, 71: 81, 72: 82, 73: 84, 74: 85, 75: 86, 76: 87, 77: 88, 78: 89, 79: 90, 80: 91}}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 25.1}, 'model_shortlist': 10, 'compact_name': 'ssd-lite-mobv2-mmdet-coco-512x512', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051457: import 4/17 - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx - this may take some time...
+[34mINFO:[33m20250722-051457: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+[34mINFO:[33m20250722-051457: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+[34mINFO:[33m20250722-051457: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+Converted model is valid!
+[34m
+INFO:[33m20250722-051759: import completed 4/17 - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx - 182 sec
+[32m
+
+SUCCESS:[33m20250722-051759: benchmark results - [39m{}
+
+=====================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m
+
+MEM: Deinit ... !!!
+MEM: Alloc's: 27 alloc's of 260550229 bytes 
+MEM: Free's : 27 free's  of 260550229 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!
+[34m
+INFO:[33m20250722-051801: starting - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx
+[34m
+INFO:[33m20250722-051801: running - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx
+[34m
+INFO:[33m20250722-051801: pipeline_config - [39m{'task_type': 'detection', 'dataset_category': 'coco', 'calibration_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7704f94c4910>, 'input_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7705c1447310>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f943c490>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f943c4f0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f943c790>, 'metric': {'label_offset_pred': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 13, 12: 14, 13: 15, 14: 16, 15: 17, 16: 18, 17: 19, 18: 20, 19: 21, 20: 22, 21: 23, 22: 24, 23: 25, 24: 27, 25: 28, 26: 31, 27: 32, 28: 33, 29: 34, 30: 35, 31: 36, 32: 37, 33: 38, 34: 39, 35: 40, 36: 41, 37: 42, 38: 43, 39: 44, 40: 46, 41: 47, 42: 48, 43: 49, 44: 50, 45: 51, 46: 52, 47: 53, 48: 54, 49: 55, 50: 56, 51: 57, 52: 58, 53: 59, 54: 60, 55: 61, 56: 62, 57: 63, 58: 64, 59: 65, 60: 67, 61: 70, 62: 72, 63: 73, 64: 74, 65: 75, 66: 76, 67: 77, 68: 78, 69: 79, 70: 80, 71: 81, 72: 82, 73: 84, 74: 85, 75: 86, 76: 87, 77: 88, 78: 89, 79: 90, 80: 91}}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 25.1}, 'model_shortlist': 10, 'compact_name': 'ssd-lite-mobv2-mmdet-coco-512x512', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051801: infer 4/17 - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx - this may take some time...
+[34mINFO:[33m20250722-051801: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/edgeai-mmdet/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+[34mINFO:[33m20250722-051801: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model.onnx
+[34mINFO:[33m20250722-051801: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx/model/ssd_mobilenetv2_lite_512x512_20201214_model_qparams.prototxt
+infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   0%|          || 0/1000 [00:00<?, ?it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|          |     0% 0/1000| [< ]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   1%|▏         || 14/1000 [00:10<12:46,  1.29it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   3%|▎         || 29/1000 [00:21<11:51,  1.36it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   4%|▍         || 45/1000 [00:31<11:01,  1.44it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   6%|▌         || 61/1000 [00:42<10:36,  1.48it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   8%|▊         || 77/1000 [00:53<10:26,  1.47it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|   9%|▉         || 92/1000 [01:03<10:26,  1.45it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  11%|█         || 107/1000 [01:14<10:13,  1.46it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  12%|█▏        || 122/1000 [01:24<09:58,  1.47it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  14%|█▎        || 137/1000 [01:34<09:50,  1.46it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  15%|█▌        || 152/1000 [01:44<09:38,  1.47it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  17%|█▋        || 167/1000 [01:55<09:30,  1.46it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  18%|█▊        || 182/1000 [02:05<09:22,  1.45it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  20%|█▉        || 198/1000 [02:16<09:06,  1.47it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  21%|██▏       || 213/1000 [02:26<08:53,  1.48it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  23%|██▎       || 228/1000 [02:36<08:40,  1.48it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  24%|██▍       || 244/1000 [02:46<08:24,  1.50it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  26%|██▌       || 260/1000 [02:56<08:07,  1.52it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  28%|██▊       || 276/1000 [03:07<08:03,  1.50it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  29%|██▉       || 292/1000 [03:18<07:49,  1.51it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  31%|███       || 308/1000 [03:28<07:36,  1.51it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  32%|███▏      || 324/1000 [03:39<07:27,  1.51it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  34%|███▍      || 341/1000 [03:49<07:07,  1.54it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  36%|███▌      || 358/1000 [04:01<06:58,  1.53it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  38%|███▊      || 375/1000 [04:11<06:37,  1.57it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  39%|███▉      || 392/1000 [04:21<06:20,  1.60it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  41%|████      || 409/1000 [04:32<06:13,  1.58it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  42%|████▎     || 425/1000 [04:42<06:03,  1.58it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  44%|████▍     || 442/1000 [04:53<05:50,  1.59it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  46%|████▌     || 459/1000 [05:03<05:37,  1.61it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  48%|████▊     || 476/1000 [05:13<05:21,  1.63it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  49%|████▉     || 494/1000 [05:24<05:04,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  51%|█████     || 512/1000 [05:34<04:52,  1.67it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  53%|█████▎    || 529/1000 [05:44<04:41,  1.67it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  55%|█████▍    || 546/1000 [05:55<04:32,  1.67it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  56%|█████▋    || 563/1000 [06:05<04:23,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  58%|█████▊    || 580/1000 [06:15<04:13,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  60%|█████▉    || 597/1000 [06:26<04:03,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  61%|██████▏   || 614/1000 [06:36<03:51,  1.67it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  63%|██████▎   || 631/1000 [06:46<03:43,  1.65it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  65%|██████▍   || 648/1000 [06:57<03:34,  1.64it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  66%|██████▋   || 665/1000 [07:07<03:24,  1.64it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  68%|██████▊   || 682/1000 [07:18<03:18,  1.60it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  70%|██████▉   || 698/1000 [07:29<03:10,  1.58it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  71%|███████▏  || 714/1000 [07:41<03:14,  1.47it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  73%|███████▎  || 732/1000 [07:52<02:53,  1.54it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  75%|███████▌  || 750/1000 [08:02<02:37,  1.59it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  77%|███████▋  || 767/1000 [08:12<02:24,  1.61it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  78%|███████▊  || 784/1000 [08:22<02:11,  1.64it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  80%|████████  || 801/1000 [08:33<02:03,  1.61it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  82%|████████▏ || 818/1000 [08:44<01:52,  1.62it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  84%|████████▎ || 835/1000 [08:55<01:42,  1.61it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  85%|████████▌ || 852/1000 [09:05<01:31,  1.62it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  87%|████████▋ || 869/1000 [09:15<01:20,  1.63it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  89%|████████▊ || 887/1000 [09:25<01:07,  1.67it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  90%|█████████ || 905/1000 [09:36<00:57,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  92%|█████████▏|| 922/1000 [09:47<00:46,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  94%|█████████▍|| 940/1000 [09:57<00:35,  1.68it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  96%|█████████▌|| 958/1000 [10:08<00:25,  1.66it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  98%|█████████▊|| 975/1000 [10:19<00:15,  1.63it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2|  99%|█████████▉|| 993/1000 [10:30<00:04,  1.65it/s]infer 4/17: od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2| 100%|██████████|| 1000/1000 [10:34<00:00,  1.58it/s]
+[34m
+INFO:[33m20250722-052836: infer completed 4/17 - [39mod-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx - 635 sec
+Loading and preparing results...
+DONE (t=0.02s)
+creating index...
+index created!
+Running per image evaluation...
+Evaluate annotation type *bbox*
+DONE (t=1.63s).
+Accumulating evaluation results...
+DONE (t=0.61s).
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.202
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets=100 ] = 0.321
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets=100 ] = 0.217
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.029
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.206
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.371
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=  1 ] = 0.182
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 10 ] = 0.236
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets=100 ] = 0.242
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= small | maxDets=100 ] = 0.036
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets=100 ] = 0.240
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets=100 ] = 0.434
+[32m
+
+SUCCESS:[33m20250722-052838: benchmark results - [39m{'infer_path': 'od-8020_onnxrt_coco_edgeai-mmdet_ssd_mobilenetv2_lite_512x512_20201214_model_onnx', 'accuracy_ap[.5:.95]%': 20.151142, 'accuracy_ap50%': 32.093166, 'num_subgraphs': 1, 'perfsim_time_ms': 12.76247, 'perfsim_ddr_transfer_mb': 50.26, 'perfsim_gmacs': 1.5751}
+
+libtidl_onnxrt_EP loaded 0x55a1e75af550 
+Final number of subgraphs created are : 1, - Offloaded Nodes - 469, Total Nodes - 469 
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.8s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+MEM: Deinit ... !!!
+MEM: Alloc's: 27 alloc's of 84224784 bytes 
+MEM: Free's : 27 free's  of 84224784 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!

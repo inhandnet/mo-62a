@@ -1,0 +1,203 @@
+[35;1m========================= [Model Compilation Started] =========================
+
+[0mModel compilation will perform the following stages:
+1. Parsing
+2. Graph Optimization
+3. Quantization & Calibration
+4. Memory Planning
+
+[35;1m============================== [Version Summary] ==============================
+
+[0m-------------------------------------------------------------------------------
+|          TIDL Tools Version          |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|         C7x Firmware Version         |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|            Runtime Version           |                [32;1m1.15.0[0m                |
+-------------------------------------------------------------------------------
+|          Model Opset Version         |                  [32;1m11[0m                  |
+-------------------------------------------------------------------------------
+
+[35;1m============================== [Parsing Started] ==============================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Network not identified as Object Detection network : (1) Ignore if network is not Object Detection network (2) If network is Object Detection network, please specify "model_type":"OD" as part of OSRT compilation options[0m
+
+------------------------- Subgraph Information Summary -------------------------
+-------------------------------------------------------------------------------
+|          Core           |      No. of Nodes       |   Number of Subgraphs   |
+-------------------------------------------------------------------------------
+| C7x                     |                     123 |                       1 |
+| CPU                     |                       0 |                       x |
+-------------------------------------------------------------------------------
+[35;1m============================= [Parsing Completed] =============================
+
+[0m[35;1m==================== [Optimization for subgraph_0 Started] ====================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Requested output data convert layer is not added to the network, It is currently not optimal[0m
+----------------------------- Optimization Summary -----------------------------
+--------------------------------------------------------------------------------
+|         Layer         | Nodes before optimization | Nodes after optimization |
+--------------------------------------------------------------------------------
+| TIDL_BatchNormLayer   |                         0 |                        1 |
+| TIDL_ArgMaxLayer      |                         1 |                        1 |
+| TIDL_ConcatLayer      |                         2 |                        2 |
+| TIDL_ReLULayer        |                        43 |                        [32;1m0[0m |
+| TIDL_ResizeLayer      |                         1 |                        1 |
+| TIDL_ConvolutionLayer |                        62 |                       62 |
+| TIDL_EltWiseLayer     |                        12 |                       [32;1m10[0m |
+| TIDL_CastLayer        |                         2 |                        [32;1m0[0m |
+--------------------------------------------------------------------------------
+
+Total nodes in subgraph: 80
+
+[35;1m=================== [Optimization for subgraph_0 Completed] ===================
+
+[0mThe soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.12s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[35;1m============= [Quantization & Calibration for subgraph_0 Started] =============
+
+[0m[33m[TIDL Import] [QUANTIZATION] WARNING: Could not open /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailit[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051503: starting - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx
+[34m
+INFO:[33m20250722-051503: running - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx
+[34m
+INFO:[33m20250722-051503: pipeline_config - [39m{'task_type': 'segmentation', 'dataset_category': 'ade20k32', 'calibration_dataset': <edgeai_benchmark.datasets.ade20k.ADE20KSegmentation object at 0x7704f94c5120>, 'input_dataset': <edgeai_benchmark.datasets.ade20k.ADE20KSegmentation object at 0x7704f94c4fa0>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f94533d0>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f9453430>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f942f580>, 'model_info': {'metric_reference': {'accuracy_mean_iou%': 51.08}, 'model_shortlist': 10, 'compact_name': 'deeplabv3lite-mobv2-ade20k32-512x512', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051503: import 11/17 - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx - this may take some time...
+[34mINFO:[33m20250722-051503: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+[34mINFO:[33m20250722-051503: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx/model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+[34mINFO:[33m20250722-051503: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx/model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+Converted model is valid!
+[34m
+INFO:[33m20250722-051635: import completed 11/17 - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx - 92 sec
+[32m
+
+SUCCESS:[33m20250722-051635: benchmark results - [39m{}
+
+e_512x512_20210308_outby4_onnx/model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_qparams.prototxt for importing mixed precision info.
+This will be generated after model compilation.[0m
+Parameters unavailable, running calibration
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+Parameters unavailable, running calibration
+Output network quant params prototxt file path: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx/artifacts/tempDir/subgraph_0_tidl_net_quant_params.prototxt
+Calibrated quant parameters stored in protoTxt format
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m
+
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 357098205 bytes 
+MEM: Free's : 26 free's  of 357098205 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!
+[34m
+INFO:[33m20250722-051636: starting - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx
+[34m
+INFO:[33m20250722-051636: running - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx
+[34m
+INFO:[33m20250722-051636: pipeline_config - [39m{'task_type': 'segmentation', 'dataset_category': 'ade20k32', 'calibration_dataset': <edgeai_benchmark.datasets.ade20k.ADE20KSegmentation object at 0x7704f94c5120>, 'input_dataset': <edgeai_benchmark.datasets.ade20k.ADE20KSegmentation object at 0x7704f94c4fa0>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f94533d0>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f9453430>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f942f580>, 'model_info': {'metric_reference': {'accuracy_mean_iou%': 51.08}, 'model_shortlist': 10, 'compact_name': 'deeplabv3lite-mobv2-ade20k32-512x512', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051636: infer 11/17 - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx - this may take some time...
+[34mINFO:[33m20250722-051636: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ade20k32/edgeai-tv/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+[34mINFO:[33m20250722-051636: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx/model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+[34mINFO:[33m20250722-051636: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx/model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_qparams.prototxt
+infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|   0%|          || 0/1000 [00:00<?, ?it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|          |     0% 0/1000| [< ]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|   4%|▍         || 39/1000 [00:10<04:11,  3.83it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|   8%|▊         || 78/1000 [00:20<04:00,  3.83it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  12%|█▏        || 120/1000 [00:30<03:41,  3.98it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  16%|█▋        || 164/1000 [00:40<03:21,  4.14it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  21%|██        || 209/1000 [00:50<03:06,  4.25it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  25%|██▌       || 254/1000 [01:01<02:55,  4.25it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  30%|██▉       || 297/1000 [01:12<02:50,  4.13it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  34%|███▍      || 338/1000 [01:22<02:41,  4.11it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  38%|███▊      || 383/1000 [01:32<02:26,  4.20it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  43%|████▎     || 431/1000 [01:42<02:10,  4.38it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  48%|████▊     || 479/1000 [01:53<01:57,  4.44it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  53%|█████▎    || 527/1000 [02:03<01:44,  4.53it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  57%|█████▊    || 575/1000 [02:13<01:32,  4.60it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  62%|██████▏   || 623/1000 [02:23<01:21,  4.60it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  67%|██████▋   || 670/1000 [02:33<01:11,  4.60it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  72%|███████▏  || 717/1000 [02:43<01:01,  4.62it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  76%|███████▋  || 764/1000 [02:54<00:51,  4.63it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  81%|████████  || 811/1000 [03:04<00:40,  4.62it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  86%|████████▌ || 859/1000 [03:14<00:30,  4.67it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  91%|█████████ || 907/1000 [03:24<00:19,  4.70it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus|  96%|█████████▌|| 955/1000 [03:34<00:09,  4.69it/s]infer 11/17: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus| 100%|██████████|| 1000/1000 [03:44<00:00,  4.46it/s]
+[34m
+INFO:[33m20250722-052021: infer completed 11/17 - [39mss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx - 225 sec
+[32m
+
+SUCCESS:[33m20250722-052028: benchmark results - [39m{'infer_path': 'ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx', 'accuracy_mean_iou%': 52.539102, 'num_subgraphs': 1, 'perfsim_time_ms': 19.75191, 'perfsim_ddr_transfer_mb': 96.19, 'perfsim_gmacs': 3.2427}
+
+libtidl_onnxrt_EP loaded 0x55a1e738fb40 
+Final number of subgraphs created are : 1, - Offloaded Nodes - 123, Total Nodes - 123 
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.10s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 82888048 bytes 
+MEM: Free's : 26 free's  of 82888048 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!

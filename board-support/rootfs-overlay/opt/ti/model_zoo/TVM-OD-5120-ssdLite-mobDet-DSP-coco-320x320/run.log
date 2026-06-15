@@ -1,0 +1,219 @@
+[05:15:06] /root/tvm/src/runtime/threading_backend.cc:343: Warning: more than two frequencies detected! Forced big_count_ to 8
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+depthwise_conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+conv2d NHWC layout is not optimized for x86 with autotvm.
+[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051500: starting - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite
+[34m
+INFO:[33m20250722-051500: running - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite
+[34m
+INFO:[33m20250722-051500: pipeline_config - [39m{'task_type': 'detection', 'dataset_category': 'coco', 'calibration_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7704f94c4910>, 'input_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7705c1447310>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f9452e90>, 'session': <edgeai_benchmark.sessions.tvmdlr_session.TVMDLRSession object at 0x7704f9452ef0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f942f820>, 'metric': {'label_offset_pred': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 12, 12: 13, 13: 14, 14: 15, 15: 16, 16: 17, 17: 18, 18: 19, 19: 20, 20: 21, 21: 22, 22: 23, 23: 24, 24: 25, 25: 26, 26: 27, 27: 28, 28: 29, 29: 30, 30: 31, 31: 32, 32: 33, 33: 34, 34: 35, 35: 36, 36: 37, 37: 38, 38: 39, 39: 40, 40: 41, 41: 42, 42: 43, 43: 44, 44: 45, 45: 46, 46: 47, 47: 48, 48: 49, 49: 50, 50: 51, 51: 52, 52: 53, 53: 54, 54: 55, 55: 56, 56: 57, 57: 58, 58: 59, 59: 60, 60: 61, 61: 62, 62: 63, 63: 64, 64: 65, 65: 66, 66: 67, 67: 68, 68: 69, 69: 70, 70: 71, 71: 72, 72: 73, 73: 74, 74: 75, 75: 76, 76: 77, 77: 78, 78: 79, 79: 80, 80: 81, 81: 82, 82: 83, 83: 84, 84: 85, 85: 86, 86: 87, 87: 88, 88: 89, 89: 90, -1: 0, 90: 91}}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 28.9}, 'model_shortlist': 10, 'compact_name': 'ssdLite-mobDet-DSP-coco-320x320', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051500: import 8/17 - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite - this may take some time...
+[34mINFO:[33m20250722-051500: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+[34mINFO:[33m20250722-051500: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite/model/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+[34mINFO:[33m20250722-051500: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite/model/ssdlite_mobiledet_dsp_320x320_coco_20200519_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+Generating subgraph boundary tensors for calibration...
+Building graph on host for tensor data collection...
+Running graph on host for tensor data collection...
+Importing subgraph into TIDL...
+TIDL import of 1 Relay IR subgraphs succeeded.
+TIDL artifacts are stored at /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite/artifacts
+[34m
+INFO:[33m20250722-051733: import completed 8/17 - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite - 153 sec
+[32m
+
+SUCCESS:[33m20250722-051733: benchmark results - [39m{}
+
+----------------------------- Optimization Summary -----------------------------
+--------------------------------------------------------------------------------
+|         Layer         | Nodes before optimization | Nodes after optimization |
+--------------------------------------------------------------------------------
+| TIDL_EltWiseLayer     |                        15 |                       15 |
+| TIDL_ReLULayer        |                        60 |                        [32;1m0[0m |
+| TIDL_BiasLayer        |                        94 |                        [32;1m0[0m |
+| TIDL_ConvolutionLayer |                        94 |                       94 |
+--------------------------------------------------------------------------------
+
+Total nodes in subgraph: 135
+
+[33m[TIDL Import]  WARNING: Raw data format used is same as inElementType 6, as it was not provided by user [0m
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+
+
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m2025-07-22 05:17:35,480 INFO Could not find libdlr.so in model artifact. Using dlr from /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.6s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[05:17:35] /root/neo-ai-dlr/src/dlr.cc:343: Error: [05:17:35] /root/neo-ai-dlr/3rdparty/tvm/src/runtime/contrib/tidl/tidl_runtime.cc:264: Failed to initialize TIDLRT for subgraph 0
+
+Stack trace:
+  [bt] (0) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x170edc) [0x7705bd960edc]
+  [bt] (1) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::detail::LogFatal::Entry::Finalize()+0x45) [0x7705bd82c4d9]
+  [bt] (2) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::TIDLJ7Module::GetFunction(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tvm::runtime::ObjectPtr<tvm::runtime::Object> const&)+0x947) [0x7705bd91ca37]
+  [bt] (3) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x17401c) [0x7705bd96401c]
+  [bt] (4) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(tvm::runtime::ConstLoaderModuleNode::GetFunction(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, tvm::runtime::ObjectPtr<tvm::runtime::Object> const&)+0x2eb) [0x7705bd85b44b]
+  [bt] (5) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x17401c) [0x7705bd96401c]
+  [bt] (6) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e46d1) [0x7705bd9d46d1]
+  [bt] (7) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e8ed3) [0x7705bd9d8ed3]
+  [bt] (8) /home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/libdlr.so(+0x1e9a81) [0x7705bd9d9a81]
+
+
+2025-07-22 05:17:35,816 ERROR error in DLRModel instantiation 
+Traceback (most recent call last):
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/api.py", line 89, in __init__
+    self._impl = DLRModelImpl(model_path, dev_type, dev_id, error_log_file, use_default_dlr)
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/dlr_model.py", line 79, in __init__
+    self._check_call(self._lib.CreateDLRModel(byref(self.handle),
+  File "/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/dlr/dlr_model.py", line 160, in _check_call
+    raise DLRError(self._lib.DLRGetLastError().decode('ascii'))
+dlr.dlr_model.DLRError
+[34m
+INFO:[33m20250722-051735: starting - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite
+[34m
+INFO:[33m20250722-051735: running - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite
+[34m
+INFO:[33m20250722-051735: pipeline_config - [39m{'task_type': 'detection', 'dataset_category': 'coco', 'calibration_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7704f94c4910>, 'input_dataset': <edgeai_benchmark.datasets.coco_det.COCODetection object at 0x7705c1447310>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f9452e90>, 'session': <edgeai_benchmark.sessions.tvmdlr_session.TVMDLRSession object at 0x7704f9452ef0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f942f820>, 'metric': {'label_offset_pred': {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 6: 7, 7: 8, 8: 9, 9: 10, 10: 11, 11: 12, 12: 13, 13: 14, 14: 15, 15: 16, 16: 17, 17: 18, 18: 19, 19: 20, 20: 21, 21: 22, 22: 23, 23: 24, 24: 25, 25: 26, 26: 27, 27: 28, 28: 29, 29: 30, 30: 31, 31: 32, 32: 33, 33: 34, 34: 35, 35: 36, 36: 37, 37: 38, 38: 39, 39: 40, 40: 41, 41: 42, 42: 43, 43: 44, 44: 45, 45: 46, 46: 47, 47: 48, 48: 49, 49: 50, 50: 51, 51: 52, 52: 53, 53: 54, 54: 55, 55: 56, 56: 57, 57: 58, 58: 59, 59: 60, 60: 61, 61: 62, 62: 63, 63: 64, 64: 65, 65: 66, 66: 67, 67: 68, 68: 69, 69: 70, 70: 71, 71: 72, 72: 73, 73: 74, 74: 75, 75: 76, 76: 77, 77: 78, 78: 79, 79: 80, 80: 81, 81: 82, 82: 83, 83: 84, 84: 85, 85: 86, 86: 87, 87: 88, 88: 89, 89: 90, -1: 0, 90: 91}}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 28.9}, 'model_shortlist': 10, 'compact_name': 'ssdLite-mobDet-DSP-coco-320x320', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051735: infer 8/17 - [39mod-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite - this may take some time...
+[34mINFO:[33m20250722-051735: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/detection/coco/tf1-models/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+[34mINFO:[33m20250722-051735: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite/model/ssdlite_mobiledet_dsp_320x320_coco_20200519.tflite
+[34mINFO:[33m20250722-051735: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/od-5120_tvmdlr_coco_tf1-models_ssdlite_mobiledet_dsp_320x320_coco_20200519_tflite/model/ssdlite_mobiledet_dsp_320x320_coco_20200519_qparams.prototxt

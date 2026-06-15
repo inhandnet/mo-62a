@@ -1,0 +1,37 @@
+info:
+  description: WIDER FACE Dataset
+  version: '0.1'
+  year: 2007 2012
+  contributor: Yang, Shuo and Luo, Ping and Loy, Chen Change and Tang, Xiaoou
+  data_created: 20220311-003427.744954
+  url: http://shuoyang1213.me/WIDERFACE/
+  format: COCO 2017, https://cocodataset.org
+categories:
+- id: 1
+  supercategory: face
+  name: face
+color_map:
+- - 0
+  - 0
+  - 0
+- - 0
+  - 0
+  - 255
+- - 0
+  - 255
+  - 0
+- - 0
+  - 255
+  - 255
+- - 255
+  - 0
+  - 0
+- - 255
+  - 0
+  - 255
+- - 255
+  - 255
+  - 0
+- - 255
+  - 255
+  - 255

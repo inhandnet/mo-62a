@@ -1,0 +1,157 @@
+[35;1m========================= [Model Compilation Started] =========================
+
+[0mModel compilation will perform the following stages:
+1. Parsing
+2. Graph Optimization
+3. Quantization & Calibration
+4. Memory Planning
+
+[35;1m============================== [Version Summary] ==============================
+
+[0m-------------------------------------------------------------------------------
+|          TIDL Tools Version          |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|         C7x Firmware Version         |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|            Runtime Version           |                [32;1m1.15.0[0m                |
+-------------------------------------------------------------------------------
+|          Model Opset Version         |                  [32;1m11[0m                  |
+-------------------------------------------------------------------------------
+
+[35;1m============================== [Parsing Started] ==============================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Network not identified as Object Detection network : (1) Ignore if network is not Object Detection network (2) If network is Object Detection network, please specify "model_type":"OD" as part of OSRT compilation options[0m
+
+------------------------- Subgraph Information Summary -------------------------
+-------------------------------------------------------------------------------
+|          Core           |      No. of Nodes       |   Number of Subgraphs   |
+-------------------------------------------------------------------------------
+| C7x                     |                     152 |                       1 |
+| CPU                     |                       0 |                       x |
+-------------------------------------------------------------------------------
+[35;1m============================= [Parsing Completed] =============================
+
+[0m[35;1m==================== [Optimization for subgraph_0 Started] ====================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Requested output data convert layer is not added to the network, It is currently not optimal[0m
+----------------------------- Optimization Summary -----------------------------
+--------------------------------------------------------------------------------
+|         Layer         | Nodes before optimization | Nodes after optimization |
+--------------------------------------------------------------------------------
+| TIDL_BatchNormLayer   |                         0 |                        1 |
+| TIDL_ArgMaxLayer      |                         1 |                        1 |
+| TIDL_ConcatLayer      |                         2 |                        2 |
+| TIDL_EltWiseLayer     |                        10 |                       10 |
+| TIDL_ResizeLayer      |                         2 |                        2 |
+| TIDL_ConvolutionLayer |                        62 |                       62 |
+| TIDL_CLipLayer        |                        75 |                        [32;1m0[0m |
+--------------------------------------------------------------------------------
+
+Total nodes in subgraph: 81
+
+[35;1m=================== [Optimization for subgraph_0 Completed] ===================
+
+[0mThe soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.13s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[35;1m============= [Quantization & Calibration for subgraph_0 Started] =============
+
+[0m[33m[TIDL Import] [QUANTIZATION] WARNING: Could not open /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/model/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_qparams.prototx[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051505: starting - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx
+[34m
+INFO:[33m20250722-051505: running - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx
+[34m
+INFO:[33m20250722-051505: pipeline_config - [39m{'task_type': 'segmentation', 'dataset_category': 'ti-robokit_semseg_zed1hd', 'calibration_dataset': <edgeai_benchmark.datasets.robokit_seg.RobokitSegmentation object at 0x7704f94c50c0>, 'input_dataset': <edgeai_benchmark.datasets.robokit_seg.RobokitSegmentation object at 0x7704f94c7d90>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f9479a50>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f9479ab0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f9479c60>, 'model_info': {'metric_reference': {'accuracy_mean_iou%': 54.1}, 'model_shortlist': 10, 'compact_name': 'deeplabv3lite-mobv2-qat-robokit-768x432', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051505: import 12/17 - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx - this may take some time...
+[34mINFO:[33m20250722-051505: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+[34mINFO:[33m20250722-051505: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/model/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+[34mINFO:[33m20250722-051505: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/model/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+[34m
+INFO:[33m20250722-051556: import completed 12/17 - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx - 52 sec
+[32m
+
+SUCCESS:[33m20250722-051556: benchmark results - [39m{}
+
+t for importing mixed precision info.
+This will be generated after model compilation.[0m
+Parameters unavailable, running calibration
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+------------------ Fixed-point Calibration Iteration [1 / 1]: ------------------
+Parameters unavailable, running calibration
+
+
+Parameters unavailable, running calibration
+Output network quant params prototxt file path: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/artifacts/tempDir/subgraph_0_tidl_net_quant_params.prototxt
+Calibrated quant parameters stored in protoTxt format
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m
+
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 431057557 bytes 
+MEM: Free's : 26 free's  of 431057557 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!
+[34m
+INFO:[33m20250722-051557: starting - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx
+[34m
+INFO:[33m20250722-051557: running - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx
+[34m
+INFO:[33m20250722-051557: pipeline_config - [39m{'task_type': 'segmentation', 'dataset_category': 'ti-robokit_semseg_zed1hd', 'calibration_dataset': <edgeai_benchmark.datasets.robokit_seg.RobokitSegmentation object at 0x7704f94c50c0>, 'input_dataset': <edgeai_benchmark.datasets.robokit_seg.RobokitSegmentation object at 0x7704f94c7d90>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f9479a50>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f9479ab0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f9479c60>, 'model_info': {'metric_reference': {'accuracy_mean_iou%': 54.1}, 'model_shortlist': 10, 'compact_name': 'deeplabv3lite-mobv2-qat-robokit-768x432', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051557: infer 12/17 - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx - this may take some time...
+[34mINFO:[33m20250722-051557: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/segmentation/ti-robokit/edgeai-tv/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+[34mINFO:[33m20250722-051557: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/model/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2.onnx
+[34mINFO:[33m20250722-051557: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx/model/deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_qparams.prototxt
+infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl|   0%|          || 0/49 [00:00<?, ?it/s]infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl|          |     0% 0/49| [< ]infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl|  33%|███▎      || 16/49 [00:10<00:21,  1.53it/s]infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl|  65%|██████▌   || 32/49 [00:21<00:11,  1.51it/s]infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl|  98%|█████████▊|| 48/49 [00:31<00:00,  1.53it/s]infer 12/17: ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3pl| 100%|██████████|| 49/49 [00:32<00:00,  1.52it/s]
+[34m
+INFO:[33m20250722-051631: infer completed 12/17 - [39mss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx - 33 sec
+[32m
+
+SUCCESS:[33m20250722-051631: benchmark results - [39m{'infer_path': 'ss-7618_onnxrt_ti-robokit_edgeai-tv_deeplabv3plus_mnetv2_edgeailite_robokit_768x432_qat-p2_onnx', 'accuracy_mean_iou%': 54.093059, 'num_subgraphs': 1, 'perfsim_time_ms': 28.29601, 'perfsim_ddr_transfer_mb': 153.55, 'perfsim_gmacs': 4.0467}
+
+libtidl_onnxrt_EP loaded 0x55a1e73af640 
+Final number of subgraphs created are : 1, - Offloaded Nodes - 152, Total Nodes - 152 
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.9s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 104191818 bytes 
+MEM: Free's : 26 free's  of 104191818 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!

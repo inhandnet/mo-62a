@@ -1,0 +1,42 @@
+postprocess: {}
+preprocess:
+  add_flip_image: false
+  crop:
+  - 512
+  - 512
+  data_layout: NHWC
+  pad_color: 0
+  resize:
+  - 512
+  - 512
+  resize_with_pad: false
+  reverse_channels: false
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NHWC
+  input_details:
+  - index: 0
+    name: MobilenetV2/MobilenetV2/input
+    shape:
+    - 1
+    - 512
+    - 512
+    - 3
+    type: <class 'numpy.uint8'>
+  input_mean: null
+  input_optimization: true
+  input_scale: null
+  model_folder: model
+  model_path: model/deeplabv3_mnv2_ade20k32_float.tflite
+  output_details:
+  - index: 201
+    name: ArgMax
+    shape:
+    - 1
+    - 512
+    - 512
+    type: <class 'numpy.uint8'>
+  run_dir: ss-2580_tflitert_ade20k32_mlperf_deeplabv3_mnv2_ade20k32_float_tflite
+  session_name: tflitert
+  target_device: AM62A
+task_type: segmentation

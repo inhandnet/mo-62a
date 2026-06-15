@@ -1,0 +1,62 @@
+metric:
+  label_offset_pred: 1
+postprocess:
+  formatter:
+    dst_indices:
+    - 4
+    - 5
+    name: DetectionBoxSL2BoxLS
+    src_indices:
+    - 5
+    - 4
+  ignore_index: null
+  logits_bbox_to_bbox_ls: false
+  normalized_detections: false
+  resize_with_pad: true
+  shuffle_indices: null
+  squeeze_axis: null
+preprocess:
+  add_flip_image: false
+  crop: 640
+  data_layout: NCHW
+  pad_color:
+  - 114
+  - 114
+  - 114
+  resize: 640
+  resize_with_pad:
+  - true
+  - corner
+  reverse_channels: true
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NCHW
+  input_details:
+  - name: images
+    shape:
+    - 1
+    - 3
+    - 640
+    - 640
+    type: tensor(float)
+  input_mean:
+  - 0.0
+  - 0.0
+  - 0.0
+  input_optimization: false
+  input_scale:
+  - 1.0
+  - 1.0
+  - 1.0
+  model_folder: model
+  model_path: model/yolox_s_pose_ti_lite_640_20220301_model.onnx
+  output_details:
+  - name: detections
+    shape:
+    - 200
+    - 57
+    type: tensor(float)
+  run_dir: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx
+  session_name: onnxrt
+  target_device: AM62A
+task_type: keypoint_detection

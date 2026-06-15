@@ -1,0 +1,63 @@
+metric:
+  label_offset_pred:
+    -1: 0
+    0: 1
+    1: 2
+postprocess:
+  formatter:
+    dst_indices:
+    - 4
+    - 5
+    name: DetectionBoxSL2BoxLS
+    src_indices:
+    - 5
+    - 4
+  ignore_index: null
+  logits_bbox_to_bbox_ls: false
+  normalized_detections: false
+  resize_with_pad: true
+  shuffle_indices: null
+  squeeze_axis: null
+preprocess:
+  add_flip_image: false
+  crop: 640
+  data_layout: NCHW
+  pad_color:
+  - 114
+  - 114
+  - 114
+  resize: 640
+  resize_with_pad:
+  - true
+  - corner
+  reverse_channels: true
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NCHW
+  input_details:
+  - name: inputNet_IN
+    shape:
+    - 1
+    - 3
+    - 640
+    - 640
+    type: tensor(uint8)
+  input_mean: null
+  input_optimization: true
+  input_scale: null
+  model_folder: model
+  model_path: model/yolox_s_lite_640x640_20220307_model.onnx
+  output_details:
+  - name: dets
+    shape:
+    - 200
+    - 5
+    type: tensor(float)
+  - name: labels
+    shape:
+    - 200
+    type: tensor(int64)
+  run_dir: od-8420_onnxrt_widerface_edgeai-mmdet_yolox_s_lite_640x640_20220307_model_onnx
+  session_name: onnxrt
+  target_device: AM62A
+task_type: detection

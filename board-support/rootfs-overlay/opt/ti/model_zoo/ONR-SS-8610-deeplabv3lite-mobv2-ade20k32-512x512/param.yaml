@@ -1,0 +1,41 @@
+postprocess: {}
+preprocess:
+  add_flip_image: false
+  crop:
+  - 512
+  - 512
+  data_layout: NCHW
+  pad_color: 0
+  resize:
+  - 512
+  - 512
+  resize_with_pad: false
+  reverse_channels: false
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NCHW
+  input_details:
+  - name: input.1Net_IN
+    shape:
+    - 1
+    - 3
+    - 512
+    - 512
+    type: tensor(uint8)
+  input_mean: null
+  input_optimization: true
+  input_scale: null
+  model_folder: model
+  model_path: model/deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4.onnx
+  output_details:
+  - name: 556TIDL_cast_out
+    shape:
+    - 1
+    - 1
+    - 128
+    - 128
+    type: tensor(uint8)
+  run_dir: ss-8610_onnxrt_ade20k32_edgeai-tv_deeplabv3plus_mobilenetv2_edgeailite_512x512_20210308_outby4_onnx
+  session_name: onnxrt
+  target_device: AM62A
+task_type: segmentation

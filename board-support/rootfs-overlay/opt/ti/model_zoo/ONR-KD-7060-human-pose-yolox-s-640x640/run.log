@@ -1,0 +1,228 @@
+[35;1m========================= [Model Compilation Started] =========================
+
+[0mModel compilation will perform the following stages:
+1. Parsing
+2. Graph Optimization
+3. Quantization & Calibration
+4. Memory Planning
+
+[35;1m============================== [Version Summary] ==============================
+
+[0m-------------------------------------------------------------------------------
+|          TIDL Tools Version          |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|         C7x Firmware Version         |              [32;1m11_01_02_00[0m             |
+-------------------------------------------------------------------------------
+|            Runtime Version           |                [32;1m1.15.0[0m                |
+-------------------------------------------------------------------------------
+|          Model Opset Version         |                  [32;1m11[0m                  |
+-------------------------------------------------------------------------------
+
+[35;1m============================== [Parsing Started] ==============================
+
+[0myolox is meta arch name 
+yolox
+Number of OD backbone nodes = 205 
+
+------------------------- Subgraph Information Summary -------------------------
+-------------------------------------------------------------------------------
+|          Core           |      No. of Nodes       |   Number of Subgraphs   |
+-------------------------------------------------------------------------------
+| C7x                     |                     274 |                       1 |
+| CPU                     |                       0 |                       x |
+-------------------------------------------------------------------------------
+[35;1m============================= [Parsing Completed] =============================
+
+[0mTIDL Meta pipeLine (proto) file  : /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model.prototxt  
+yolox
+yolox
+[35;1m==================== [Optimization for subgraph_0 Started] ====================
+
+[0m[33m[TIDL Import] [PARSER] WARNING: Requested output data convert layer is not added to the network, It is currently not optimal[0m
+----------------------------- Optimization Summary -----------------------------
+-------------------------------------------------------------------------------------
+|            Layer           | Nodes before optimization | Nodes after optimization |
+-------------------------------------------------------------------------------------
+| TIDL_OdOutputReformatLayer |                         0 |                        1 |
+| TIDL_DetectionOutputLayer  |                         0 |                        1 |
+| TIDL_EltWiseLayer          |                         7 |                        7 |
+| TIDL_ConcatLayer           |                        16 |                       16 |
+| TIDL_ReLULayer             |                        81 |                        [32;1m0[0m |
+| TIDL_ResizeLayer           |                         2 |                        2 |
+| TIDL_ConvolutionLayer      |                        93 |                       93 |
+| TIDL_PoolingLayer          |                         6 |                        6 |
+-------------------------------------------------------------------------------------
+
+Total nodes in subgraph: 129
+
+[35;1m=================== [Optimization for subgraph_0 Completed] ===================
+
+[0mThe soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.19s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+[35;1m============= [Quantization & Calibration for subgraph_0 Started] =============
+
+[0m[33m[TIDL Import] [QUANTIZATION] WARNING: Could not open /home/tensorlab-test/projects/edgeai-algo/c[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %[======>                                                                      ] 8 %[============>                                                                ] 16 %[===================>                                                         ] 25 %[=========================>                                                   ] 33 %[================================>                                            ] 41 %[======================================>                                      ] 50 %[============================================>                                ] 58 %[===================================================>                         ] 66 %[=========================================================>                   ] 75 %[================================================================>            ] 83 %[======================================================================>      ] 91 %[=============================================================================] 100 %------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+------------------------- Network Compiler Traces ------------------------------
+Successful Memory Allocation
+Successful Workload Creation
+[34m
+INFO:[33m20250722-051633: starting - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx
+[34m
+INFO:[33m20250722-051633: running - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx
+[34m
+INFO:[33m20250722-051633: pipeline_config - [39m{'task_type': 'keypoint_detection', 'dataset_category': 'cocokpts', 'calibration_dataset': <edgeai_benchmark.datasets.coco_kpts.COCOKeypoints object at 0x7704f94c4880>, 'input_dataset': <edgeai_benchmark.datasets.coco_kpts.COCOKeypoints object at 0x7704fabe28c0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f947ad10>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f947aa10>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f947aa70>, 'metric': {'label_offset_pred': 1}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 49.6, 'accuracy_ap50%': 78.0}, 'model_shortlist': 10, 'compact_name': 'human-pose-yolox-s-640x640', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051633: import 15/17 - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx - this may take some time...
+[34mINFO:[33m20250722-051633: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+[34mINFO:[33m20250722-051633: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model.onnx
+[34mINFO:[33m20250722-051633: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model_qparams.prototxt
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+Downloading 1/1: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+Download done for /home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+[34m
+INFO:[33m20250722-051813: import completed 15/17 - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx - 100 sec
+[32m
+
+SUCCESS:[33m20250722-051813: benchmark results - [39m{}
+
+ode/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model_qparams.prototxt for importing mixed precision info.
+This will be generated after model compilation.[0m
+Parameters unavailable, running calibration
+
+-------- Running Calibration in Float Mode to Collect Tensor Statistics --------
+
+
+----------------- Fixed-point Calibration Iteration [1 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [2 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [3 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [4 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [5 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [6 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [7 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [8 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [9 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [10 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [11 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+----------------- Fixed-point Calibration Iteration [12 / 12]: -----------------
+Parameters unavailable, running calibration
+
+
+Parameters unavailable, running calibration
+Output network quant params prototxt file path: /home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/artifacts/tempDir/subgraph_0_tidl_net_quant_params.prototxt
+Calibrated quant parameters stored in protoTxt format
+[35;1m==================== [Quantization & Calibration Completed] ====================
+
+[0m[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0mRerunning network compiler...
+[35;1m========================== [Memory Planning Started] ==========================
+
+[0m
+
+[35;1m========================= [Memory Planning Completed] =========================
+
+[0m[32;1m======================== Subgraph Compiled Successfully ========================
+
+[0m
+
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 287908180 bytes 
+MEM: Free's : 26 free's  of 287908180 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!
+[34m
+INFO:[33m20250722-051815: starting - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx
+[34m
+INFO:[33m20250722-051815: running - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx
+[34m
+INFO:[33m20250722-051815: pipeline_config - [39m{'task_type': 'keypoint_detection', 'dataset_category': 'cocokpts', 'calibration_dataset': <edgeai_benchmark.datasets.coco_kpts.COCOKeypoints object at 0x7704f94c4880>, 'input_dataset': <edgeai_benchmark.datasets.coco_kpts.COCOKeypoints object at 0x7704fabe28c0>, 'postprocess': <edgeai_benchmark.postprocess.PostProcessTransforms object at 0x7704f947ad10>, 'preprocess': <edgeai_benchmark.preprocess.PreProcessTransforms object at 0x7704f947aa10>, 'session': <edgeai_benchmark.sessions.onnxrt_session.ONNXRTSession object at 0x7704f947aa70>, 'metric': {'label_offset_pred': 1}, 'model_info': {'metric_reference': {'accuracy_ap[.5:.95]%': 49.6, 'accuracy_ap50%': 78.0}, 'model_shortlist': 10, 'compact_name': 'human-pose-yolox-s-640x640', 'shortlisted': True, 'recommended': True}}
+[34m
+INFO:[33m20250722-051815: infer 15/17 - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx - this may take some time...
+[34mINFO:[33m20250722-051815: model_path - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-modelzoo/models/vision/keypoint/coco/edgeai-yolox/yolox_s_pose_ti_lite_640_20220301_model.onnx
+[34mINFO:[33m20250722-051815: model_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model.onnx
+[34mINFO:[33m20250722-051815: quant_file - [39m/home/tensorlab-test/projects/edgeai-algo/code/edgeai-benchmark/work_dirs/20250722-100448_develop__MINIMALSET_DEFAULTSPEED_PC/modelartifacts/AM62A/8bits/kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx/model/yolox_s_pose_ti_lite_640_20220301_model_qparams.prototxt
+infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|   0%|          || 0/1000 [00:00<?, ?it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|          |     0% 0/1000| [< ]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|   4%|▎         || 37/1000 [00:10<04:26,  3.61it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|   7%|▋         || 74/1000 [00:20<04:14,  3.64it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  11%|█         || 111/1000 [00:30<04:03,  3.65it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  15%|█▍        || 148/1000 [00:40<03:53,  3.65it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  18%|█▊        || 185/1000 [00:50<03:45,  3.62it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  22%|██▏       || 222/1000 [01:01<03:33,  3.64it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  26%|██▌       || 260/1000 [01:11<03:22,  3.66it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  30%|██▉       || 298/1000 [01:21<03:12,  3.65it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  34%|███▎      || 335/1000 [01:32<03:03,  3.62it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  37%|███▋      || 373/1000 [01:42<02:51,  3.65it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  41%|████      || 411/1000 [01:52<02:40,  3.67it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  45%|████▍     || 449/1000 [02:02<02:30,  3.67it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  49%|████▉     || 491/1000 [02:13<02:13,  3.81it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  53%|█████▎    || 533/1000 [02:23<01:59,  3.91it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  58%|█████▊    || 577/1000 [02:33<01:44,  4.03it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  62%|██████▏   || 622/1000 [02:43<01:31,  4.14it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  67%|██████▋   || 667/1000 [02:53<01:18,  4.25it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  71%|███████   || 712/1000 [03:03<01:07,  4.30it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  76%|███████▌  || 757/1000 [03:14<00:56,  4.33it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  80%|████████  || 803/1000 [03:24<00:44,  4.39it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  85%|████████▍ || 849/1000 [03:34<00:34,  4.44it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  90%|████████▉ || 896/1000 [03:44<00:23,  4.50it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  94%|█████████▍|| 943/1000 [03:54<00:12,  4.54it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t|  99%|█████████▉|| 992/1000 [04:04<00:01,  4.64it/s]infer 15/17: kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_t| 100%|██████████|| 1000/1000 [04:06<00:00,  4.06it/s]/home/tensorlab-test/.pyenv/versions/py310/lib/python3.10/site-packages/json_tricks/encoders.py:419: UserWarning: json-tricks: numpy scalar serialization is experimental and may work differently in future versions
+  warnings.warn('json-tricks: numpy scalar serialization is experimental and may work differently in future versions')
+
+[34m
+INFO:[33m20250722-052222: infer completed 15/17 - [39mkd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx - 247 sec
+Loading and preparing results...
+DONE (t=0.17s)
+creating index...
+index created!
+Running per image evaluation...
+Evaluate annotation type *keypoints*
+DONE (t=1.50s).
+Accumulating evaluation results...
+DONE (t=0.03s).
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.497
+ Average Precision  (AP) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.777
+ Average Precision  (AP) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.535
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.440
+ Average Precision  (AP) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.581
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=   all | maxDets= 20 ] = 0.564
+ Average Recall     (AR) @[ IoU=0.50      | area=   all | maxDets= 20 ] = 0.818
+ Average Recall     (AR) @[ IoU=0.75      | area=   all | maxDets= 20 ] = 0.612
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area=medium | maxDets= 20 ] = 0.503
+ Average Recall     (AR) @[ IoU=0.50:0.95 | area= large | maxDets= 20 ] = 0.651
+[32m
+
+SUCCESS:[33m20250722-052224: benchmark results - [39m{'infer_path': 'kd-7060_onnxrt_coco_edgeai-yolox_yolox_s_pose_ti_lite_640_20220301_model_onnx', 'accuracy_ap[.5:.95]%': 49.709839, 'accuracy_ap50%': 77.711247, 'num_subgraphs': 1, 'perfsim_time_ms': 52.95324, 'perfsim_ddr_transfer_mb': 87.78, 'perfsim_gmacs': 15.8463}
+
+libtidl_onnxrt_EP loaded 0x55a1e743faf0 
+Final number of subgraphs created are : 1, - Offloaded Nodes - 274, Total Nodes - 274 
+The soft limit is 10240
+The hard limit is 10240
+MEM: Init ... !!!
+MEM: Init ... Done !!!
+ 0.0s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_ERROR
+ 0.14s:  VX_ZONE_INFO: Globally Enabled VX_ZONE_WARNING
+MEM: Deinit ... !!!
+MEM: Alloc's: 26 alloc's of 160008158 bytes 
+MEM: Free's : 26 free's  of 160008158 bytes 
+MEM: Open's : 0 allocs  of 0 bytes 
+MEM: Deinit ... Done !!!

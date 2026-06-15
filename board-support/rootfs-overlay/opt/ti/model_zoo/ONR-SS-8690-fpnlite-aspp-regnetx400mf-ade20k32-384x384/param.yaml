@@ -1,0 +1,41 @@
+postprocess: {}
+preprocess:
+  add_flip_image: false
+  crop:
+  - 384
+  - 384
+  data_layout: NCHW
+  pad_color: 0
+  resize:
+  - 384
+  - 384
+  resize_with_pad: false
+  reverse_channels: false
+session:
+  artifacts_folder: artifacts
+  input_data_layout: NCHW
+  input_details:
+  - name: input.1Net_IN
+    shape:
+    - 1
+    - 3
+    - 384
+    - 384
+    type: tensor(uint8)
+  input_mean: null
+  input_optimization: true
+  input_scale: null
+  model_folder: model
+  model_path: model/fpn_aspp_regnetx400mf_edgeailite_384x384_20210314_outby4.onnx
+  output_details:
+  - name: 840TIDL_cast_out
+    shape:
+    - 1
+    - 1
+    - 96
+    - 96
+    type: tensor(uint8)
+  run_dir: ss-8690_onnxrt_ade20k32_edgeai-tv_fpn_aspp_regnetx400mf_edgeailite_384x384_20210314_outby4_onnx
+  session_name: onnxrt
+  target_device: AM62A
+task_type: segmentation
