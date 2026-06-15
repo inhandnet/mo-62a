@@ -20,3 +20,7 @@ board-support/rootfs-overlay/opt/ti/model_zoo/**/*.tflite filter=lfs diff=lfs me
 board-support/rootfs-overlay/opt/ti/model_zoo/**/*.so filter=lfs diff=lfs merge=lfs -text
 board-support/rootfs-overlay/opt/ti/model_zoo/**/*.svg filter=lfs diff=lfs merge=lfs -text
 board-support/rootfs-overlay/opt/ti/model_zoo/**/*.prototxt filter=lfs diff=lfs merge=lfs -text
+
+# Auto-test image assets + 原理图 PDF (binary uses LFS)
+tools/**/*.png filter=lfs diff=lfs merge=lfs -text
+doc/**/*.pdf filter=lfs diff=lfs merge=lfs -text
