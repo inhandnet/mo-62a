@@ -26,6 +26,7 @@ ROOTFS_TARBALL_DIR="$SDK_ROOT/filesystem"
 
 BOOT_SIZE_MIB=256
 BOOT_SIZE_BYTES_EXPECTED=$(( BOOT_SIZE_MIB * 1024 * 1024 ))
+SWAP_SIZE_MIB=4096   # 4 GB swap partition (p2), rootfs becomes p3
 
 # ── Shared globals ─────────────────────────────────────────────────────────────
 BOOT_MNT=""
@@ -305,7 +306,8 @@ get_disk_size() {
 get_part_nodes() {
   local dev="$1" pfx
   pfx="$(part_suffix "$dev")"
-  echo "${dev}${pfx}1" "${dev}${pfx}2"
+  # p1=BOOT  p2=SWAP  p3=rootfs
+  echo "${dev}${pfx}1" "${dev}${pfx}2" "${dev}${pfx}3"
 }
 
 blkid_type() {
@@ -324,13 +326,14 @@ check_partition_layout_strict() {
 
   local parts_count
   parts_count="$(lsblk -nrpo NAME "$dev" 2>/dev/null | tail -n +2 | wc -l | tr -d ' ')"
-  [[ "$parts_count" == "2" ]] \
-    || die "Strict check failed: expected exactly 2 partitions on $dev (found $parts_count)"
+  [[ "$parts_count" == "3" ]] \
+    || die "Strict check failed: expected exactly 3 partitions on $dev (found $parts_count; p1=BOOT p2=SWAP p3=rootfs)"
 
-  local p1 p2
-  read -r p1 p2 <<<"$(get_part_nodes "$dev")"
-  [[ -b "$p1" ]] || die "Strict check failed: partition 1 not found: $p1"
-  [[ -b "$p2" ]] || die "Strict check failed: partition 2 not found: $p2"
+  local p1 p2 p3
+  read -r p1 p2 p3 <<<"$(get_part_nodes "$dev")"
+  [[ -b "$p1" ]] || die "Strict check failed: partition 1 (BOOT) not found: $p1"
+  [[ -b "$p2" ]] || die "Strict check failed: partition 2 (SWAP) not found: $p2"
+  [[ -b "$p3" ]] || die "Strict check failed: partition 3 (rootfs) not found: $p3"
 
   local p1_bytes
   p1_bytes="$(lsblk_bytes "$p1")"
@@ -443,13 +446,15 @@ create_partitions() {
   echo "Wiping old partition table signatures..."
   if have wipefs; then wipefs -a "$dev" || true; fi
 
-  echo "Creating MBR partitions (BOOT FAT32(LBA) ${BOOT_SIZE_MIB}MiB + rootfs ext4 remaining)..."
+  local swap_end_mib=$(( BOOT_SIZE_MIB + SWAP_SIZE_MIB ))
+  echo "Creating MBR partitions: BOOT FAT32 ${BOOT_SIZE_MIB}MiB + SWAP ${SWAP_SIZE_MIB}MiB + rootfs ext4 remaining..."
   have parted || die "parted not found"
   parted -s "$dev" mklabel msdos
   parted -s "$dev" mkpart primary fat32 1MiB "${BOOT_SIZE_MIB}MiB"
   parted -s "$dev" set 1 boot on
   parted -s "$dev" set 1 lba on
-  parted -s "$dev" mkpart primary ext4 "${BOOT_SIZE_MIB}MiB" 100%
+  parted -s "$dev" mkpart primary linux-swap "${BOOT_SIZE_MIB}MiB" "${swap_end_mib}MiB"
+  parted -s "$dev" mkpart primary ext4 "${swap_end_mib}MiB" 100%
 
   partprobe "$dev" || true
   if have udevadm; then udevadm settle || true; fi
@@ -458,13 +463,15 @@ create_partitions() {
 format_partitions() {
   local dev="$1" pfx
   pfx="$(part_suffix "$dev")"
-  local p1="${dev}${pfx}1" p2="${dev}${pfx}2"
+  local p1="${dev}${pfx}1" p2="${dev}${pfx}2" p3="${dev}${pfx}3"
   [[ -b "$p1" ]] || die "Partition not found: $p1"
   [[ -b "$p2" ]] || die "Partition not found: $p2"
+  [[ -b "$p3" ]] || die "Partition not found: $p3"
   have mkfs.vfat || die "mkfs.vfat not found (install dosfstools)"
   have mkfs.ext4 || die "mkfs.ext4 not found (install e2fsprogs)"
-  echo "Formatting BOOT: $p1 (FAT32)";  mkfs.vfat -F 32 -n BOOT "$p1"
-  echo "Formatting rootfs: $p2 (ext4)"; mkfs.ext4 -F -L rootfs "$p2"
+  echo "Formatting BOOT: $p1 (FAT32)";   mkfs.vfat -F 32 -n BOOT "$p1"
+  echo "Formatting SWAP: $p2 (swap)";    mkswap -L swap "$p2"
+  echo "Formatting rootfs: $p3 (ext4)";  mkfs.ext4 -F -L rootfs "$p3"
 }
 
 mount_partitions() {
@@ -473,7 +480,7 @@ mount_partitions() {
   BOOT_MNT="$(mktemp -d /tmp/mo-62a-boot.XXXXXX)"
   ROOTFS_MNT="$(mktemp -d /tmp/mo-62a-rootfs.XXXXXX)"
   mount -t vfat "${dev}${pfx}1" "$BOOT_MNT"
-  mount -t ext4 "${dev}${pfx}2" "$ROOTFS_MNT"
+  mount -t ext4 "${dev}${pfx}3" "$ROOTFS_MNT"
 }
 
 format_boot_partition_only() {
@@ -486,12 +493,12 @@ format_boot_partition_only() {
 }
 
 format_rootfs_partition_only() {
-  local dev="$1" _p1 p2
-  read -r _p1 p2 <<<"$(get_part_nodes "$dev")"
-  [[ -b "$p2" ]] || die "Partition not found: $p2"
+  local dev="$1" _p1 _p2 p3
+  read -r _p1 _p2 p3 <<<"$(get_part_nodes "$dev")"
+  [[ -b "$p3" ]] || die "Partition not found: $p3"
   have mkfs.ext4 || die "mkfs.ext4 not found (install e2fsprogs)"
-  echo "Formatting rootfs partition: $p2 (ext4)"
-  mkfs.ext4 -F -L rootfs "$p2"
+  echo "Formatting rootfs partition: $p3 (ext4)"
+  mkfs.ext4 -F -L rootfs "$p3"
 }
 
 mount_boot_only() {
@@ -502,10 +509,10 @@ mount_boot_only() {
 }
 
 mount_rootfs_only() {
-  local dev="$1" _p1 p2
-  read -r _p1 p2 <<<"$(get_part_nodes "$dev")"
+  local dev="$1" _p1 _p2 p3
+  read -r _p1 _p2 p3 <<<"$(get_part_nodes "$dev")"
   ROOTFS_MNT="$(mktemp -d /tmp/mo-62a-rootfs.XXXXXX)"
-  mount -t ext4 "$p2" "$ROOTFS_MNT"
+  mount -t ext4 "$p3" "$ROOTFS_MNT"
 }
 
 pick_mode_interactive() {
@@ -637,13 +644,15 @@ create_sparse_image() {
 
 partition_image_mbr() {
   local img="$1"
+  local swap_end_mib=$(( BOOT_SIZE_MIB + SWAP_SIZE_MIB ))
   have parted || die "parted not found"
-  echo "Partitioning image (MBR): BOOT fat32 ${BOOT_SIZE_MIB}MiB + rootfs ext4 remaining"
+  echo "Partitioning image (MBR): BOOT fat32 ${BOOT_SIZE_MIB}MiB + SWAP ${SWAP_SIZE_MIB}MiB + rootfs ext4 remaining"
   parted -s "$img" mklabel msdos
   parted -s "$img" mkpart primary fat32 1MiB "${BOOT_SIZE_MIB}MiB"
   parted -s "$img" set 1 boot on
   parted -s "$img" set 1 lba on
-  parted -s "$img" mkpart primary ext4 "${BOOT_SIZE_MIB}MiB" 100%
+  parted -s "$img" mkpart primary linux-swap "${BOOT_SIZE_MIB}MiB" "${swap_end_mib}MiB"
+  parted -s "$img" mkpart primary ext4 "${swap_end_mib}MiB" 100%
 
   # Force MBR type byte to FAT32 LBA (0x0c) — AM62* boot ROM is picky.
   if [[ -x /usr/sbin/sfdisk ]]; then
@@ -665,9 +674,10 @@ attach_loop() {
 }
 
 format_and_mount_loop_parts() {
-  local p1="${LOOPDEV}p1" p2="${LOOPDEV}p2"
+  local p1="${LOOPDEV}p1" p2="${LOOPDEV}p2" p3="${LOOPDEV}p3"
   [[ -b "$p1" ]] || die "partition not found: $p1"
   [[ -b "$p2" ]] || die "partition not found: $p2"
+  [[ -b "$p3" ]] || die "partition not found: $p3"
   have mkfs.vfat || die "mkfs.vfat not found (install dosfstools)"
   have mkfs.ext4 || die "mkfs.ext4 not found (install e2fsprogs)"
 
@@ -675,13 +685,15 @@ format_and_mount_loop_parts() {
   # Force BPB geometry to match known-good SD card (AM62* ROM sensitive to BPB fields).
   # -g 4/32: heads/sectors-per-track; -h 2048: BPB_HiddSec (1MiB start = 2048 sectors).
   mkfs.vfat -F 32 -n BOOT -g 4/32 -h 2048 "$p1"
-  echo "Formatting rootfs: $p2"
-  mkfs.ext4 -F -L rootfs "$p2"
+  echo "Formatting SWAP: $p2"
+  mkswap -L swap "$p2"
+  echo "Formatting rootfs: $p3"
+  mkfs.ext4 -F -L rootfs "$p3"
 
   BOOT_MNT="$(mktemp -d /tmp/mo-62a-etcher-boot.XXXXXX)"
   ROOTFS_MNT="$(mktemp -d /tmp/mo-62a-etcher-rootfs.XXXXXX)"
   mount -t vfat "$p1" "$BOOT_MNT"
-  mount -t ext4 "$p2" "$ROOTFS_MNT"
+  mount -t ext4 "$p3" "$ROOTFS_MNT"
 }
 
 img_extract_rootfs_tarball() {

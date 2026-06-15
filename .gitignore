@@ -8,3 +8,6 @@ tools/mo62a-tester/**/__pycache__/
 tools/mo62a-tester/reports/
 *.pyc
 doc/ti-firmware-builder-am62axx/
+
+# EdgeAI rootfs reprint temporary working directory (12GB, do not submit)
+/.rootfs-build/
