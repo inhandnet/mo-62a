@@ -936,6 +936,8 @@ def get_output_elements(output):
         sink_elements += make_element("queue")
         property = {"title":output.title,
                     "overlay-type":output.overlay_perf_type}
+        if getattr(output, "main_title", None) is not None:
+            property["main-title"] = output.main_title
         sink_elements += make_element("tiperfoverlay",property=property)
 
     sink_ext = os.path.splitext(output.sink)[1]

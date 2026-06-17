@@ -50,7 +50,7 @@ cmd_list() {
     for name in "${MODELS[@]}"; do
         i=$((i+1)); type="$(echo "$name" | cut -d- -f2)"; rt="$(echo "$name" | cut -d- -f1)"
         [ "$type" != "$prev" ] && { echo; echo " ${c_dim}-- $(type_label "$type") --${c_rst}"; prev="$type"; }
-        printf "  %2d) %-52s [%s]%b\n" "$i" "$name" "$(rt_label "$rt")" "$(rt_note "$rt")"
+        printf "  %2d) %-56s [%s]\n" "$i" "$name" "$(rt_label "$rt")"
     done
     echo
     echo "${c_dim}Run: edgeai-demo run <index|name> [--camera csi|usb]${c_rst}"
@@ -126,7 +126,7 @@ build_yaml() {
     local model="$1" out=/tmp/edgeai-demo.yaml
     if [ "$CAM_TYPE" = "csi" ]; then
         cat > "$out" << EOF
-title: "edgeai-demo CSI - $model"
+title: ""
 log_level: 2
 inputs:
     input0:
@@ -146,12 +146,13 @@ outputs:
         width: 1920
         height: 1080
         overlay-perf-type: graph
+        main-title: ""
 flows:
     flow0: [input0,model0,output0,[320,150,1280,720]]
 EOF
     else
         cat > "$out" << EOF
-title: "edgeai-demo USB - $model"
+title: ""
 log_level: 2
 inputs:
     input0:
@@ -170,6 +171,7 @@ outputs:
         width: 1920
         height: 1080
         overlay-perf-type: graph
+        main-title: ""
 flows:
     flow0: [input0,model0,output0,[320,150,1280,720]]
 EOF

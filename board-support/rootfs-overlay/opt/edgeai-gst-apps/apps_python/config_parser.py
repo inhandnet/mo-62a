@@ -117,6 +117,10 @@ class Output:
             self.overlay_perf_type = output_config["overlay-perf-type"]
         else:
             self.overlay_perf_type = None
+        if "main-title" in output_config:
+            self.main_title = output_config["main-title"]
+        else:
+            self.main_title = None
         self.mosaic = False
         self.id = Output.count
         self.gst_bkgnd_sink = None
