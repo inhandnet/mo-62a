@@ -9,8 +9,9 @@
 - [5. 首次启动](#5-首次启动)
 - [6. 网络访问](#6-网络访问)
 - [7. 摄像头预览（IMX219）](#7-摄像头预览imx219)
-- [8. 40 Pin 扩展接口](#8-40-pin-扩展接口)
-- [9. 常见问题与技巧](#9-常见问题与技巧)
+- [8. Edge AI 推理](#8-edge-ai-推理)
+- [9. 40 Pin 扩展接口](#9-40-pin-扩展接口)
+- [10. 常见问题与技巧](#10-常见问题与技巧)
 
 ---
 
@@ -290,19 +291,80 @@ sudo WB_R=0.4 WB_B=0.5 imx219-preview.sh 10
 
 ---
 
-## 8. 40 Pin 扩展接口
+## 8. Edge AI 推理
+
+MO-62A 搭载 TI C7x DSP，可对边缘 AI 推理进行硬件加速（TIDL）。系统已预装模型库、推理运行时和完整的 C/C++ 开发 SDK——开箱即可运行 demo，也可直接在板上编译、调试自己的推理程序。
+
+### 8.1 运行推理 Demo（edgeai-demo）
+
+`edgeai-demo` 是统一入口，同时支持 **Python** 与 **C/C++** 两个后端、**CSI** 与 **USB** 两种摄像头，配置通用。
+
+交互模式（依次选择 摄像头 → 模型 → 后端）：
+
+```bash
+edgeai-demo
+```
+
+命令行模式：
+
+```bash
+edgeai-demo list                                   # 列出可用模型
+edgeai-demo run 2 --backend cpp    --camera csi    # C/C++ 后端 + CSI 摄像头
+edgeai-demo run 2 --backend python --camera usb    # Python 后端 + USB 摄像头
+edgeai-demo status                                 # 查看当前摄像头
+```
+
+推理画面（含检测框与性能曲线）显示在 HDMI 输出上，按 **Ctrl+C** 退出。
+
+> **注意：** 使用 CSI 摄像头前先运行 `sudo init-imx219` 初始化。`edgeai-demo` 会自动处理 root 权限、环境变量、C7x 复位、停止/恢复桌面（lightdm），无需手动操作。
+
+### 8.2 在板上开发 C/C++ AI 程序
+
+系统预装了完整的 C/C++ AI SDK，可直接在板上编译自己的推理程序，**无需交叉编译环境**：
+
+| 内容 | 位置 |
+|---|---|
+| 头文件 | `/usr/include/edgeai/` |
+| 库 + CMake 包 | `/usr/lib/edgeai/`、`/usr/lib/cmake/EdgeAI/` |
+| 示例工程 | `/usr/share/edgeai-cpp-examples/` |
+| 模型库 | `/opt/model_zoo/` |
+| 开发指南 | `/usr/share/edgeai-cpp-examples/DEV_GUIDE.md` |
+
+一个 `CMakeLists.txt` 即可链接整套 SDK（无需手动指定头文件/库路径）：
+
+```cmake
+find_package(EdgeAI REQUIRED)
+add_executable(my_infer main.cpp)
+target_link_libraries(my_infer PRIVATE EdgeAI::edgeai)
+```
+
+编译并运行最小示例（加载模型 + 跑一次推理，无需摄像头）：
+
+```bash
+cp -r /usr/share/edgeai-cpp-examples/hello_inference ~/hello_inference
+cd ~/hello_inference && mkdir build && cd build
+cmake .. && make
+sudo LD_LIBRARY_PATH=/opt/ti/edgeai/lib ./hello_inference \
+     -m /opt/model_zoo/ONR-OD-8200-yolox-nano-lite-mmdet-coco-416x416
+```
+
+输出 `Inference OK.` 即表示模型已在 C7x DSP 上完成推理。完整的"摄像头 → 推理 → HDMI"流水线示例见 `/usr/share/edgeai-cpp-examples/app_edgeai/`，API 用法与更多说明见 `DEV_GUIDE.md`。
+
+---
+
+## 9. 40 Pin 扩展接口
 
 40-pin 扩展接口的所有信号引脚默认工作在 **GPIO 模式**，逻辑电平为 **3.3 V**。I2C、SPI、UART、PWM 等可选外设功能可通过设备树叠加层（overlay）启用。
 
 > **注意：** 引脚 27/28（I2C2）固定用于摄像头模块内部 I2C 总线，不能用作通用 GPIO。
 
-### 8.1 引脚定义
+### 9.1 引脚定义
 
 ![40-pin 接口](picture/40pin.png)
 
 完整 40 针列表见下方 [8.2 节](#82-linux-gpio-对照表)。
 
-### 8.2 Linux GPIO 对照表
+### 9.2 Linux GPIO 对照表
 
 以下为全部 40 针的完整对照表，GPIO 引脚可通过 `gpioset` / `gpioget`（软件包 `gpiod`）控制。
 
@@ -351,11 +413,11 @@ sudo WB_R=0.4 WB_B=0.5 imx219-preview.sh 10
 
 > `gpiochip0` = `mcu_gpio0`（MCU 域）；`gpiochip1` = `main_gpio0`（GPIO0\_x）；`gpiochip2` = `main_gpio1`（GPIO1\_x）。
 
-### 8.3 电平说明
+### 9.3 电平说明
 
 扩展接口所有 I/O 引脚均工作在 **3.3 V** 逻辑电平，**请勿将 5 V 信号直接连接到 GPIO 引脚**。
 
-### 8.4 快速示例
+### 9.4 快速示例
 
 系统预装 `libgpiod` v2.x，操作芯片时需使用 `-c` 参数指定芯片名称。
 
@@ -469,7 +531,7 @@ ls /sys/bus/spi/devices/ # 期望：spi0.0
 
 ---
 
-## 9. 常见问题与技巧
+## 10. 常见问题与技巧
 
 ### 启动后屏幕无显示
 

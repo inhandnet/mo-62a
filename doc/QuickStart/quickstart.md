@@ -9,8 +9,9 @@
 - [5. First Boot](#5-first-boot)
 - [6. Network Access](#6-network-access)
 - [7. Camera Preview (IMX219)](#7-camera-preview-imx219)
-- [8. 40-Pin Expansion Header](#8-40-pin-expansion-header)
-- [9. Common Issues & Tips](#9-common-issues--tips)
+- [8. Edge AI Inference](#8-edge-ai-inference)
+- [9. 40-Pin Expansion Header](#9-40-pin-expansion-header)
+- [10. Common Issues & Tips](#10-common-issues--tips)
 
 ---
 
@@ -290,19 +291,91 @@ sudo WB_R=0.4 WB_B=0.5 imx219-preview.sh 10
 
 ---
 
-## 8. 40-Pin Expansion Header
+## 8. Edge AI Inference
+
+The MO-62A carries a TI C7x DSP that hardware-accelerates edge AI inference (TIDL).
+The image ships with a model zoo, the inference runtimes, and a complete C/C++
+development SDK — so you can run demos out of the box and compile and debug your
+own inference programs directly on the board.
+
+### 8.1 Run the Inference Demo (edgeai-demo)
+
+`edgeai-demo` is a single entry point that drives both the **Python** and
+**C/C++** backends, with either a **CSI** or **USB** camera, from the same config.
+
+Interactive mode (pick camera → model → backend in turn):
+
+```bash
+edgeai-demo
+```
+
+Command-line mode:
+
+```bash
+edgeai-demo list                                   # list available models
+edgeai-demo run 2 --backend cpp    --camera csi    # C/C++ backend + CSI camera
+edgeai-demo run 2 --backend python --camera usb    # Python backend + USB camera
+edgeai-demo status                                 # show the active camera
+```
+
+The inference view (with detection boxes and a performance graph) is shown on the
+HDMI output; press **Ctrl+C** to exit.
+
+> **Note:** initialise a CSI camera first with `sudo init-imx219`. `edgeai-demo`
+> handles root privileges, environment variables, the C7x reset, and stopping/
+> restoring the desktop (lightdm) automatically — no manual steps are needed.
+
+### 8.2 Develop Your Own C/C++ AI Program On-Board
+
+The image ships with a complete C/C++ AI SDK, so you can compile your own
+inference programs directly on the board with **no cross-compilation setup**:
+
+| Item | Location |
+|---|---|
+| Headers | `/usr/include/edgeai/` |
+| Libraries + CMake package | `/usr/lib/edgeai/`, `/usr/lib/cmake/EdgeAI/` |
+| Example projects | `/usr/share/edgeai-cpp-examples/` |
+| Model zoo | `/opt/model_zoo/` |
+| Developer guide | `/usr/share/edgeai-cpp-examples/DEV_GUIDE.md` |
+
+A single `CMakeLists.txt` links the whole SDK (no manual include/library paths):
+
+```cmake
+find_package(EdgeAI REQUIRED)
+add_executable(my_infer main.cpp)
+target_link_libraries(my_infer PRIVATE EdgeAI::edgeai)
+```
+
+Build and run the minimal example (loads a model and runs one inference, no camera needed):
+
+```bash
+cp -r /usr/share/edgeai-cpp-examples/hello_inference ~/hello_inference
+cd ~/hello_inference && mkdir build && cd build
+cmake .. && make
+sudo LD_LIBRARY_PATH=/opt/ti/edgeai/lib ./hello_inference \
+     -m /opt/model_zoo/ONR-OD-8200-yolox-nano-lite-mmdet-coco-416x416
+```
+
+`Inference OK.` confirms the model ran on the C7x DSP. A full
+camera → inference → HDMI pipeline example is in
+`/usr/share/edgeai-cpp-examples/app_edgeai/`; see `DEV_GUIDE.md` for the API and
+more details.
+
+---
+
+## 9. 40-Pin Expansion Header
 
 The 40-pin expansion header provides GPIO signals at **3.3 V logic levels**. All user-accessible signal pins default to GPIO mode. Optional peripheral functions (I2C, SPI, UART, PWM) can be enabled via device tree overlay.
 
 > **Note:** Pins 27/28 (I2C2) are permanently assigned to the internal I2C bus used by the camera module and cannot be used as general GPIO.
 
-### 8.1 Pin Map
+### 9.1 Pin Map
 
 ![40-pin header](picture/40pin.png)
 
 See the complete 40-pin table in [Section 8.2](#82-linux-gpio-reference) below.
 
-### 8.2 Linux GPIO Reference
+### 9.2 Linux GPIO Reference
 
 All 40 pins are listed below. Use `gpioset` / `gpioget` from the `gpiod` package for GPIO-mode pins.
 
@@ -351,11 +424,11 @@ All 40 pins are listed below. Use `gpioset` / `gpioget` from the `gpiod` package
 
 > `gpiochip0` = `mcu_gpio0` (MCU domain).  `gpiochip1` = `main_gpio0` (GPIO0\_x).  `gpiochip2` = `main_gpio1` (GPIO1\_x).
 
-### 8.3 Voltage Levels
+### 9.3 Voltage Levels
 
 All expansion header I/O pins operate at **3.3 V**. Do not connect 5 V signals directly to GPIO pins.
 
-### 8.4 Quick Examples
+### 9.4 Quick Examples
 
 The board ships with `libgpiod` v2.x. The `-c` flag is required to specify the chip.
 
@@ -454,7 +527,7 @@ ls /sys/bus/spi/devices/ # expect: spi0.0
 
 ---
 
-## 9. Common Issues & Tips
+## 10. Common Issues & Tips
 
 ### Screen Stays Blank After Boot
 

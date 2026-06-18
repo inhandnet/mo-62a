@@ -1,5 +1,71 @@
 # Changelog
 
+## v1.0.6 — 2026-06-18
+
+### Edge AI — On-Device C/C++ SDK
+
+#### C/C++ Edge AI development SDK (compile inference programs on the board)
+
+- Ship a complete on-device C/C++ Edge AI SDK so customers can build and debug
+  their own TIDL / C7x inference programs directly on the board — no
+  cross-compilation environment required:
+  - Headers under `/usr/include/edgeai/` (edgeai-dl-inferer API, TFLite / ONNX
+    Runtime, and the TI app-utils headers).
+  - Static libraries under `/usr/lib/edgeai/` (`edgeai_dl_inferer` / `pre` /
+    `post` plus the prebuilt TFLite stack).
+  - A CMake package at `/usr/lib/cmake/EdgeAI/EdgeAIConfig.cmake` exposing a
+    single `EdgeAI::edgeai` target. A consumer project links the whole stack
+    (TIDL ONNX Runtime, tivision\_apps, OpenCV, GStreamer, …) with one
+    `find_package(EdgeAI)` + `target_link_libraries(... EdgeAI::edgeai)` — no
+    manual include/library paths.
+- Add example projects under `/usr/share/edgeai-cpp-examples/`:
+  - `hello_inference/` — minimal load-model + single-inference sample (headless).
+  - `app_edgeai/` — full camera → inference → HDMI pipeline source.
+  - `configs/` (CSI + USB) and `DEV_GUIDE.md`.
+- Verified on hardware: `hello_inference` compiles on the board via
+  `find_package(EdgeAI)` and runs inference with all model nodes offloaded to the
+  C7x DSP.
+
+#### Unified `edgeai-demo` launcher (Python + C/C++, CSI + USB)
+
+- Rework `edgeai-demo` into a single entry point that drives both the **Python**
+  and **C/C++** backends with either a **CSI** or **USB** camera from the same
+  YAML config, in interactive and command-line modes:
+  - `edgeai-demo run <model> --backend python|cpp --camera csi|usb`
+  - Interactive mode prompts for camera → model → backend.
+- USB camera support: auto-select the real capture node (skip UVC metadata-only
+  nodes) and pick a supported pixel format (MJPG → jpeg, otherwise YUYV), fixing a
+  GStreamer pipeline failure on USB input.
+
+#### C/C++ `app_edgeai` — display title
+
+- Make the `tiperfoverlay` `main-title` configurable from YAML and default it
+  off, removing the hard-coded "Texas Instruments Edge AI" banner so the C/C++
+  demo matches the Python demo's clean overlay.
+
+### Root Filesystem
+
+#### C/C++ development packages preinstalled
+
+- Preinstall `libyaml-cpp-dev`, `libopencv-dev`, and
+  `libgstreamer-plugins-base1.0-dev` in the base image so the Edge AI SDK and
+  customer programs build on the board out of the box.
+
+#### `libdrm` dependency conflict resolved
+
+- Align `libdrm` to the Debian `2.4.124-2` packages (replacing a non-standard
+  `2.4.127` build), so installing `*-dev` packages (e.g. GStreamer plugins-base
+  dev) no longer hits held / broken dependency conflicts.
+
+### Flashing & Build
+
+- `bin/mo-62a-flash.sh` now builds `edgeai-cpp` and installs the full C/C++ SDK
+  (binary, headers, libraries, CMake package, examples) into the target rootfs
+  during imaging, via a qemu-aarch64 chroot build, and passes the selected rootfs
+  tarball through so the build matches the runtime ABI.
+- Remove a stale duplicate `apps_cpp` source tree from the rootfs overlay; the
+  canonical C/C++ demo source now ships only under the SDK examples.
+
 ## v1.0.5 — 2026-05-07
 
 ### Kernel & Device Tree

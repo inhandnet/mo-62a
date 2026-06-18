@@ -1,5 +1,63 @@
 # 更新日志
 
+## v1.0.6 — 2026-06-18
+
+### Edge AI —— 设备端 C/C++ SDK
+
+#### C/C++ Edge AI 开发 SDK（在板上直接编译推理程序）
+
+- 提供完整的设备端 C/C++ Edge AI SDK，客户可**无需交叉编译环境**，直接在板上编译、调试
+  自己的 TIDL / C7x 推理程序：
+  - 头文件位于 `/usr/include/edgeai/`（edgeai-dl-inferer API、TFLite / ONNX
+    Runtime，以及 TI app-utils 头文件）。
+  - 静态库位于 `/usr/lib/edgeai/`（`edgeai_dl_inferer` / `pre` / `post` 及预编译
+    的 TFLite 全套依赖）。
+  - CMake 包位于 `/usr/lib/cmake/EdgeAI/EdgeAIConfig.cmake`，暴露单一
+    `EdgeAI::edgeai` 目标。客户工程只需一句 `find_package(EdgeAI)` +
+    `target_link_libraries(... EdgeAI::edgeai)` 即可链接整套依赖（TIDL ONNX
+    Runtime、tivision\_apps、OpenCV、GStreamer 等），无需手动指定头文件/库路径。
+- 新增示例工程于 `/usr/share/edgeai-cpp-examples/`：
+  - `hello_inference/`：最小示例，加载模型 + 跑一次推理（无需摄像头）。
+  - `app_edgeai/`：完整"摄像头 → 推理 → HDMI"流水线源码。
+  - `configs/`（CSI + USB）与 `DEV_GUIDE.md`。
+- 已在硬件上验证：`hello_inference` 通过 `find_package(EdgeAI)` 在板上编译，
+  推理时模型全部节点均 offload 到 C7x DSP。
+
+#### 统一 `edgeai-demo` 入口（Python + C/C++，CSI + USB）
+
+- 将 `edgeai-demo` 重构为统一入口，使用同一份 YAML 配置同时驱动 **Python** 与
+  **C/C++** 两个后端、**CSI** 与 **USB** 两种摄像头，支持交互与命令行两种模式：
+  - `edgeai-demo run <模型> --backend python|cpp --camera csi|usb`
+  - 交互模式依次选择 摄像头 → 模型 → 后端。
+- USB 摄像头支持：自动选择真正的采集节点（跳过 UVC 仅 metadata 的节点），并按摄像头
+  实际支持的像素格式选择（MJPG → jpeg，否则 YUYV），修复了 USB 输入时 GStreamer
+  管线构建失败的问题。
+
+#### C/C++ `app_edgeai` —— 显示标题
+
+- 将 `tiperfoverlay` 的 `main-title` 改为可由 YAML 配置并默认关闭，去除硬编码的
+  "Texas Instruments Edge AI" 横幅，使 C/C++ demo 的叠加显示与 Python demo 一致。
+
+### 根文件系统
+
+#### 预装 C/C++ 开发包
+
+- 在 base 镜像中预装 `libyaml-cpp-dev`、`libopencv-dev`、
+  `libgstreamer-plugins-base1.0-dev`，使 Edge AI SDK 与客户程序开箱即可在板上编译。
+
+#### 修复 `libdrm` 依赖冲突
+
+- 将 `libdrm` 统一为 Debian 官方 `2.4.124-2`（替换非标准的 `2.4.127` 版本），使安装
+  `*-dev` 开发包（如 GStreamer plugins-base dev）时不再触发 held / broken 依赖冲突。
+
+### 烧录与构建
+
+- `bin/mo-62a-flash.sh` 现在会在制作镜像时通过 qemu-aarch64 chroot 编译
+  `edgeai-cpp`，并将完整 C/C++ SDK（二进制、头文件、库、CMake 包、示例）安装到目标
+  rootfs；同时把所选 rootfs tarball 传入，保证编译与运行时 ABI 一致。
+- 移除 rootfs overlay 中过时的重复 `apps_cpp` 源码副本；权威的 C/C++ demo 源码现在
+  仅随 SDK 示例提供。
+
 ## v1.0.5 — 2026-05-07
 
 ### 内核与设备树
