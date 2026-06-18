@@ -164,10 +164,12 @@ install_external_apps_into_rootfs() {
     make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" clean
     make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" \
       VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
+      ROOTFS_TARBALL="$ROOTFS_TARBALL" \
       || die "Failed to build $(basename "$app_dir")"
     make -C "$app_dir" CROSS_COMPILE="$sdk_cross" SYSROOT="$sdk_sysroot" install \
       APP_INSTALL_DIR="$ROOTFS_MNT/usr/bin" \
       VERSION="$IMAGE_VERSION" BUILD_DATE="$IMAGE_DATE" \
+      ROOTFS_TARBALL="$ROOTFS_TARBALL" \
       || die "Failed to install $(basename "$app_dir")"
     echo "Installed: $(basename "$app_dir")"
   done

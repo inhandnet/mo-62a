@@ -1211,6 +1211,18 @@ OutputInfo::OutputInfo(const YAML::Node    &node,
     {
         m_overlayPerfType = node["overlay-perf-type"].as<string>();
     }
+    if (node["dump"])
+    {
+        m_overlayDump = node["dump"].as<bool>();
+    }
+    if (node["location"])
+    {
+        m_overlayLocation = node["location"].as<string>();
+    }
+    if (node["main-title"])
+    {
+        m_mainTitle = node["main-title"].as<string>();
+    }
     LOG_DEBUG("CONSTRUCTOR\n");
 }
 
@@ -1244,6 +1256,9 @@ int32_t OutputInfo::appendGstPipeline()
         printf("%s\n",m_overlayPerfType.c_str());
         makeElement(m_dispElements,"queue",m_gstElementProperty,NULL);
         m_gstElementProperty = {{"title",m_title.c_str()}};
+        // main-title default is "Texas Instruments Edge AI"; pass yaml value
+        // ("" disables the banner) so C++ matches the Python demo.
+        m_gstElementProperty.push_back({"main-title",m_mainTitle.c_str()});
 
         if (m_overlayPerfType == "text")
         {
@@ -1252,6 +1267,14 @@ int32_t OutputInfo::appendGstPipeline()
         else
         {
             m_gstElementProperty.push_back({"overlay-type","0"});
+        }
+        if (m_overlayDump)
+        {
+            m_gstElementProperty.push_back({"dump","true"});
+        }
+        if (!m_overlayLocation.empty())
+        {
+            m_gstElementProperty.push_back({"location",m_overlayLocation.c_str()});
         }
         makeElement(m_dispElements,"tiperfoverlay",m_gstElementProperty,NULL);
     }

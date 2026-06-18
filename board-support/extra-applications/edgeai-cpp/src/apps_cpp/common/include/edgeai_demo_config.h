@@ -464,6 +464,18 @@ namespace ti::edgeai::common
              */
             string                          m_overlayPerfType{""};
 
+            /** Dump tiperfoverlay stats to terminal.
+             */
+            bool                            m_overlayDump{false};
+
+            /** File location to dump tiperfoverlay stats.
+             */
+            string                          m_overlayLocation{""};
+
+            /** tiperfoverlay main title banner; "" disables it (matches Python).
+             */
+            string                          m_mainTitle{""};
+
             /** Output buffer. */
             GstWrapperBuffer                m_outBuff;
 

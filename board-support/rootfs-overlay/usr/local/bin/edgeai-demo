@@ -1,21 +1,26 @@
 #!/bin/bash
-# edgeai-demo - EdgeAI inference demo for Mo-62A
+# edgeai-demo - EdgeAI inference demo for Mo-62A (Python + C/C++ backends)
 #
-# Supports CSI cameras (VPAC VISS/MSC pipeline) and USB cameras (direct v4l2).
-# Camera is auto-detected from /etc/csi-camera/csi-camera.conf (written by
-# init-imx219 or similar commands).
+# Supports CSI cameras (VPAC VISS/MSC pipeline) and USB cameras (direct v4l2),
+# and two inference backends sharing the same YAML config:
+#   python -> /opt/edgeai-gst-apps/apps_python/app_edgeai.py
+#   cpp    -> /usr/local/bin/app_edgeai
+# CSI camera is read from /etc/csi-camera/csi-camera.conf (written by init-imx219).
 #
 # Usage:
-#   edgeai-demo                        List models + interactive menu
-#   edgeai-demo list                   List available models
-#   edgeai-demo run <index|name>       Run with auto-detected camera
-#   edgeai-demo run <index> --camera csi|usb   Force camera type
-#   edgeai-demo status                 Show active camera info
+#   edgeai-demo                          Interactive menu (camera -> model -> backend)
+#   edgeai-demo list                     List available models
+#   edgeai-demo status                   Show active camera info
+#   edgeai-demo run <index|name> [opts]  Run a model
+#     opts: --backend python|cpp   (default: python)
+#           --camera  csi|usb      (default: auto-detect)
+#           -n | -v                (passed through to the backend)
 set -uo pipefail
 
 MODEL_ZOO="${EDGEAI_MODEL_ZOO:-/opt/model_zoo}"
 CSI_CONF="/etc/csi-camera/csi-camera.conf"
-APP="${EDGEAI_APP:-/opt/edgeai-gst-apps/apps_python/app_edgeai.py}"
+PY_APP="${EDGEAI_APP:-/opt/edgeai-gst-apps/apps_python/app_edgeai.py}"
+CPP_APP="${EDGEAI_CPP_APP:-/usr/local/bin/app_edgeai}"
 RPROC=/sys/class/remoteproc/remoteproc0/state
 SELF=/usr/local/bin/edgeai-demo
 
@@ -26,7 +31,6 @@ err() { echo "edgeai-demo: $*" >&2; }
 declare -a MODELS
 type_label() { case "$1" in OD) echo "Detection";; SS) echo "Segmentation";; CL) echo "Classification";; KD|6DOF) echo "Pose";; *) echo "Other";; esac; }
 rt_label()   { case "$1" in ONR) echo "ONNX";; TFL) echo "TFLite";; TVM) echo "TVM";; *) echo "$1";; esac; }
-rt_note()    { case "$1" in TFL|TVM) echo " ${c_yel}(unverified)${c_rst}";; *) echo "";; esac; }
 
 build_model_list() {
     MODELS=(); local entries=() d name type rank
@@ -53,7 +57,7 @@ cmd_list() {
         printf "  %2d) %-56s [%s]\n" "$i" "$name" "$(rt_label "$rt")"
     done
     echo
-    echo "${c_dim}Run: edgeai-demo run <index|name> [--camera csi|usb]${c_rst}"
+    echo "${c_dim}Run: edgeai-demo run <index|name> [--backend python|cpp] [--camera csi|usb]${c_rst}"
 }
 
 resolve_model() {
@@ -71,15 +75,23 @@ resolve_model() {
 
 # ── Camera detection ─────────────────────────────────────────────────────────
 detect_usb_camera() {
+    # Pick the node that actually enumerates capture formats. UVC cameras expose
+    # several nodes (e.g. video9 capture + video10 metadata-only); the metadata
+    # node also reports "Video Capture" in its overall caps, so match on real
+    # enumerable pixel formats instead.
     local v name
     for v in /dev/video*; do
         [ -e "$v" ] || continue
         name=$(cat "/sys/class/video4linux/$(basename "$v")/name" 2>/dev/null)
-        case "$name" in *ticsi2rx*|*wave5*|*e5010*|"") continue;; esac
-        v4l2-ctl -d "$v" --info 2>/dev/null | grep -q "Video Capture" && { echo "$v"; return 0; }
+        # case-insensitive exclude of SoC-internal nodes (Wave5 VPU, e5010 JPEG, CSI rx)
+        case "${name,,}" in *ticsi2rx*|*wave5*|*e5010*|"") continue;; esac
+        v4l2-ctl -d "$v" --list-formats 2>/dev/null | grep -qE "\[[0-9]+\]:" && { echo "$v"; return 0; }
     done
     return 1
 }
+
+csi_available() { [ -f "$CSI_CONF" ]; }
+usb_available() { detect_usb_camera >/dev/null 2>&1; }
 
 load_camera() {
     local force="${1:-}"
@@ -91,14 +103,24 @@ load_camera() {
         CAM_VIDEO="$VIDEO"; CAM_SUBDEV="$SUBDEV"
         CAM_W="$WIDTH"; CAM_H="$HEIGHT"; CAM_FMT="$FORMAT"; CAM_FPS="$FRAMERATE"
         CAM_INIT="${INIT:-}"
+        CAMERA_ID="csi"; CAMERA_NAME="CSI Camera ($CAM_VIDEO)"
         [ -e "$CAM_VIDEO" ] || { err "$CAM_VIDEO not found. Run: sudo init-imx219"; return 1; }
         return 0
     fi
-    local usb_dev
+    local usb_dev fmts
     usb_dev=$(detect_usb_camera) || { err "No USB camera found."; return 1; }
-    CAM_TYPE="usb"; CAM_VIDEO="$usb_dev"; CAM_SUBDEV=""
-    CAM_W=1280; CAM_H=720; CAM_FMT="bgr"; CAM_FPS=30; CAM_INIT=""
+    # Pick a pixel format the camera actually offers and route it to the matching
+    # TI pipeline branch: MJPG -> jpeg (v4l2src!jpegdec), else YUYV -> YUY2.
+    fmts="$(v4l2-ctl -d "$usb_dev" --list-formats 2>/dev/null)"
+    CAM_TYPE="usb"; CAM_VIDEO="$usb_dev"; CAM_SUBDEV=""; CAM_INIT=""
     CAMERA_ID="usb"; CAMERA_NAME="USB Camera ($usb_dev)"
+    if echo "$fmts" | grep -q "'MJPG'"; then
+        CAM_FMT="jpeg"; CAM_W=1280; CAM_H=720; CAM_FPS=30
+    elif echo "$fmts" | grep -q "'YUYV'"; then
+        CAM_FMT="YUY2"; CAM_W=640; CAM_H=480; CAM_FPS=30
+    else
+        CAM_FMT="auto"; CAM_W=1280; CAM_H=720; CAM_FPS=30
+    fi
     return 0
 }
 
@@ -121,7 +143,7 @@ cmd_status() {
     [ "$found" -eq 0 ] && echo "  None found"
 }
 
-# ── Build yaml ───────────────────────────────────────────────────────────────
+# ── Build yaml (identical schema for both Python and C++ backends) ────────────
 build_yaml() {
     local model="$1" out=/tmp/edgeai-demo.yaml
     if [ "$CAM_TYPE" = "csi" ]; then
@@ -180,21 +202,39 @@ EOF
 }
 
 # ── Run demo ─────────────────────────────────────────────────────────────────
-kill_app() { pkill -KILL -f "^python3 .*app_edgeai\.py" 2>/dev/null || true; }
+kill_app() {
+    pkill -KILL -f "app_edgeai\.py" 2>/dev/null || true
+    pkill -KILL -f "$CPP_APP" 2>/dev/null || true
+}
 c7x_reset() {
     echo stop > "$RPROC" 2>/dev/null || true; sleep 2
     echo start > "$RPROC" 2>/dev/null || true; sleep 4
 }
 
+# cmd_run <model-selector> <force-cam: csi|usb|""> <backend: python|cpp> [passthrough flags...]
 cmd_run() {
-    local sel="$1" force_cam="${2:-}"
-    [ "$(id -u)" -eq 0 ] || exec sudo -E "$SELF" run "$sel" "$force_cam"
+    local sel="$1" force_cam="${2:-}" backend="${3:-python}"; shift 3 2>/dev/null || shift $#
+    local flags=("$@")
+
+    if [ "$(id -u)" -ne 0 ]; then
+        local reexec=(run "$sel" --backend "$backend")
+        [ -n "$force_cam" ] && reexec+=(--camera "$force_cam")
+        exec sudo -E "$SELF" "${reexec[@]}" "${flags[@]}"
+    fi
+
+    case "$backend" in python|cpp) ;; *) err "Unknown backend: '$backend' (python|cpp)"; exit 1;; esac
+    if [ "$backend" = "cpp" ] && [ ! -x "$CPP_APP" ]; then
+        err "C++ backend not installed: $CPP_APP"
+        err "Build/flash the edgeai-cpp SDK, or use --backend python."
+        exit 1
+    fi
 
     local model; model="$(resolve_model "$sel")" || { err "Model not found: '$sel' (see: edgeai-demo list)"; exit 1; }
     load_camera "$force_cam" || exit 1
 
-    echo "[edgeai-demo] Camera : ${CAMERA_ID:-$CAM_TYPE} ($CAM_TYPE) - $CAM_VIDEO"
+    echo "[edgeai-demo] Camera : ${CAMERA_NAME:-$CAM_TYPE} - $CAM_VIDEO"
     echo "[edgeai-demo] Model  : $model"
+    echo "[edgeai-demo] Backend: $backend"
 
     local yaml; yaml="$(build_yaml "$model")"
     export SOC=am62a TERM="${TERM:-xterm}"
@@ -215,10 +255,14 @@ cmd_run() {
     fi
 
     echo "[edgeai-demo] Running (HDMI display, Ctrl+C to exit)..."
-    cd "$(dirname "$APP")"
-    python3 "$APP" "$yaml" || true
+    if [ "$backend" = "cpp" ]; then
+        "$CPP_APP" "$yaml" "${flags[@]}" || true
+    else
+        cd "$(dirname "$PY_APP")"
+        python3 "$PY_APP" "$yaml" "${flags[@]}" || true
+    fi
 
-    # Cleanup always runs after python exits (Ctrl+C, crash, or normal exit)
+    # Cleanup always runs after the backend exits (Ctrl+C, crash, or normal exit)
     echo "[edgeai-demo] Cleaning up..."
     kill_app
     sleep 1
@@ -227,24 +271,70 @@ cmd_run() {
     echo "[edgeai-demo] Ready for next run."
 }
 
+# ── Interactive menu: camera -> model -> backend ──────────────────────────────
+menu_pick_camera() {
+    # Sets MENU_CAM to csi|usb
+    local has_csi="no" has_usb="no"
+    csi_available && has_csi="yes"
+    usb_available && has_usb="yes"
+    echo "=== Select camera ===" >&2
+    echo "  1) CSI  (IMX219)$([ "$has_csi" = yes ] && echo "" || echo "   ${c_dim}[not initialized: sudo init-imx219]${c_rst}")" >&2
+    echo "  2) USB$([ "$has_usb" = yes ] && echo "" || echo "          ${c_dim}[none detected]${c_rst}")" >&2
+    local c; read -r -p "Camera [1]: " c
+    case "${c:-1}" in
+        2) MENU_CAM="usb" ;;
+        *) MENU_CAM="csi" ;;
+    esac
+}
+
+menu_pick_backend() {
+    # Sets MENU_BACKEND to python|cpp
+    echo "=== Select backend ===" >&2
+    echo "  1) Python" >&2
+    echo "  2) C/C++$([ -x "$CPP_APP" ] && echo "" || echo "        ${c_dim}[not installed]${c_rst}")" >&2
+    local b; read -r -p "Backend [1]: " b
+    case "${b:-1}" in
+        2) MENU_BACKEND="cpp" ;;
+        *) MENU_BACKEND="python" ;;
+    esac
+}
+
 cmd_menu() {
+    menu_pick_camera
+    echo
     cmd_list || exit 1
-    local sel; read -r -p $'\nEnter index to run (Enter to cancel): ' sel
+    local sel; read -r -p $'\nEnter model index (Enter to cancel): ' sel
     [ -n "$sel" ] || { echo "Cancelled."; exit 0; }
-    cmd_run "$sel" ""
+    echo
+    menu_pick_backend
+    echo
+    cmd_run "$sel" "$MENU_CAM" "$MENU_BACKEND"
+}
+
+# ── Argument parsing for `run` ────────────────────────────────────────────────
+run_parse_and_go() {
+    shift  # drop 'run'
+    local sel="" force="" backend="python"; local flags=()
+    while [ "$#" -gt 0 ]; do
+        case "$1" in
+            --backend) backend="${2:-}"; shift 2 ;;
+            --camera)  force="${2:-}"; shift 2 ;;
+            -n|-v|-d)  flags+=("$1"); shift ;;
+            -l)        flags+=("$1" "${2:-}"); shift 2 ;;
+            -*)        flags+=("$1"); shift ;;
+            *)         [ -z "$sel" ] && sel="$1"; shift ;;
+        esac
+    done
+    [ -n "$sel" ] || { err "Usage: edgeai-demo run <index|name> [--backend python|cpp] [--camera csi|usb]"; exit 1; }
+    cmd_run "$sel" "$force" "$backend" "${flags[@]}"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 case "${1:-}" in
     list)    cmd_list ;;
     status)  cmd_status ;;
-    run)
-        [ -n "${2:-}" ] || { err "Usage: edgeai-demo run <index|name> [--camera csi|usb]"; exit 1; }
-        force=""
-        [ "${3:-}" = "--camera" ] && force="${4:-}"
-        cmd_run "$2" "$force"
-        ;;
+    run)     run_parse_and_go "$@" ;;
     ""|menu) cmd_menu ;;
-    -h|--help|help) sed -n '2,13p' "$SELF" | sed 's/^# \{0,1\}//' ;;
-    *) cmd_run "$1" "" ;;
+    -h|--help|help) sed -n '2,21p' "$SELF" | sed 's/^# \{0,1\}//' ;;
+    *)       cmd_run "$1" "" "python" ;;
 esac

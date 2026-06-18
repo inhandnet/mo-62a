@@ -11,3 +11,8 @@ doc/ti-firmware-builder-am62axx/
 
 # EdgeAI rootfs reprint temporary working directory (12GB, do not submit)
 /.rootfs-build/
+
+# edgeai-cpp build artifacts (qemu chroot + compiled binary + example builds)
+board-support/extra-applications/edgeai-cpp/out/
+board-support/extra-applications/edgeai-cpp/.build-chroot/
+board-support/extra-applications/edgeai-cpp/**/build/

@@ -24,3 +24,6 @@ board-support/rootfs-overlay/opt/ti/model_zoo/**/*.prototxt filter=lfs diff=lfs 
 # Auto-test image assets + 原理图 PDF (binary uses LFS)
 tools/**/*.png filter=lfs diff=lfs merge=lfs -text
 doc/**/*.pdf filter=lfs diff=lfs merge=lfs -text
+
+# edgeai-cpp prebuilt TFLite static libs (~76MB binary) use LFS
+board-support/extra-applications/edgeai-cpp/**/*.a filter=lfs diff=lfs merge=lfs -text

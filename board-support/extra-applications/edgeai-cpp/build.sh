@@ -1,26 +1,35 @@
 #!/bin/bash
-# build.sh - Compile app_edgeai (C++ EdgeAI runtime) for Mo-62A via qemu-aarch64 chroot.
-# Host x86 builds aarch64 binary using base rootfs as sysroot. Only app_edgeai binary
-# is produced; sources stay out of firmware (device needs no compilation).
-#   sudo bash build.sh                    # standalone -> out/app_edgeai
-#   sudo bash build.sh --install <ROOTFS> # also install to <ROOTFS>/usr/local/bin/
-#   KEEP_CHROOT=1 sudo -E bash build.sh   # keep chroot for debug
+# build.sh - Build the C/C++ Edge AI runtime + SDK for Mo-62A via qemu-aarch64 chroot.
+# Host x86 builds the aarch64 app_edgeai binary AND assembles an on-device SDK
+# (headers + static libs + CMake package + examples), so customers can compile
+# and debug their own inference programs directly on the board.
+#   sudo bash build.sh                        # standalone -> out/app_edgeai
+#   sudo bash build.sh --install <ROOTFS>     # also install app_edgeai + SDK into <ROOTFS>
+#   sudo bash build.sh --install <ROOTFS> --base-tar <TARBALL>  # use a specific base rootfs
+#   KEEP_CHROOT=1 sudo -E bash build.sh       # keep chroot for debug
 set -euo pipefail
 
 SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 SDK_ROOT="$(cd "$SELF_DIR/../../.." && pwd)"
-BASE_TAR="$SDK_ROOT/filesystem/debian-13.5-edgeai-base-arm64.tar.xz"
 CHROOT="$SELF_DIR/.build-chroot"
 OUT="$SELF_DIR/out"
 QEMU="$(command -v qemu-aarch64-static || echo /usr/bin/qemu-aarch64-static)"
 
+# --- args ---
 INSTALL_ROOTFS=""
-[ "${1:-}" = "--install" ] && INSTALL_ROOTFS="${2:-}"
+BASE_TAR="$SDK_ROOT/filesystem/debian-13.5-edgeai-base-arm64.tar.xz"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --install)  INSTALL_ROOTFS="${2:-}"; shift 2 ;;
+    --base-tar) BASE_TAR="${2:-}"; shift 2 ;;
+    *) echo "ERROR: unknown arg: $1"; exit 1 ;;
+  esac
+done
 
 [ "$(id -u)" -eq 0 ] || { echo "ERROR: must run as root (sudo)"; exit 1; }
 [ -f "$BASE_TAR" ] || { echo "ERROR: base tar not found: $BASE_TAR"; exit 1; }
-[ -x "$QEMU" ] || { echo "ERROR: qemu-aarch64-static missing"; exit 1; }
-[ -z "$INSTALL_ROOTFS" ] || [ -d "$INSTALL_ROOTFS/usr/local/bin" ] || { echo "ERROR: invalid ROOTFS"; exit 1; }
+[ -x "$QEMU" ] || { echo "ERROR: qemu-aarch64-static missing (install qemu-user-static)"; exit 1; }
+[ -z "$INSTALL_ROOTFS" ] || [ -d "$INSTALL_ROOTFS/usr" ] || { echo "ERROR: invalid ROOTFS: $INSTALL_ROOTFS"; exit 1; }
 
 cleanup() {
   for m in tmp dev/pts dev proc sys; do umount -l "$CHROOT/$m" 2>/dev/null || true; done
@@ -28,13 +37,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "[1/6] Extract base rootfs"
+echo "[1/6] Extract base rootfs ($BASE_TAR)"
 rm -rf "$CHROOT"; mkdir -p "$CHROOT"
 tar -C "$CHROOT" --xattrs --xattrs-include='*' --numeric-owner -xpf "$BASE_TAR"
 
 echo "[2/6] Set up qemu chroot"
 cp "$QEMU" "$CHROOT/usr/bin/"
 printf '#!/bin/sh\nexit 101\n' > "$CHROOT/usr/sbin/policy-rc.d"; chmod +x "$CHROOT/usr/sbin/policy-rc.d"
+# base tar ships without empty mount-point dirs; create them before binding
+mkdir -p "$CHROOT/proc" "$CHROOT/sys" "$CHROOT/dev/pts" "$CHROOT/tmp"
 mount --bind /proc "$CHROOT/proc"; mount --bind /sys "$CHROOT/sys"
 mount --bind /dev "$CHROOT/dev"; mount --bind /dev/pts "$CHROOT/dev/pts"
 mount -t tmpfs tmpfs "$CHROOT/tmp"
@@ -57,6 +68,10 @@ if [ -f "$ORT" ]; then
 fi
 cp -f /opt/ecpp/prebuilt/tflite/*.a /usr/local/lib/
 ar rcs /usr/local/lib/libXNNPACK.a
+# TI runtime .so live in /opt/ti/edgeai/lib (shipped in base rootfs) but are not
+# on the default link path; expose them so -ltivision_apps / -lonnxruntime resolve.
+ln -sf /opt/ti/edgeai/lib/libtivision_apps.so /usr/local/lib/libtivision_apps.so
+ln -sf /opt/ti/edgeai/lib/libonnxruntime.so /usr/local/lib/libonnxruntime.so
 CF="-DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -DUSE_TENSORFLOW_RT=ON -DUSE_ONNX_RT=ON -DUSE_DLR_RT=OFF -Wno-dev"
 echo "  -> edgeai-dl-inferer"
 cd /opt/ecpp/src/edgeai-dl-inferer && rm -rf build && mkdir build && cd build
@@ -74,10 +89,49 @@ file /opt/ecpp/src/apps_cpp/bin/Release/app_edgeai
 
 echo "[5/6] Extract product"
 APP_BIN="$CHROOT/opt/ecpp/src/apps_cpp/bin/Release/app_edgeai"
+DLINF_LIBDIR="$CHROOT/opt/ecpp/src/edgeai-dl-inferer/lib/Release"
 [ -f "$APP_BIN" ] || { echo "ERROR: build product missing"; exit 1; }
 mkdir -p "$OUT"; cp "$APP_BIN" "$OUT/app_edgeai"
 echo "  product: $OUT/app_edgeai ($(du -h "$OUT/app_edgeai" | cut -f1))"
-[ -z "$INSTALL_ROOTFS" ] || { install -m755 "$APP_BIN" "$INSTALL_ROOTFS/usr/local/bin/app_edgeai"; echo "  installed to $INSTALL_ROOTFS"; }
+
+if [ -n "$INSTALL_ROOTFS" ]; then
+  echo "  installing C/C++ Edge AI SDK into $INSTALL_ROOTFS"
+  R="$INSTALL_ROOTFS"
+
+  # 1. demo binary
+  install -m755 -D "$APP_BIN" "$R/usr/local/bin/app_edgeai"
+
+  # 2. SDK headers -> /usr/include/edgeai (dl-inferer API + backends + app_utils)
+  rm -rf "$R/usr/include/edgeai"; mkdir -p "$R/usr/include/edgeai"
+  cp -a "$SELF_DIR/include/." "$R/usr/include/edgeai/"
+
+  # 3. static archives -> /usr/lib/edgeai (edgeai_* + TFLite deps + XNNPACK stub)
+  mkdir -p "$R/usr/lib/edgeai"
+  cp -f "$DLINF_LIBDIR"/libedgeai_dl_inferer.a \
+        "$DLINF_LIBDIR"/libedgeai_pre_process.a \
+        "$DLINF_LIBDIR"/libedgeai_post_process.a "$R/usr/lib/edgeai/"
+  cp -f "$SELF_DIR/prebuilt/tflite/"*.a "$R/usr/lib/edgeai/"
+  ar rcs "$R/usr/lib/edgeai/libXNNPACK.a"
+
+  # 4. CMake package -> find_package(EdgeAI)
+  install -m644 -D "$SELF_DIR/sdk/EdgeAIConfig.cmake" "$R/usr/lib/cmake/EdgeAI/EdgeAIConfig.cmake"
+
+  # 5. example projects + configs + dev guide -> /usr/share/edgeai-cpp-examples
+  EX="$R/usr/share/edgeai-cpp-examples"
+  rm -rf "$EX"; mkdir -p "$EX/app_edgeai"
+  cp -a "$SELF_DIR/examples/hello_inference" "$EX/"
+  cp -a "$SELF_DIR/examples/configs" "$EX/"
+  install -m644 "$SELF_DIR/examples/DEV_GUIDE.md" "$EX/DEV_GUIDE.md"
+  # full app_edgeai demo = apps_cpp sources + a thin find_package(EdgeAI) CMakeLists
+  cp -a "$SELF_DIR/src/apps_cpp/common" \
+        "$SELF_DIR/src/apps_cpp/utils" \
+        "$SELF_DIR/src/apps_cpp/app_edgeai" "$EX/app_edgeai/"
+  install -m644 "$SELF_DIR/examples/app_edgeai/CMakeLists.txt" "$EX/app_edgeai/CMakeLists.txt"
+  # never ship stray build trees
+  find "$EX" -type d -name build -prune -exec rm -rf {} + 2>/dev/null || true
+
+  echo "  SDK installed: headers=/usr/include/edgeai libs=/usr/lib/edgeai cmake=/usr/lib/cmake/EdgeAI examples=/usr/share/edgeai-cpp-examples"
+fi
 
 echo "[6/6] Cleanup"
 cleanup; trap - EXIT
