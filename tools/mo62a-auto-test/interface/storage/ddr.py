@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import re
+from config.i18n import t
 from interface.base import TestCase
 
 
@@ -27,15 +28,15 @@ class DdrCapacityTest(TestCase):
         rc, out, _ = self.cmd(script)
 
         if rc == 0 and out.strip().isdigit() and int(out.strip()) > 0:
-            self.info(f"{out.strip()} GB")
+            self.info(t("msg_ddr_capacity", out.strip()))
         else:
             # 回退：dmesg 方案
             rc2, out2, _ = self.cmd("dmesg | grep 'Memory:' | head -1")
             m = re.search(r'\d+K/(\d+)K\s+available', out2)
             if m:
-                self.info(f"{round(int(m.group(1))/(1024**2))} GB")
+                self.info(t("msg_ddr_capacity", str(round(int(m.group(1))/(1024**2)))))
             else:
-                self.fail("无法读取 DDR 容量")
+                self.fail(t("msg_ddr_capacity_fail"))
 
 
 # ── DDR 带宽（mbw）───────────────────────────────────────────────────────────
@@ -44,22 +45,22 @@ class DdrBandwidthTest(TestCase):
     name_key     = "tn_ddr_bandwidth"
 
     # 测试块大小（MB），不宜过大以免耗时过长
-    BLOCK_MB = 256
+    BLOCK_MB = 128
 
     def _run(self):
         # 先确认 mbw 是否可用
         rc, _, _ = self.cmd("which mbw 2>/dev/null")
         if rc != 0:
-            self.skip("mbw 未安装，请执行: sudo apt-get install -y mbw")
+            self.skip(t("msg_ddr_mbw_missing"))
             return
 
-        # mbw -n 3 256：跑 3 轮，每轮 256 MB
+        # mbw -n 1 128：跑 1 轮，每轮 128 MB
         # 输出包含 MEMCPY / DUMB / MCBLOCK 三种模式的带宽
         rc, out, _ = self.cmd(
-            f"mbw -n 3 {self.BLOCK_MB} 2>/dev/null", timeout=120
+            f"mbw -n 1 {self.BLOCK_MB} 2>/dev/null", timeout=60
         )
         if rc != 0 or not out.strip():
-            self.fail("mbw 执行失败")
+            self.fail(t("msg_ddr_mbw_fail"))
             return
 
         # 提取 MEMCPY 模式的平均带宽（最后一轮或 AVG 行）
@@ -73,10 +74,10 @@ class DdrBandwidthTest(TestCase):
                         results[method] = float(m.group(1))
 
         if "MEMCPY" not in results:
-            self.fail("无法解析 mbw 输出")
+            self.fail(t("msg_ddr_mbw_parse_fail"))
             return
 
-        self.info(f"{results['MEMCPY']:.0f} MB/s")
+        self.info(t("msg_ddr_speed", f"{results['MEMCPY']:.0f}"))
 
 
 def get_tests(board) -> list:

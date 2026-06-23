@@ -2,20 +2,114 @@
 
 from __future__ import annotations
 
+import threading
 from datetime import datetime
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, QThread, QTimer
-from PySide6.QtGui import QPainter, QColor, QPen
+from PySide6.QtCore import Qt, Signal, QThread, QTimer, QObject
+from PySide6.QtGui import QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QProgressBar, QTableWidget, QTableWidgetItem, QHeaderView,
-    QMessageBox, QFileDialog, QSizePolicy,
+    QMessageBox, QFileDialog, QSizePolicy, QProgressDialog, QDialog,
 )
 
 from config.i18n import t
 from config.settings import APP_VERSION, REPORT_DIR
 from interface.base import Status
+
+
+# ── 人工确认信号对象 ──────────────────────────────────────────────────────────
+class _ManualConfirmSignal(QObject):
+    """用于从后台线程安全地请求主线程弹出确认对话框。"""
+    request_confirm = Signal(str)
+    confirmed       = Signal(bool)
+
+    def __init__(self, parent: QObject):
+        super().__init__(parent)
+        self.request_confirm.connect(self._do_confirm)
+
+    def _do_confirm(self, prompt: str):
+        dlg = QMessageBox(self.parent())
+        dlg.setWindowTitle(t("manual_confirm_title"))
+        dlg.setText(prompt)
+        dlg.setIcon(QMessageBox.Icon.Question)
+        yes_btn = dlg.addButton(t("manual_yes"), QMessageBox.ButtonRole.YesRole)
+        no_btn = dlg.addButton(t("manual_no"), QMessageBox.ButtonRole.NoRole)
+        dlg.setDefaultButton(yes_btn)
+        dlg.exec()
+        ok = dlg.clickedButton() == yes_btn
+        self.confirmed.emit(ok)
+
+
+class _ManualPromptSignal(QObject):
+    """用于从后台线程安全地请求主线程弹出只提示、无按钮的对话框。"""
+    request_prompt = Signal(str, bool)   # prompt, show_progress
+    update_prompt  = Signal(int, int, str)   # percent, remaining_seconds, status_text
+    close_prompt   = Signal()
+
+    def __init__(self, parent: QObject):
+        super().__init__(parent)
+        self._dlg = None
+        self._base_prompt: str = ""
+        self._show_progress: bool = False
+        self.request_prompt.connect(self._do_prompt)
+        self.update_prompt.connect(self._do_update)
+        self.close_prompt.connect(self._do_close)
+
+    def _do_prompt(self, prompt: str, show_progress: bool):
+        self._base_prompt = prompt
+        self._show_progress = show_progress
+        if show_progress:
+            self._dlg = QProgressDialog(self.parent())
+            self._dlg.setWindowTitle(t("manual_confirm_title"))
+            self._dlg.setLabelText(prompt)
+            self._dlg.setWindowModality(Qt.WindowModality.NonModal)
+            self._dlg.setWindowFlags(
+                self._dlg.windowFlags()
+                | Qt.WindowType.WindowStaysOnTopHint
+            )
+            self._dlg.setCancelButton(None)
+            self._dlg.setRange(0, 100)
+            self._dlg.setValue(0)
+            self._dlg.setMinimumDuration(0)
+            self._dlg.show()
+        else:
+            self._dlg = QDialog(self.parent())
+            self._dlg.setWindowTitle(t("manual_confirm_title"))
+            self._dlg.setWindowFlags(
+                Qt.WindowType.Dialog
+                | Qt.WindowType.WindowStaysOnTopHint
+            )
+            lay = QVBoxLayout(self._dlg)
+            lay.setContentsMargins(24, 20, 24, 20)
+            lbl = QLabel(prompt)
+            lbl.setStyleSheet("font-size:14px;")
+            lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lay.addWidget(lbl)
+            self._dlg.setModal(False)
+            self._dlg.show()
+        self._dlg.raise_()
+        self._dlg.activateWindow()
+
+    def _do_update(self, percent: int, remaining_s: int, status_text: str):
+        if self._show_progress and self._dlg is not None and isinstance(self._dlg, QProgressDialog):
+            self._dlg.setValue(percent)
+            if status_text:
+                self._dlg.setLabelText(f"{self._base_prompt}（{status_text}）")
+            elif remaining_s > 0:
+                self._dlg.setLabelText(f"{self._base_prompt}（剩余 {remaining_s}s）")
+            else:
+                self._dlg.setLabelText(self._base_prompt)
+
+    def _do_close(self):
+        if self._dlg is not None:
+            try:
+                self._dlg.close()
+                self._dlg.deleteLater()
+            except Exception:
+                pass
+            self._dlg = None
 
 # ── 颜色 ─────────────────────────────────────────────────────────────────────
 C_BG      = "#0d1117"
@@ -62,10 +156,14 @@ class _TestRunner(QThread):
     test_finished = Signal(int, str, str, float, list) # row, status, message, duration, images
     all_finished  = Signal()
 
-    def __init__(self, tests: list):
+    def __init__(self, tests: list, manual_confirm_fn=None, manual_prompt_fn=None,
+                 manual_prompt_progress_fn=None):
         super().__init__()
         self._tests   = tests
         self._running = True
+        self._manual_confirm_fn = manual_confirm_fn
+        self._manual_prompt_fn  = manual_prompt_fn
+        self._manual_prompt_progress_fn = manual_prompt_progress_fn
 
     def stop(self):
         self._running = False
@@ -74,6 +172,12 @@ class _TestRunner(QThread):
         for i, test in enumerate(self._tests):
             if not self._running:
                 break
+            if hasattr(test, "set_manual_confirm"):
+                test.set_manual_confirm(self._manual_confirm_fn)
+            if hasattr(test, "set_manual_prompt"):
+                test.set_manual_prompt(self._manual_prompt_fn)
+            if hasattr(test, "set_manual_prompt_progress"):
+                test.set_manual_prompt_progress(self._manual_prompt_progress_fn)
             self.test_started.emit(i)
             result = test.run()
             self.test_finished.emit(
@@ -94,6 +198,12 @@ class RunPage(QWidget):
         self._runner   = None
         self._running  = False
         self._reporter = None
+
+        # 人工提示/确认对话框 signal（由 RunPage 在主线程创建，避免子线程创建 QObject）
+        self._prompt_signal  = _ManualPromptSignal(self)
+        self._confirm_signal = _ManualConfirmSignal(self)
+        self._confirm_event: threading.Event | None = None
+        self._confirm_result: dict | None = None
 
         # 动画 spinner
         self._spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
@@ -283,9 +393,13 @@ class RunPage(QWidget):
     def start_tests(self, tests: list):
         """由 app 调用，传入测试实例列表后立即开始执行。"""
         from reporter.reporter import Reporter
+        from config.i18n import get_lang
         self._tests    = tests
         self._running  = True
-        self._reporter = Reporter(self._app.device_info if self._app else {})
+        self._reporter = Reporter(
+            self._app.device_info if self._app else {},
+            lang=get_lang(),
+        )
 
         self._rerun_btn.setEnabled(False)
         self._report_btn.setEnabled(False)
@@ -305,11 +419,45 @@ class RunPage(QWidget):
             self._set_row(i, test.name, "", t("run_waiting"), "")
 
         # 启动后台线程
-        self._runner = _TestRunner(tests)
+        self._runner = _TestRunner(tests, manual_confirm_fn=self._manual_confirm,
+                                   manual_prompt_fn=self._manual_prompt,
+                                   manual_prompt_progress_fn=self._manual_prompt_progress)
         self._runner.test_started.connect(self._on_test_started)
         self._runner.test_finished.connect(self._on_test_finished)
         self._runner.all_finished.connect(self._on_all_finished)
         self._runner.start()
+
+    def _manual_confirm(self, prompt: str) -> bool:
+        """在主线程弹出 Yes/No 对话框，阻塞后台测试线程等待用户选择。"""
+        self._confirm_result = {"ok": False}
+        self._confirm_event = threading.Event()
+
+        def _on_done(ok: bool):
+            self._confirm_result["ok"] = ok
+            self._confirm_event.set()
+
+        # 断开旧连接，避免重复连接
+        try:
+            self._confirm_signal.confirmed.disconnect()
+        except Exception:
+            pass
+        self._confirm_signal.confirmed.connect(_on_done)
+        self._confirm_signal.request_confirm.emit(t(prompt))
+        self._confirm_event.wait()
+        return self._confirm_result["ok"]
+
+    def _manual_prompt(self, prompt: str, show_progress: bool = True) -> callable:
+        """在主线程弹出只提示对话框，返回关闭函数供后台调用。"""
+        self._prompt_signal.request_prompt.emit(t(prompt), show_progress)
+
+        def _close():
+            self._prompt_signal.close_prompt.emit()
+
+        return _close
+
+    def _manual_prompt_progress(self, percent: int, remaining_s: int, status_text: str = "") -> None:
+        """更新提示对话框进度条和状态文本。"""
+        self._prompt_signal.update_prompt.emit(percent, remaining_s, status_text)
 
     # ── 事件处理 ──────────────────────────────────────────────────────────────
     def _on_test_started(self, row: int):

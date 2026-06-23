@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 import time
+from config.i18n import t
 from interface.base import TestCase
 
 
@@ -23,17 +24,17 @@ class EthernetSpeedTest(TestCase):
     def _run(self):
         iface = _eth_iface(self.board)
         if not iface:
-            self.fail("未找到以太网接口")
+            self.fail(t("msg_eth_iface_missing"))
             return
 
         rc, out, _ = self.cmd(f"cat /sys/class/net/{iface}/speed 2>/dev/null")
         if rc != 0 or not out.strip().lstrip("-").isdigit():
-            self.fail(f"无法读取 {iface} 速率")
+            self.fail(t("msg_eth_speed_fail", iface))
             return
 
         speed = int(out.strip())
         if speed < 0:
-            self.fail(f"{iface} 链路断开")
+            self.fail(t("msg_eth_link_down", iface))
             return
 
         unit = "Gbps" if speed >= 1000 else "Mbps"
@@ -49,14 +50,14 @@ class EthernetIPTest(TestCase):
     def _run(self):
         iface = _eth_iface(self.board)
         if not iface:
-            self.fail("未找到以太网接口")
+            self.fail(t("msg_eth_iface_missing"))
             return
 
         rc, out, _ = self.cmd(
             f"ip -4 addr show {iface} | grep inet | awk '{{print $2}}' | head -1"
         )
         if rc != 0 or not out.strip():
-            self.fail(f"{iface} 未分配 IP 地址")
+            self.fail(t("msg_eth_ip_missing", iface))
             return
 
         self.info(out.strip())
@@ -67,19 +68,19 @@ class EthernetIperfTest(TestCase):
     category_key = "cat_network"
     name_key     = "tn_eth_iperf"
 
-    DURATION = 5   # 测试时长（秒）
+    DURATION = 2   # 测试时长（秒）
 
     def _run(self):
         # 检查设备上是否有 iperf3
         rc, _, _ = self.cmd("which iperf3 2>/dev/null")
         if rc != 0:
-            self.skip("设备上未安装 iperf3，请执行: sudo apt-get install -y iperf3")
+            self.skip(t("msg_iperf3_device_missing"))
             return
 
         # 检查本机是否有 iperf3
         rc, _, _ = self.local_cmd("which iperf3 2>/dev/null")
         if rc != 0:
-            self.skip("测试主机未安装 iperf3，请执行: sudo apt-get install -y iperf3")
+            self.skip(t("msg_iperf3_host_missing"))
             return
 
         device_ip = self.board.host
@@ -99,7 +100,7 @@ class EthernetIperfTest(TestCase):
         self.cmd("pkill -f 'iperf3 -s' 2>/dev/null")
 
         if rc != 0 or not out.strip():
-            self.fail(f"iperf3 连接失败: {err.strip()[:80]}")
+            self.fail(t("msg_iperf3_connect_fail", err.strip()[:80]))
             return
 
         try:

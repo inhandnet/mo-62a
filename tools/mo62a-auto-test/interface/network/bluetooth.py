@@ -8,9 +8,10 @@ btmgmt find 输出格式：
 
 from __future__ import annotations
 import re
+from config.i18n import t
 from interface.base import TestCase
 
-SCAN_SEC = 6
+SCAN_SEC = 3
 
 
 # ── 共享扫描器 ────────────────────────────────────────────────────────────────
@@ -79,9 +80,9 @@ class BluetoothScanTest(TestCase):
     def _run(self):
         ok = self._scanner.scan(self)
         if not ok:
-            self.fail("未找到蓝牙控制器 hci0")
+            self.fail(t("msg_bt_ctrl_missing"))
             return
-        self.info(f"发现 {len(set(self._scanner.macs))} 个设备")
+        self.info(t("msg_bt_count", len(set(self._scanner.macs))))
 
 
 # ── BLE 信号 ──────────────────────────────────────────────────────────────────
@@ -96,15 +97,15 @@ class BluetoothSignalTest(TestCase):
     def _run(self):
         ok = self._scanner.scan(self)
         if not ok:
-            self.fail("未找到蓝牙控制器 hci0")
+            self.fail(t("msg_bt_ctrl_missing"))
             return
 
         rssies = self._scanner.rssies
         if not rssies:
-            self.info("未获取到 RSSI 数据")
+            self.info(t("msg_bt_no_rssi"))
             return
 
-        self.info(f"最强 {max(rssies)} dBm")
+        self.info(t("msg_bt_strongest", max(rssies)))
 
 
 def get_tests(board) -> list:

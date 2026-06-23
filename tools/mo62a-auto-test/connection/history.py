@@ -54,14 +54,3 @@ def save(ip: str, username: str, password: str, hostname: str = "") -> None:
         json.dumps(entries, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-
-
-def remove(ip: str, username: str, password: str) -> None:
-    """删除指定记录。"""
-    entries = load()
-    key = _key(ip, username, password)
-    entries = [e for e in entries if _key(e["ip"], e["username"], e["password"]) != key]
-    HISTORY_FILE.write_text(
-        json.dumps(entries, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )

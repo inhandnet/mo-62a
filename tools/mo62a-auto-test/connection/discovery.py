@@ -12,15 +12,18 @@ import time
 
 DISCOVER_PORT    = 47622
 DISCOVER_MAGIC   = b"MO62A_DISCOVER"
-DISCOVER_TIMEOUT = 3.0
-DISCOVER_RETRIES = 2
+DISCOVER_TIMEOUT = 1.0
+DISCOVER_RETRIES = 1
 
 
 def discover(
     timeout: float = DISCOVER_TIMEOUT,
     retries: int   = DISCOVER_RETRIES,
 ) -> list[dict]:
-    """扫描局域网中的 MO-62A 设备，返回设备信息列表。"""
+    """扫描局域网中的 MO-62A 设备，返回设备信息列表。
+
+    默认只扫描 1 秒，避免用户长时间等待；未找到时可再次点击扫描。
+    """
     found: dict[str, dict] = {}  # ip → info，用于去重
 
     for _ in range(retries):

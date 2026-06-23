@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 import re
+from config.i18n import t
 from interface.base import TestCase
 
 SD_DEV  = "/dev/mmcblk1"
@@ -16,13 +17,13 @@ class SdCardCapacityTest(TestCase):
     def _run(self):
         rc, out, _ = self.cmd(f"df -h {SD_MOUNT} 2>/dev/null | tail -1")
         if rc != 0 or not out.strip():
-            self.fail("无法读取 SD 卡容量信息")
+            self.fail(t("msg_sd_capacity_fail"))
             return
 
         # df -h 输出：/dev/root  29G  5.6G  23G  21%  /
         parts = out.split()
         if len(parts) < 6:
-            self.fail(f"df 输出格式异常: {out.strip()}")
+            self.fail(t("msg_sd_df_format", out.strip()))
             return
 
         # 将 "29G" 格式转为 "29 GB"
@@ -37,7 +38,7 @@ class SdCardReadTest(TestCase):
     category_key = "cat_storage"
     name_key     = "tn_sd_read"
 
-    READ_MB = 128   # 顺序读取块大小
+    READ_MB = 64   # 顺序读取块大小
 
     def _run(self):
         # drop_caches 确保不走 page cache，读到的是真实 SD 卡速率
@@ -50,14 +51,14 @@ class SdCardReadTest(TestCase):
             timeout=120
         )
         if rc != 0:
-            self.fail(f"dd 读取失败: {out.strip()}")
+            self.fail(t("msg_sd_read_fail", out.strip()))
             return
 
         speed = self._parse_dd_speed(out)
         if speed:
             self.info(speed)
         else:
-            self.fail(f"无法解析 dd 输出: {out.strip()}")
+            self.fail(t("msg_sd_parse_fail", out.strip()))
 
     @staticmethod
     def _parse_dd_speed(output: str) -> str:
@@ -72,7 +73,7 @@ class SdCardWriteTest(TestCase):
     category_key = "cat_storage"
     name_key     = "tn_sd_write"
 
-    WRITE_MB = 64   # 写入块大小
+    WRITE_MB = 16   # 写入块大小
 
     def _run(self):
         tmp_file = "/var/tmp/mo_sd_write_test"
@@ -83,14 +84,14 @@ class SdCardWriteTest(TestCase):
                 timeout=120
             )
             if rc != 0:
-                self.fail(f"dd 写入失败: {out.strip()}")
+                self.fail(t("msg_sd_write_fail", out.strip()))
                 return
 
             speed = SdCardReadTest._parse_dd_speed(out)
             if speed:
                 self.info(speed)
             else:
-                self.fail(f"无法解析 dd 输出: {out.strip()}")
+                self.fail(t("msg_sd_parse_fail", out.strip()))
         finally:
             self.cmd(f"rm -f {tmp_file} 2>/dev/null")
 

@@ -20,20 +20,18 @@ def _build_registry(board) -> dict[str, TestCase]:
     """构建 name_key → TestCase 实例的映射。"""
     registry: dict[str, TestCase] = {}
 
-    from interface.system  import get_tests as system_tests
-    from interface.rtc     import get_tests as rtc_tests
-    from interface.storage import get_tests as storage_tests
-    from interface.network import get_tests as network_tests
-    from interface.display import get_tests as display_tests
-    from interface.power   import get_tests as power_tests
-    from interface.usb     import get_tests as usb_tests
-    from interface.audio   import get_tests as audio_tests
-    # RTC battery test is in power category in UI but registered from rtc module
-    from interface.rtc.pcf85363 import RtcBatteryHoldTest
+    from interface.system    import get_tests as system_tests
+    from interface.rtc       import get_tests as rtc_tests
+    from interface.storage   import get_tests as storage_tests
+    from interface.network   import get_tests as network_tests
+    from interface.display   import get_tests as display_tests
+    from interface.power     import get_tests as power_tests
+    from interface.usb       import get_tests as usb_tests
+    from interface.audio     import get_tests as audio_tests
+    from interface.expansion import get_tests as expansion_tests
     for t in (system_tests(board) + rtc_tests(board) + storage_tests(board) +
               network_tests(board) + usb_tests(board) + audio_tests(board) +
-              display_tests(board) + power_tests(board) +
-              [RtcBatteryHoldTest(board)]):
+              display_tests(board) + power_tests(board) + expansion_tests(board)):
         registry[t.name_key] = t
 
     return registry

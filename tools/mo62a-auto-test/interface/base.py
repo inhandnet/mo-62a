@@ -59,6 +59,21 @@ class TestCase:
         self._status  = Status.SKIP
         self._message = ""
         self._images: list[Path] = []   # 测试产生的图片，Reporter 会嵌入 HTML
+        self._manual_confirm_fn: callable | None = None
+        self._manual_prompt_fn: callable | None = None
+        self._manual_prompt_progress_fn: callable | None = None
+
+    def set_manual_confirm(self, fn: callable) -> None:
+        """由运行框架注入人工确认回调函数。"""
+        self._manual_confirm_fn = fn
+
+    def set_manual_prompt(self, fn: callable) -> None:
+        """由运行框架注入人工提示对话框回调函数（返回关闭函数）。"""
+        self._manual_prompt_fn = fn
+
+    def set_manual_prompt_progress(self, fn: callable) -> None:
+        """由运行框架注入人工提示对话框进度更新回调函数。"""
+        self._manual_prompt_progress_fn = fn
 
     # ── 对外接口 ──────────────────────────────────────────────────────────────
     @property
@@ -90,6 +105,26 @@ class TestCase:
     def attach_image(self, path) -> None:
         """子类调用以附加测试产物图片到报告中。"""
         self._images.append(Path(path))
+
+    def manual_confirm(self, prompt: str) -> bool:
+        """弹出对话框请求人工确认。返回 True=通过，False=失败。"""
+        if self._manual_confirm_fn:
+            return self._manual_confirm_fn(prompt)
+        # 无回调时默认失败，避免自动化流程误判
+        self._status = Status.FAIL
+        self._message = "未配置人工确认回调"
+        return False
+
+    def manual_prompt(self, prompt: str, show_progress: bool = True) -> callable | None:
+        """弹出只提示、无按钮的对话框，返回关闭函数；无回调返回 None。"""
+        if self._manual_prompt_fn:
+            return self._manual_prompt_fn(prompt, show_progress)
+        return None
+
+    def manual_prompt_progress(self, percent: int, remaining_s: int, status_text: str = "") -> None:
+        """更新提示对话框的进度条和状态文本。"""
+        if self._manual_prompt_progress_fn:
+            self._manual_prompt_progress_fn(percent, remaining_s, status_text)
 
     # ── 子类实现区 ────────────────────────────────────────────────────────────
     def _run(self) -> None:

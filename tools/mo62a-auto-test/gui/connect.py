@@ -5,13 +5,14 @@ import sys
 import platform
 
 import PySide6
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Qt, Signal, QThread, QTimer
 from PySide6.QtGui import QPixmap, QPainter, QColor, QPen, QFont
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
     QLineEdit, QListWidget, QListWidgetItem, QFrame,
     QSizePolicy, QGraphicsDropShadowEffect, QAbstractItemView,
 )
+
 
 from config.settings import APP_VERSION
 from config.i18n import t
@@ -100,6 +101,15 @@ class ConnectPage(QWidget):
         self._device_info = {}
         self._scan_thread    : _ScanThread    | None = None
         self._connect_thread : _ConnectThread | None = None
+
+        # 连接按钮 spinner
+        self._spinner_frames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+        self._spinner_idx    = 0
+        self._spinner_timer  = QTimer(self)
+        self._spinner_timer.setInterval(80)
+        self._spinner_timer.timeout.connect(self._tick_spinner)
+        self._connect_btn_text = ""
+
         self._build_ui()
         self._load_history()
         self._apply_lang()
@@ -462,6 +472,10 @@ class ConnectPage(QWidget):
         if self._continue_btn.isEnabled():
             self._on_continue()
 
+    def _on_history_delete(self, entry: dict):
+        """删除一条历史记录并刷新列表。"""
+        pass
+
     def _on_field_changed(self):
         """任意字段变化：三项均非空则启用继续按钮，并清除错误提示。"""
         all_filled = bool(
@@ -471,7 +485,32 @@ class ConnectPage(QWidget):
         self._continue_btn.setEnabled(all_filled)
         self._conn_status.setText("")
 
+    def _set_connecting(self, connecting: bool):
+        """设置连接按钮的 loading 状态：True 显示 spinner，False 恢复文本。"""
+        if connecting:
+            self._continue_btn.setEnabled(False)
+            self._connect_btn_text = self._continue_btn.text()
+            self._spinner_idx = 0
+            self._continue_btn.setText(self._spinner_frames[0])
+            self._spinner_timer.start()
+        else:
+            self._spinner_timer.stop()
+            if self._connect_btn_text:
+                self._continue_btn.setText(self._connect_btn_text)
+            # 字段仍填写时恢复可点
+            all_filled = bool(
+                self._ip_input.text().strip()
+                and self._user_input.text().strip()
+            )
+            self._continue_btn.setEnabled(all_filled)
+
+    def _tick_spinner(self):
+        self._spinner_idx = (self._spinner_idx + 1) % len(self._spinner_frames)
+        self._continue_btn.setText(self._spinner_frames[self._spinner_idx])
+
     def _on_connect_success(self, board, hostname: str):
+        self._set_connecting(False)
+
         ip   = self._ip_input.text().strip()
         user = self._user_input.text().strip()
         pwd  = self._pwd_input.text()
@@ -488,12 +527,7 @@ class ConnectPage(QWidget):
         self.connect_succeeded.emit(board, self._device_info)
 
     def _on_connect_error(self, msg: str):
-        # 恢复继续按钮（字段仍然填写着）
-        all_filled = bool(
-            self._ip_input.text().strip()
-            and self._user_input.text().strip()
-        )
-        self._continue_btn.setEnabled(all_filled)
+        self._set_connecting(False)
         self._conn_status.setText(t("conn_failed", msg))
         self._conn_status.setStyleSheet(
             f"color:{C_RED}; font-size:12px; background:transparent;"
@@ -504,7 +538,7 @@ class ConnectPage(QWidget):
         user = self._user_input.text().strip()
         pwd  = self._pwd_input.text()
 
-        self._continue_btn.setEnabled(False)
+        self._set_connecting(True)
         self._conn_status.setText(t("conn_connecting"))
         self._conn_status.setStyleSheet(
             f"color:{C_MUTED}; font-size:12px; background:transparent;"

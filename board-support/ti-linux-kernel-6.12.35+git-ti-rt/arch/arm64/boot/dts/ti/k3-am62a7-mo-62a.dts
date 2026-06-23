@@ -507,8 +507,10 @@
 	};
 };
 
-/* IMX219 sensor moved to overlay k3-am62a7-mo-62a-cam-imx219.dtbo.
- * I2C2 bus remains enabled so users can attach other I2C devices. */
+/* IMX219 sensor is enabled via k3-am62a7-mo-62a-cam-imx219.dtbo.
+ * main_i2c2 must remain enabled here because the camera overlay does not
+ * re-enable the bus itself; it only adds the sensor node under &main_i2c2.
+ * Pads M20/M22 (40-pin Pin27/Pin28) are reserved for I2C2_SCL/SDA. */
 &main_i2c2 {
 	status = "okay";
 	pinctrl-names = "default";
@@ -861,7 +863,7 @@
  *   Pins 19,21,23,24,26: SPI0 → GPIO1_18/19/17/15/16 (BCM GPIO10/9/11/8/7)
  *   Pins 32,33: EHRPWM0   → GPIO1_13/14       (BCM GPIO13/12)
  *   Pin  36:    EHRPWM1_A → GPIO1_9            (BCM GPIO16)
- *   Pins 27,28: main_i2c2 — kept ENABLED (camera dependency)
+ *   Pins 27,28: main_i2c2 — reserved for camera I2C bus, not available as GPIO
  */
 
 /* Pins 3,5: WKUP_I2C0 disabled — pads default to MCU_GPIO0_19/20 (BCM_GPIO3/2) */

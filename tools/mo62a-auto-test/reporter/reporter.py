@@ -1,4 +1,4 @@
-"""HTML 测试报告生成器 — 支持图片 base64 内嵌"""
+"""HTML 测试报告生成器 — 支持图片 base64 内嵌与双语切换"""
 
 from __future__ import annotations
 
@@ -7,6 +7,8 @@ import mimetypes
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
+
+from config.i18n import t
 
 
 @dataclass
@@ -28,10 +30,10 @@ _STATUS_COLOR = {
 
 _HTML_TEMPLATE = """\
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
-<title>Mo 62A Auto Test Report</title>
+<title>{title}</title>
 <style>
   body {{ margin:0; font-family:'Segoe UI',Arial,sans-serif;
           background:#0d1117; color:#e6edf3; }}
@@ -53,6 +55,7 @@ _HTML_TEMPLATE = """\
                  border:1px solid #f8514955; }}
   .badge-skip {{ background:#8b949e22; color:#8b949e;
                  border:1px solid #8b949e55; }}
+  .total-dur {{ margin-left:auto; color:#8b949e; font-size:13px; }}
   table {{ width:100%; border-collapse:collapse;
            margin:24px 0; }}
   th {{ background:#161b22; color:#8b949e; font-size:12px;
@@ -75,11 +78,11 @@ _HTML_TEMPLATE = """\
 </head>
 <body>
 <div class="header">
-  <h1>◈  Mo 62A Auto Test Report</h1>
+  <h1>◈  {title}</h1>
   <div class="meta">
-    <span>设备 / Device: <b>{hostname}</b></span>
-    <span>IP: <b>{ip}</b></span>
-    <span>时间 / Time: <b>{report_time}</b></span>
+    <span>{lbl_device}: <b>{hostname}</b></span>
+    <span>{lbl_ip}: <b>{ip}</b></span>
+    <span>{lbl_time}: <b>{report_time}</b></span>
   </div>
 </div>
 <div class="summary">
@@ -87,15 +90,16 @@ _HTML_TEMPLATE = """\
   <span class="badge badge-pass">PASS {cnt_pass}</span>
   <span class="badge badge-fail">FAIL {cnt_fail}</span>
   <span class="badge badge-skip">SKIP {cnt_skip}</span>
+  <span class="total-dur">{lbl_total}: {total_duration:.2f} s</span>
 </div>
 <div class="wrap">
 <table>
   <thead>
     <tr>
-      <th>测试项 / Test</th>
-      <th>状态 / Status</th>
-      <th>结果信息 / Message</th>
-      <th>耗时 / Duration</th>
+      <th>{col_test}</th>
+      <th>{col_status}</th>
+      <th>{col_message}</th>
+      <th>{col_duration}</th>
     </tr>
   </thead>
   <tbody>
@@ -140,12 +144,13 @@ def _gallery_html(images: list) -> str:
             imgs.append(f'<img src="{uri}" alt="{Path(p).name}" title="{Path(p).name}">')
     if not imgs:
         return ""
-    return '<div class="gallery">' + "".join(imgs) + '</div>'
+    return '<div class="gallery">' + "".join(imgs) + "</div>"
 
 
 class Reporter:
-    def __init__(self, device_info: dict):
+    def __init__(self, device_info: dict, lang: str = "zh"):
         self._device_info = device_info
+        self._lang = lang
         self._rows: list[TestRow] = []
 
     def add(self, name: str, status: str, message: str,
@@ -162,6 +167,8 @@ class Reporter:
         for r in self._rows:
             cnt[r.status] = cnt.get(r.status, 0) + 1
 
+        total_duration = sum(r.duration for r in self._rows)
+
         rows_html = "\n".join(
             _ROW_TEMPLATE.format(
                 name=r.name,
@@ -175,14 +182,25 @@ class Reporter:
         )
 
         html = _HTML_TEMPLATE.format(
-            hostname    = self._device_info.get("hostname", "—"),
-            ip          = self._device_info.get("ip", "—"),
-            report_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            cnt_info    = cnt["INFO"],
-            cnt_pass    = cnt["PASS"],
-            cnt_fail    = cnt["FAIL"],
-            cnt_skip    = cnt["SKIP"],
-            rows        = rows_html,
+            lang           = self._lang,
+            title          = t("report_title"),
+            lbl_device     = t("report_device"),
+            lbl_ip         = t("report_ip"),
+            lbl_time       = t("report_time"),
+            lbl_total      = t("report_total_duration"),
+            hostname       = self._device_info.get("hostname", "—"),
+            ip             = self._device_info.get("ip", "—"),
+            report_time    = datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            cnt_info       = cnt["INFO"],
+            cnt_pass       = cnt["PASS"],
+            cnt_fail       = cnt["FAIL"],
+            cnt_skip       = cnt["SKIP"],
+            total_duration = total_duration,
+            col_test       = t("report_col_test"),
+            col_status     = t("report_col_status"),
+            col_message    = t("report_col_message"),
+            col_duration   = t("report_col_duration"),
+            rows           = rows_html,
         )
         path.write_text(html, encoding="utf-8")
         return path

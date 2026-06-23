@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 import re
+from config.i18n import t
 from interface.base import TestCase
 
 _SCAN_TIMEOUT = 25
@@ -62,11 +63,11 @@ class WiFiScanTest(TestCase):
     def _run(self):
         out = self._scanner.scan(self)
         if out is None or not self._scanner.iface:
-            self.fail("未找到 Wi-Fi 接口")
+            self.fail(t("msg_wifi_iface_missing"))
             return
 
         count = len(re.findall(r'^BSS ', out, re.MULTILINE))
-        self.info(f"发现 {count} 个热点")
+        self.info(t("msg_wifi_count", count))
 
 
 # ── WLAN 信号 ─────────────────────────────────────────────────────────────────
@@ -81,15 +82,15 @@ class WiFiSignalTest(TestCase):
     def _run(self):
         out = self._scanner.scan(self)
         if out is None or not self._scanner.iface:
-            self.fail("未找到 Wi-Fi 接口")
+            self.fail(t("msg_wifi_iface_missing"))
             return
 
         signals = [float(m) for m in re.findall(r'signal:\s*([-\d.]+)\s*dBm', out)]
         if not signals:
-            self.fail("未解析到信号强度")
+            self.fail(t("msg_wifi_no_signal"))
             return
 
-        self.info(f"最强 {max(signals):.0f} dBm")
+        self.info(t("msg_wifi_strongest", f"{max(signals):.0f}"))
 
 
 def get_tests(board) -> list:

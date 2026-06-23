@@ -65,7 +65,10 @@ _TEST_TREE: list[tuple[str, list]] = [
     ]),
     ("cat_audio", [
         ("tn_hdmi_audio",         True),
-        ("tn_headphone_loopback", False),   # 需要测试环回线，默认不勾选
+        ("tn_headphone_loopback", True),    # 工厂有 3.5mm 环回治具，默认勾选
+    ]),
+    ("cat_expansion", [
+        ("tn_gpio_loopback", True),        # 40-pin GPIO 回环
     ]),
     ("cat_display", [
         ("tn_hdmi_status",    True),
@@ -77,8 +80,8 @@ _TEST_TREE: list[tuple[str, list]] = [
     ]),
     ("cat_power", [
         ("tn_fan_control", True),
-        ("tn_rtc_battery", False, True),        # 电池保持，等工装，置灰
-        ("tn_button",      False, True),        # 按键测试，等工装，置灰
+        ("tn_button",      True),         # 按键测试，需要人工操作
+        ("tn_rtc_battery", True),         # 电池保持，需要人工断电/上电
     ]),
     # TODO: 后续逐类增量添加
     # ("cat_audio",     [...]),

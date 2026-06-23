@@ -9,12 +9,13 @@
 """
 
 from __future__ import annotations
+from config.i18n import t
 from interface.base import TestCase
 
 # GStreamer 参数
 _FREQ       = 1000    # 1kHz 正弦波
 _VOLUME     = 0.2     # 20% 音量，不过大
-_DURATION_S = 3       # 播放时长（秒）
+_DURATION_S = 2       # 播放时长（秒）
 # num-buffers = duration * sample_rate / buffer_size（默认 800 samples/buffer）
 _BUFFERS    = int(_DURATION_S * 48000 / 800)
 
@@ -43,20 +44,20 @@ class HdmiAudioTest(TestCase):
             "cat /sys/class/drm/card*-HDMI*/status 2>/dev/null | head -1"
         )
         if status.strip() != "connected":
-            self.skip("HDMI 未连接，跳过音频测试")
+            self.skip(t("msg_hdmi_not_connected"))
             return
 
         # 确认 HDMI 声卡存在
         rc, out, _ = self.cmd("cat /proc/asound/cards 2>/dev/null")
         if "HDMI" not in out:
-            self.fail("Card 1（HDMI）未找到")
+            self.fail(t("msg_hdmi_card_missing"))
             return
 
         ok, err = _play_tone(self, "hw:1,0")
         if ok:
-            self.pass_(f"1kHz {int(_VOLUME*100)}% 音量 {_DURATION_S}s")
+            self.pass_(t("msg_hdmi_audio_play", _FREQ, int(_VOLUME*100), _DURATION_S))
         else:
-            self.fail(err or "GStreamer 播放失败")
+            self.fail(t("msg_gst_play_generic_fail") if not err else t("msg_gst_play_fail", err))
 
 
 def get_tests(board) -> list:

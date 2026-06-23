@@ -5,6 +5,7 @@
 """
 
 from __future__ import annotations
+from config.i18n import t
 from interface.base import TestCase
 
 
@@ -16,7 +17,7 @@ class FirmwareVersionTest(TestCase):
     def _run(self):
         rc, out, _ = self.cmd("mo-version 2>/dev/null | head -2 | tr '\\n' '  '")
         if rc != 0 or not out.strip():
-            self.fail("mo-version 命令不可用")
+            self.fail(t("msg_mo_version_unavailable"))
             return
         self.info(out.strip())
 
@@ -29,7 +30,7 @@ class KernelVersionTest(TestCase):
     def _run(self):
         rc, out, _ = self.cmd("uname -r")
         if rc != 0 or not out.strip():
-            self.fail("无法读取内核版本")
+            self.fail(t("msg_kernel_read_fail"))
             return
         self.info(out.strip())
 
@@ -42,9 +43,9 @@ class CpuCoresTest(TestCase):
     def _run(self):
         rc, out, _ = self.cmd("nproc")
         if rc != 0 or not out.strip().isdigit():
-            self.fail("无法读取 CPU 核数")
+            self.fail(t("msg_cpu_cores_fail"))
             return
-        self.info(f"{out.strip()} 核")
+        self.info(t("msg_cpu_cores", out.strip()))
 
 
 # ── 4. CPU 温度 ───────────────────────────────────────────────────────────────
@@ -62,7 +63,7 @@ class CpuTempTest(TestCase):
         )
         rc, out, _ = self.cmd(script)
         if rc != 0 or not out.strip().lstrip("-").isdigit():
-            self.fail("无法读取 CPU 温度")
+            self.fail(t("msg_cpu_temp_fail"))
             return
         self.info(f"{int(out.strip()) / 1000:.1f} °C")
 
@@ -81,7 +82,7 @@ class UptimeTest(TestCase):
             " printf \"%d h %d min\\n\", h, m}' /proc/uptime"
         )
         if rc != 0 or not out.strip():
-            self.fail("无法读取运行时间")
+            self.fail(t("msg_uptime_fail"))
             return
         # 去掉 "up " 前缀
         text = out.strip()

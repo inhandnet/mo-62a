@@ -15,6 +15,7 @@ from __future__ import annotations
 import re
 import time
 from pathlib import Path
+from config.i18n import t
 from interface.base import TestCase
 
 _ASSETS_DIR      = Path(__file__).parent.parent.parent / "assets" / "imx219" / "linear"
@@ -162,8 +163,7 @@ class Imx219DetectTest(TestCase):
         try:
             if not self._mgr.ensure(self):
                 self.skip(
-                    f"未找到含 {_CAM_DTBO} 的 extlinux label，"
-                    "请手动选择摄像头 overlay 重启"
+                    t("msg_imx219_overlay_missing", _CAM_DTBO)
                 )
                 return
 
@@ -171,7 +171,7 @@ class Imx219DetectTest(TestCase):
                 "media-ctl -d /dev/media0 -p 2>/dev/null | grep -i imx219"
             )
             if rc != 0 or not out.strip():
-                self.fail("IMX219 未出现在 media 拓扑中")
+                self.fail(t("msg_imx219_media_missing"))
                 return
 
             m = re.search(r'imx219[\w\s\-]+', out, re.IGNORECASE)
@@ -195,139 +195,61 @@ _FB_WRITE = (
     "open('/dev/fb0','wb').write(color*(w*h))\""
 )
 
-# ── IMX219 抓帧（R/G/B 颜色验证，经 VPAC tiovxisp）──────────────────────────
+# ── IMX219 抓帧（改为 HDMI 实时预览 + 人工确认）──────────────────────────────
 class Imx219CaptureTest(TestCase):
-    """对准显示器的 IMX219，显示 R/G/B 颜色后各捕一帧，经 tiovxisp（VPAC ISP）分析颜色。
-
-    管道：v4l2src → tiovxisp → NV12 → videoconvert → BGR → 颜色分析
-    若设备缺少 DCC 调参文件，自动通过 SFTP 从 assets/imx219/linear/ 上传。
-    """
+    """在 HDMI 上显示 IMX219 实时预览，由用户确认是否看到画面。"""
 
     category_key = "cat_display"
     name_key     = "tn_imx219_capture"
-
-    WIDTH      = 1920
-    HEIGHT     = 1080
-    COLOR_WAIT = 1.5
-    NUM_BUFS   = 3    # 前几帧用于 ISP/AE 稳定，取最后一帧分析
 
     def __init__(self, board, manager: _Imx219Manager):
         super().__init__(board)
         self._mgr = manager
         manager.register()
 
-    def _ensure_dcc_files(self) -> bool:
-        """确保设备上存在 DCC 文件；缺少则从本地 assets 上传。"""
-        rc, _, _ = self.cmd(
-            f"test -f {_DCC_VISS_REMOTE} && test -f {_DCC_2A_REMOTE}"
-        )
-        if rc == 0:
-            return True
-
-        viss_local = str(_ASSETS_DIR / "dcc_viss.bin")
-        a2_local   = str(_ASSETS_DIR / "dcc_2a.bin")
-        if not Path(viss_local).exists() or not Path(a2_local).exists():
-            return False
-
-        try:
-            self.board.put_file(viss_local, _DCC_VISS_REMOTE)
-            self.board.put_file(a2_local,   _DCC_2A_REMOTE)
-        except Exception:
-            return False
-        return True
-
     def _run(self):
         try:
-            import numpy as np
-        except ImportError:
-            self.skip("未安装 numpy（pip install numpy）")
-            return
-
-        try:
             if not self._mgr.ensure(self):
-                self.skip("/dev/media0 不存在，跳过抓帧")
+                self.skip(t("msg_imx219_media_missing"))
                 return
 
-            if not self._ensure_dcc_files():
-                self.fail("DCC 文件缺失且无法上传，tiovxisp 需要 DCC 调参文件")
+            # 启动 imx219-preview.sh 作为后台进程，最多运行 60s 避免无限占用
+            rc, _, err = self.cmd(
+                "nohup timeout 60s imx219-preview.sh 15 > /tmp/imx219_preview.log 2>&1 &",
+                timeout=5,
+            )
+            if rc != 0:
+                self.fail(t("msg_imx219_preview_fail", err.strip()[:80]))
                 return
 
-            # 配置 CSI2 pipeline（1920x1080 RGGB10）
-            for cmd in [
-                f'media-ctl -d /dev/media0 --set-v4l2 \'"imx219 2-0010":0[fmt:SRGGB10_1X10/{self.WIDTH}x{self.HEIGHT}]\'',
-                f'media-ctl -d /dev/media0 --set-v4l2 \'"cdns_csi2rx.30101000.csi-bridge":0[fmt:SRGGB10_1X10/{self.WIDTH}x{self.HEIGHT}]\'',
-                f'media-ctl -d /dev/media0 --set-v4l2 \'"cdns_csi2rx.30101000.csi-bridge":1[fmt:SRGGB10_1X10/{self.WIDTH}x{self.HEIGHT}]\'',
-                f'media-ctl -d /dev/media0 --set-v4l2 \'"30102000.ticsi2rx":0[fmt:SRGGB10_1X10/{self.WIDTH}x{self.HEIGHT}]\'',
-            ]:
-                if self.cmd(cmd, timeout=10)[0] != 0:
-                    self.fail("CSI2 pipeline 配置失败")
-                    return
+            # 等待预览初始化（配置 pipeline + GStreamer preroll）
+            time.sleep(3.0)
 
-            # 停 lightdm，逐色测试
-            self.cmd("systemctl stop lightdm", timeout=15)
-            time.sleep(0.5)
+            # 预览进程若已退出，直接失败
+            rc, _, _ = self.cmd("pgrep -f 'gst-launch.*kmssink' >/dev/null")
+            if rc != 0:
+                self.fail(t("msg_imx219_preview_fail", "预览进程已退出"))
+                self.cmd("systemctl start lightdm 2>/dev/null", timeout=10)
+                return
 
-            results, all_pass = [], True
-            frame_bytes = self.WIDTH * self.HEIGHT * 3  # BGR24
-
+            ok = False
             try:
-                for label, bgra, check_fn in _IMX_COLOR_TESTS:
-                    self.cmd(_FB_WRITE.format(bgra=bgra), timeout=10)
-                    time.sleep(self.COLOR_WAIT)
-
-                    # tiovxisp: Bayer10 → NV12 → BGR → raw 文件
-                    rc, _, _ = self.cmd(
-                        f"gst-launch-1.0 -e "
-                        f"v4l2src device=/dev/video2 num-buffers={self.NUM_BUFS} ! "
-                        f"video/x-bayer,width={self.WIDTH},height={self.HEIGHT},"
-                        f"format=rggb10,framerate=30/1 ! "
-                        f"tiovxisp sensor-name=SENSOR_SONY_IMX219_RPI "
-                        f"dcc-isp-file={_DCC_VISS_REMOTE} "
-                        f"sink_0::dcc-2a-file={_DCC_2A_REMOTE} "
-                        f"format-msb=9 ! "
-                        f"video/x-raw,format=NV12,width={self.WIDTH},height={self.HEIGHT} ! "
-                        f"videoconvert ! "
-                        f"video/x-raw,format=BGR ! "
-                        f"filesink location=/tmp/imx219_cap.raw 2>/dev/null",
-                        timeout=20,
-                    )
-                    if rc != 0:
-                        results.append(f"{label}:抓帧失败")
-                        all_pass = False
-                        continue
-
-                    # 下载到主机分析（取最后一帧）
-                    raw = self.board.get_file("/tmp/imx219_cap.raw")
-                    self.cmd("rm -f /tmp/imx219_cap.raw 2>/dev/null")
-
-                    if len(raw) < frame_bytes:
-                        results.append(f"{label}:数据不足({len(raw)}B)")
-                        all_pass = False
-                        continue
-
-                    frame = np.frombuffer(raw[-frame_bytes:], dtype=np.uint8)
-                    frame = frame.reshape((self.HEIGHT, self.WIDTH, 3))
-
-                    # 中心 ROI 取均值（BGR → r/g/b）
-                    roi = frame[self.HEIGHT//4: 3*self.HEIGHT//4,
-                                self.WIDTH//4:  3*self.WIDTH//4]
-                    b_avg = float(np.mean(roi[:, :, 0]))
-                    g_avg = float(np.mean(roi[:, :, 1]))
-                    r_avg = float(np.mean(roi[:, :, 2]))
-
-                    ok = check_fn(r_avg, g_avg, b_avg)
-                    results.append(f"{label}:{'✓' if ok else '✗'}")
-                    if not ok:
-                        all_pass = False
+                ok = self.manual_confirm("manual_imx219")
             finally:
-                self.cmd("systemctl start lightdm", timeout=10)
+                # 先检查预览进程是否还在，再 kill
+                rc, _, _ = self.cmd("pgrep -f 'gst-launch.*kmssink' >/dev/null")
+                preview_alive = (rc == 0)
+                # 终止预览进程，脚本 trap 会自动重启 lightdm
+                self.cmd("pkill -f imx219-preview.sh 2>/dev/null; pkill -f 'gst-launch.*kmssink' 2>/dev/null", timeout=5)
+                self.cmd("systemctl start lightdm 2>/dev/null", timeout=10)
 
-            summary = "  ".join(results)
-            if all_pass:
-                self.pass_(f"tiovxisp  {summary}")
+            if ok:
+                if preview_alive:
+                    self.pass_(t("msg_imx219_user_yes"))
+                else:
+                    self.fail(t("msg_imx219_preview_fail", "预览中途退出"))
             else:
-                self.fail(f"tiovxisp  {summary}")
-
+                self.fail(t("msg_imx219_user_no"))
         finally:
             self._mgr.done(self)
 
