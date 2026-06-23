@@ -2,10 +2,16 @@
 
 from __future__ import annotations
 import json
+import platform
 import re
 import time
+from pathlib import Path
 from config.i18n import t
+from config.settings import ROOT_DIR
 from interface.base import TestCase
+
+
+_DUR = 2   # iperf3 测试时长（秒）
 
 
 def _eth_iface(board) -> str:
@@ -14,6 +20,31 @@ def _eth_iface(board) -> str:
         "ip -o link show | awk -F': ' '{print $2}' | grep -v lo | head -1"
     )
     return out.strip()
+
+
+def _find_local_iperf3() -> str | None:
+    """查找本机可用的 iperf3 可执行文件路径。
+
+    Windows 优先使用项目 bin/ 目录下的 iperf3.exe；
+    Linux/macOS 使用系统 PATH 中的 iperf3。
+    """
+    system = platform.system().lower()
+    if system == "windows":
+        # 1) 优先项目自带
+        bundled = ROOT_DIR / "bin" / "iperf3.exe"
+        if bundled.exists():
+            return str(bundled)
+        # 2) 再尝试 PATH
+        import shutil
+        exe = shutil.which("iperf3.exe")
+        if exe:
+            return exe
+    else:
+        import shutil
+        exe = shutil.which("iperf3")
+        if exe:
+            return exe
+    return None
 
 
 # ── 以太网速率 ────────────────────────────────────────────────────────────────
@@ -68,7 +99,7 @@ class EthernetIperfTest(TestCase):
     category_key = "cat_network"
     name_key     = "tn_eth_iperf"
 
-    DURATION = 2   # 测试时长（秒）
+    DURATION = _DUR
 
     def _run(self):
         # 检查设备上是否有 iperf3
@@ -77,9 +108,9 @@ class EthernetIperfTest(TestCase):
             self.skip(t("msg_iperf3_device_missing"))
             return
 
-        # 检查本机是否有 iperf3
-        rc, _, _ = self.local_cmd("which iperf3 2>/dev/null")
-        if rc != 0:
+        # 检查本机是否有 iperf3（Windows 用 bin/iperf3.exe）
+        local_iperf3 = _find_local_iperf3()
+        if not local_iperf3:
             self.skip(t("msg_iperf3_host_missing"))
             return
 
@@ -92,7 +123,7 @@ class EthernetIperfTest(TestCase):
 
         # 本机作为 client 发起测试，-J 输出 JSON
         rc, out, err = self.local_cmd(
-            f"iperf3 -c {device_ip} -t {self.DURATION} -J",
+            f'"{local_iperf3}" -c {device_ip} -t {self.DURATION} -J',
             timeout=self.DURATION + 15,
         )
 

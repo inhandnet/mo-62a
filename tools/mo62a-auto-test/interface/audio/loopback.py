@@ -246,10 +246,11 @@ class HeadphoneLoopbackTest(TestCase):
         wav_data = _raw_to_wav(raw, _RATE, _CHANNELS, 16)
         wav_path.write_bytes(wav_data)
 
-        svg_str = _make_spectrum_svg(left_samples, _RATE)
-        if svg_str:
-            svg_path.write_text(svg_str, encoding="utf-8")
-            self.attach_image(str(svg_path))
+        # 不再生成/附加 SVG 频谱图到报告
+        # svg_str = _make_spectrum_svg(left_samples, _RATE)
+        # if svg_str:
+        #     svg_path.write_text(svg_str, encoding="utf-8")
+        #     self.attach_image(str(svg_path))
 
         # ── 判定结果 ──────────────────────────────────────────────────────────
         snr_str = f"{snr:.1f} dB" if snr is not None else "N/A"
