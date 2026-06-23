@@ -125,10 +125,17 @@ def _ping_host(host: str, timeout_s: int) -> bool:
         cmd = ["ping", "-n", "1", "-w", str(int(timeout_s * 1000)), host]
     else:
         cmd = ["ping", "-c", "1", "-W", str(timeout_s), host]
+
+    kwargs = {
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+        "timeout": timeout_s + 2,
+    }
+    if system == "windows":
+        kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
+
     try:
-        result = subprocess.run(
-            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=timeout_s + 2
-        )
+        result = subprocess.run(cmd, **kwargs)
         return result.returncode == 0
     except Exception:
         return False
