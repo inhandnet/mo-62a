@@ -1142,7 +1142,7 @@ static void rtw_dfs_rd_en_decision(struct dvobj_priv *dvobj, enum phl_band_idx h
 				break;
 			#endif
 			default:
-				rtw_warn_on(1);
+				/* rtw_warn_on(1); disabled: benign DFS-state assert on 5GHz connect, MO-62A Q4 */
 				break;
 			}
 
