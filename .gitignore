@@ -15,6 +15,9 @@ doc/ti-firmware-builder-am62axx/
 # 内部客户技术/商务问题清单,不纳入对外仓库
 /doc/Questions.md
 
+# 内部开发/调试实录,不纳入版本库
+/doc/Development_Plan.md
+
 # EdgeAI rootfs reprint temporary working directory (12GB, do not submit)
 /.rootfs-build/
 
