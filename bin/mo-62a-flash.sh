@@ -175,6 +175,29 @@ install_external_apps_into_rootfs() {
   done
 }
 
+install_external_drivers_into_rootfs() {
+  local drv_dir="$SDK_ROOT/board-support/extra-drivers"
+  [[ -d "${ROOTFS_MNT:-}" ]] || die "ROOTFS_MNT not mounted; cannot install external drivers"
+  [[ -d "$drv_dir" ]] || { echo "No external drivers directory found, skipping."; return 0; }
+
+  local kernel_dir sdk_cross
+  kernel_dir="$(find_kernel_dir)"
+  [[ -n "$kernel_dir" ]] || die "ti-linux-kernel-* not found; cannot build external drivers"
+  sdk_cross="$SDK_ROOT/linux-devkit/sysroots/x86_64-arago-linux/usr/bin/aarch64-oe-linux/aarch64-oe-linux-"
+
+  for drv in "$drv_dir"/*/; do
+    [[ -f "$drv/Makefile" ]] || continue
+    echo "Building external driver: $(basename "$drv")"
+    make -C "$drv" ARCH=arm64 CROSS_COMPILE="$sdk_cross" KERNEL_DIR="$kernel_dir" clean
+    make -C "$drv" ARCH=arm64 CROSS_COMPILE="$sdk_cross" KERNEL_DIR="$kernel_dir" \
+      || die "Failed to build $(basename "$drv")"
+    make -C "$drv" ARCH=arm64 CROSS_COMPILE="$sdk_cross" KERNEL_DIR="$kernel_dir" \
+      INSTALL_MOD_PATH="$ROOTFS_MNT" modules_install \
+      || die "Failed to install $(basename "$drv")"
+    echo "Installed: $(basename "$drv")"
+  done
+}
+
 pick_rootfs_tarball_interactive() {
   [[ -d "$ROOTFS_TARBALL_DIR" ]] || die "Missing directory: $ROOTFS_TARBALL_DIR"
   mapfile -t tars < <(ls -1 "$ROOTFS_TARBALL_DIR"/*.tar.xz 2>/dev/null || true)
@@ -543,6 +566,7 @@ sd_extract_rootfs() {
   untar_progress "$ROOTFS_TARBALL" "$ROOTFS_MNT"
   install_kernel_modules_into_rootfs
   install_external_apps_into_rootfs
+  install_external_drivers_into_rootfs
   install_rootfs_overlay
   sync
 }
