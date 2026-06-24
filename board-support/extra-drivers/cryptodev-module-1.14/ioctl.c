@@ -1231,28 +1231,43 @@ cryptodev_deregister(void)
 }
 
 /* ====== Module init/exit ====== */
-static struct ctl_table verbosity_ctl_dir[] = {
-	{
-		.procname       = "cryptodev_verbosity",
-		.data           = &cryptodev_verbosity,
-		.maxlen         = sizeof(int),
-		.mode           = 0644,
-		.proc_handler   = proc_dointvec,
-	},
-	{},
+#include <linux/proc_fs.h>
+
+static struct proc_dir_entry *cryptodev_proc_dir;
+static struct proc_dir_entry *cryptodev_verbosity_proc;
+
+static ssize_t verbosity_proc_read(struct file *file, char __user *ubuf,
+				   size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int len;
+
+	len = snprintf(buf, sizeof(buf), "%d\n", cryptodev_verbosity);
+	return simple_read_from_buffer(ubuf, count, ppos, buf, len);
+}
+
+static ssize_t verbosity_proc_write(struct file *file, const char __user *ubuf,
+				    size_t count, loff_t *ppos)
+{
+	char buf[16];
+	int val;
+
+	if (count >= sizeof(buf))
+		count = sizeof(buf) - 1;
+	if (copy_from_user(buf, ubuf, count))
+		return -EFAULT;
+	buf[count] = '\0';
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+	cryptodev_verbosity = val;
+	return count;
+}
+
+static const struct proc_ops verbosity_proc_ops = {
+	.proc_read = verbosity_proc_read,
+	.proc_write = verbosity_proc_write,
 };
 
-static struct ctl_table verbosity_ctl_root[] = {
-	{
-		.procname       = "ioctl",
-		.mode           = 0555,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
-		.child          = verbosity_ctl_dir,
-#endif
-	},
-	{},
-};
-static struct ctl_table_header *verbosity_sysctl_header;
 static int __init init_cryptodev(void)
 {
 	int rc;
@@ -1269,11 +1284,16 @@ static int __init init_cryptodev(void)
 		return rc;
 	}
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
-	verbosity_sysctl_header = register_sysctl_table(verbosity_ctl_root);
-#else
-	verbosity_sysctl_header = register_sysctl(verbosity_ctl_root->procname, verbosity_ctl_dir);
-#endif
+	cryptodev_proc_dir = proc_mkdir("ioctl", NULL);
+	if (cryptodev_proc_dir) {
+		cryptodev_verbosity_proc = proc_create("cryptodev_verbosity", 0644,
+						       cryptodev_proc_dir,
+						       &verbosity_proc_ops);
+		if (!cryptodev_verbosity_proc)
+			pr_warn(PFX "failed to create /proc/ioctl/cryptodev_verbosity\n");
+	} else {
+		pr_warn(PFX "failed to create /proc/ioctl\n");
+	}
 
 	pr_info(PFX "driver %s loaded.\n", VERSION);
 
@@ -1285,8 +1305,10 @@ static void __exit exit_cryptodev(void)
 	flush_workqueue(cryptodev_wq);
 	destroy_workqueue(cryptodev_wq);
 
-	if (verbosity_sysctl_header)
-		unregister_sysctl_table(verbosity_sysctl_header);
+	if (cryptodev_verbosity_proc)
+		remove_proc_entry("cryptodev_verbosity", cryptodev_proc_dir);
+	if (cryptodev_proc_dir)
+		remove_proc_entry("ioctl", NULL);
 
 	cryptodev_deregister();
 	pr_info(PFX "driver unloaded.\n");
