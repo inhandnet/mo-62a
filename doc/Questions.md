@@ -341,36 +341,39 @@
 **状态**：已完成
 
 **测试环境**：
-- 陪测设备：MO-62A（IP `10.5.30.54`），内核 `#4`。
+- 陪测设备：MO-62A（IP `10.5.30.54`），内核 `6.12.35`（V1.0.7 构建）。`end0` 链路速率 `1000 Mbps`（`/sys/class/net/end0/speed`）。
 - 对端 PC：Ubuntu，IP `10.5.30.166`，iperf3 server 监听 5201。
 - 连接方式：千兆交换机，DUT 网口为 `end0`。
+- 复现命令（设备侧）：上行 `iperf3 -c 10.5.30.166 -t 12`；下行 `iperf3 -c 10.5.30.166 -t 12 -R`；CPU 用 `top -b -d1` 多轮采样。
 
 **测试结果**：
 
 | 方向 | 平均吞吐 | 接近线速比例 | 重传 |
 |------|----------|--------------|------|
-| DUT → PC（上行 / upload） | **937 ~ 942 Mbps** | ~94% | 0 ~ 41（偶发） |
-| PC → DUT（下行 / download） | **938 ~ 940 Mbps** | ~94% | 0 |
+| DUT → PC（上行 / upload） | **938 ~ 943 Mbps** | ~94% | 0 ~ 41（偶发） |
+| PC → DUT（下行 / download） | **939 ~ 940 Mbps** | ~94% | 0 |
 
-CPU 占用（满负荷单向 TCP，DUT → PC）：
+CPU 占用（`top` 全核平均，AM62A7 共 4 核）。**下行(收包/RX)明显比上行(发包/TX)重**：
 
-| 指标 | 占用 |
-|------|------|
-| 用户态（us） | ~2% |
-| 系统态（sy） | ~8 ~ 10% |
-| 软中断（si） | ~15% |
-| 网卡中断线程 `irq/161` | 单核约 60 ~ 70% |
-| 整体空闲（id） | ~70 ~ 75% |
-| iperf3 进程自身 | ~8% |
+| 指标 | 上行 DUT→PC（TX） | 下行 PC→DUT（RX） |
+|------|------|------|
+| 用户态（us） | ~0.5% | ~0.8% |
+| 系统态（sy） | ~6%（峰值 ~12%） | ~18% |
+| 软中断（si） | ~17% | ~28% |
+| 整体空闲（id） | ~76% | ~53% |
+| 折算占用核数 | 约 1 核 | 约 2 核 |
+
+> 软中断(si)集中在处理网卡 IRQ 的单核上：上行 si ~17%×4≈单核 68%；下行 si ~28%×4 已超一核、加上 sy ~18%×4 合计约占 2 核。
 
 **结论**：
-- MO-62A 板载 GbE 可稳定达到 **~940 Mbps** 双向吞吐，接近千兆以太网理论线速（扣除协议头后约 94%）。
-- CPU 占用低，网络处理主要以软中断形式集中在单核，剩余 CPU 资源充足，GbE 不是系统瓶颈。
+- MO-62A 板载 GbE 可稳定达到 **~940 Mbps** 双向吞吐（0 重传），接近千兆以太网理论线速（扣除协议头后约 94%）。
+- CPU 仍有充足余量：上行约占 1 核、下行约占 2 核（4 核中），GbE 不是系统瓶颈；收包路径比发包路径更耗 CPU 属正常现象。
 
 **更新日志**：
 - 2026-06-24：在 PC `10.5.30.166` 启动 iperf3 server，对 DUT 进行上下行吞吐测试。
 - 2026-06-24：测得 DUT→PC 约 942 Mbps、PC→DUT 约 940 Mbps。
 - 2026-06-24：通过 `top` 多轮采样 CPU 占用，记录系统态、软中断及网卡中断线程负载。
+- 2026-06-24（复查）：在当前 `6.12.35`（V1.0.7/seccomp 构建）上独立复现：链路 1000 Mbps，上行 943/938、下行 939/940 Mbps、0 重传，吞吐结论不变。补测下行(RX) CPU 占用并修正 CPU 表——原表仅含上行；下行收包更重（id 由 ~76% 降至 ~53%，约占 2 核）。
 
 ---
 
@@ -405,19 +408,17 @@ description:    Realtek Wireless Lan Driver
 
 **子问题 2：是否支持在已关联 AP 的情况下扫描？**
 
-- 当前状态：**未在设备上实测**
-  - 原因：现场没有提供可用于关联测试的 Wi-Fi SSID/密码。
-- 当前扫描能力（未关联状态）：
+- 当前状态：**已在设备上实测通过**（2026-06-24，关联 5GHz AP `inhand-visitor`）。
+- 实测：先关联，再在关联态扫描：
   ```bash
-  $ ip link set wlan0 up && iw dev wlan0 scan | grep -c "^BSS "
-  86
+  $ nmcli dev wifi connect "inhand-visitor" password ****     # 关联 5GHz(5745MHz, ch149)
+  $ iw dev wlan0 link        # Connected to 80:8d:b7:eb:80:90  SSID: inhand-visitor
+  $ iw dev wlan0 scan | grep -c "^BSS"
+  83                          # 关联态一次扫描发现 83 个 AP
+  $ iw dev wlan0 link        # 扫描后仍 Connected（连接未中断）
+  $ ping -c2 <gw>            # 0% packet loss, ~1.7ms（扫描后通信正常）
   ```
-  一次扫描可发现 86 个 AP，包含信号强度、频段、HT 能力等完整信息。
-- 驱动能力判断：
-  - RTL8821CS 驱动支持 `managed` / `AP` / `IBSS` / `P2P` 模式。
-  - cfg80211 框架本身支持 background scan；关联状态下的扫描行为取决于 firmware 和 wpa_supplicant 配置。
-  - 大多数 Realtek SDIO 驱动在关联时支持 background scan，但可能受固件限制（如扫描期间短暂丢包、只能扫描同频段等）。
-- 待补充：提供测试 Wi-Fi 凭据后，可验证 `iw dev wlan0 scan` 在已连接时是否能返回新 AP。
+- 结论：RTL8821CS 在已关联 AP 时**支持主动扫描**，扫描全频段返回完整 AP 列表，扫描期间连接保持、扫描后通信正常（未观察到掉线）。未关联态单次扫描可见 86 个 AP。
 
 **子问题 3：是否支持 Monitor 模式？**
 
@@ -459,28 +460,66 @@ description:    Realtek Wireless Lan Driver
   3. 部署到设备替换原模块。
   4. 重新加载后，`iw list` 将显示 monitor 模式，并可执行 `iw dev wlan0 set type monitor`。
 
-- 当前仓库修改（已准备，尚未编译部署）：
-  - 已修改 `board-support/ti-linux-kernel-6.12.35+git-ti-rt/drivers/net/wireless/realtek/rtl8821cs/Makefile`：
+- 仓库修改（已编译 + 部署 + 设备验证，2026-06-24）：
+  - 修改 `board-support/ti-linux-kernel-6.12.35+git-ti-rt/drivers/net/wireless/realtek/rtl8821cs/Makefile`：
     ```diff
     -CONFIG_WIFI_MONITOR = n
     +CONFIG_WIFI_MONITOR = y
     ```
+  - 该驱动以 `CONFIG_RTL8821CS=m` 随 `make linux` 一同编出；`CONFIG_WIFI_MONITOR=y` 经 Makefile 转为 `-DCONFIG_WIFI_MONITOR`，门控 `ioctl_cfg80211.c` 中 `BIT(NL80211_IFTYPE_MONITOR)`。编出的 `8821cs.ko` 含 `rtw_cfg80211_add_monitor_if`、"Monitor mode : Enable" 等符号。
+  - 设备验证（替换模块并重启后，2026-06-24）：
+    ```bash
+    $ iw list | grep -A6 "Supported interface modes"
+         * IBSS
+         * managed
+         * AP
+         * monitor            # ← 新增
+         * P2P-client
+         * P2P-GO
+    $ ip link set wlan0 down && iw dev wlan0 set type monitor   # 成功
+    $ iw dev wlan0 info | grep type
+         type monitor
+    ```
+  - **空口抓包实测**（monitor + 指定信道 + tcpdump，抓到周围 AP 的 802.11 管理帧，非发给本机，证明真正空口侦听）：
+    ```bash
+    $ iw dev wlan0 set type monitor && ip link set wlan0 up
+    $ iw dev wlan0 set channel 6
+    $ tcpdump -i wlan0 -c 12 -nn -e -s 256
+    03:04:20 ... 2437 MHz 11b -48dBm BSSID:c2:54:f3:f6:f9:cc Beacon (huawei2_Wi-Fi5) ... CH: 6, PRIVACY
+    03:04:20 ... 2437 MHz 11b -54dBm BSSID:40:a5:ef:96:3a:4e Probe Response (COMFAST-963A4E) ... CH: 6
+    03:04:20 ... 2437 MHz 11b -44dBm BSSID:00:18:05:2b:5d:0c Probe Response (yjf_test_2g_1) ... CH: 6, PRIVACY
+    ...
+    12 packets captured / 159 packets received by filter / 0 dropped
+    ```
+  - ⚠️ **空口抓包需要抓包工具**：默认镜像未预装 `tcpdump`。本次实测临时安装（`apt-get download tcpdump libpcap0.8t64` + `dpkg -i`）。**V1.0.7 base tar 需预装 `tcpdump`**（依赖 `libpcap0.8t64`），否则 monitor 模式无法直接抓包。
+
+- **5GHz 关联时的内核告警（已分析，非阻断）**：
+  - 现象：在 **monitor↔managed 切换后** 或 **开机首次初始化后** 的那一次连接，内核打印两条 `rtw_warn_on` 告警（`rtw_mlme_ext.c:11520`、`rtw_dfs.c:1145`）并将内核标记 `Tainted: G W`。
+  - 触发条件很窄：实测**稳态 managed 下直接 `nmcli dev connect wlan0` 重连不触发**；只有接口 type 切换/初始化后角色未建立的瞬态才命中。客户日常 managed 使用基本不会出现。
+  - 根因：`disconnect_hdl()`（`RTW_CMD_THREAD`）中发 deauth 有"是否已关联"判断，但紧随的 MLME 清理 `rtw_mlmeext_disconnect()` **无条件调用**；从"未关联/角色未建立"瞬态进入时，AP/MESH/STA/ADHOC 判断全不中→`else`/`default`→`rtw_warn_on(1)`。`rtw_warn_on` 在 Linux 下即 `WARN_ON`（`osdep_service.h:560`），命中即打印+taint。DFS 那条同理（`rtw_dfs_rd_en_decision()` 评估雷达检测时 per-link 状态落到 default）。
+  - 与 monitor **无关**：`rtw_mlme_ext.c`/`rtw_dfs.c` 不含任何 `CONFIG_WIFI_MONITOR` 引用（grep=0），monitor 改动仅触及 `ioctl_cfg80211.c`；实测 monitor 进入+空口抓包（promiscuous）阶段**不产生告警**，仅随后的 5GHz 关联才触发。
+  - 处置：属 vendor 驱动过严断言（非真故障）。已在源码注释这两处 `rtw_warn_on(1)`（保留其后 `RTW_INFO`/`break`，逻辑不变），随 `make linux` 编入 V1.0.7。**已设备验证**：重编模块（vermagic 一致）部署重启后，复现原本必触发的 monitor→managed→connect 场景，dmesg 新增告警/Oops 计数 = 0，内核不再 taint。
 
 **频段支持**：
 - 2.4 GHz（Band 1）：HT20/HT40，最大 150 Mbps。
 - 5 GHz（Band 2）：支持，共 28 个信道。
 
 **结论**：
-1. 板载 Wi-Fi 为 **Realtek RTL8821CS**，驱动 `8821cs`，标准 nl80211/cfg80211 接口。
-2. **关联时扫描**能力：驱动/框架层面具备 background scan 基础，但当前未在设备上实测，需补充测试。
-3. **Monitor 模式**：当前默认不支持；驱动源码可通过开启 `CONFIG_WIFI_MONITOR` 支持，仓库已做此修改，待编译部署验证。
+1. 板载 Wi-Fi 为 **Realtek RTL8821CS**，驱动 `8821cs`，标准 nl80211/cfg80211 接口，支持 2.4G + 5G 双频。
+2. **关联时扫描**：已实测支持——关联 5GHz AP 后扫描仍返回 83 个 AP，扫描期间连接保持、扫描后通信正常。
+3. **Monitor 模式**：默认镜像不支持；开启 `CONFIG_WIFI_MONITOR` 重编 `8821cs.ko` 后**已设备验证支持**——`iw list` 出现 monitor、可 `set type monitor`，并用 `tcpdump` 在信道 6 **实抓到 12 个空口 802.11 帧**（Beacon/Probe Response）。该改动随 `make linux`（`CONFIG_RTL8821CS=m`）编出，V1.0.7 镜像默认带 monitor 能力。**注意：base tar 需预装 `tcpdump` 方能直接抓包。**
 
 **更新日志**：
 - 2026-06-24：识别 Wi-Fi 模组为 RTL8821CS，确认驱动为 `8821cs`。
 - 2026-06-24：执行 `iw dev wlan0 scan`，未关联状态下发现 86 个 AP。
-- 2026-06-24：确认 `Supported interface modes` 当前不包含 monitor。
-- 2026-06-24：尝试进入 monitor 模式失败，返回 `-EOPNOTSUPP`。
-- 2026-06-24：定位驱动源码中 `CONFIG_WIFI_MONITOR = n` 开关，并已改为 `y`。
+- 2026-06-24：确认默认模块 `Supported interface modes` 不含 monitor，`set type monitor` 返回 `-EOPNOTSUPP`。
+- 2026-06-24：定位驱动 `CONFIG_WIFI_MONITOR = n` 开关并改为 `y`，随 `make linux` 重编 `8821cs.ko`。
+- 2026-06-24：部署重编模块（vermagic 与运行内核一致）并重启，`iw list` 出现 monitor、`iw dev wlan0 set type monitor` 成功、`info` 显示 `type monitor`。
+- 2026-06-24：提供测试 AP `inhand-visitor`，实测关联 5GHz 后关联态扫描得 83 AP、连接存活、ping 网关 0 丢包。
+- 2026-06-24：设备临时安装 `tcpdump`（apt 因预存 OpenSSL deb 依赖冲突受阻，改用 `apt-get download`+`dpkg -i`），monitor 信道 6 **实抓 12 个 802.11 帧**（周围 AP 的 Beacon/Probe Response，非本机目的）。→ 待办：base tar 预装 `tcpdump`。
+- 2026-06-24：定位 5GHz 关联告警根因为 `disconnect_hdl()` 无条件调用 `rtw_mlmeext_disconnect()`；实测稳态重连不触发、仅 type 切换/初始化后那次触发；确认与 monitor 无关（`rtw_mlme_ext.c`/`rtw_dfs.c` 无 `CONFIG_WIFI_MONITOR` 引用，monitor 抓包阶段不告警）。
+- 2026-06-24：源码注释 `rtw_mlme_ext.c:11520`、`rtw_dfs.c:1145` 两处 `rtw_warn_on(1)`（保留 `RTW_INFO`/`break`，逻辑不变）。
+- 2026-06-24：单编该模块（`make M=drivers/.../rtl8821cs modules`，CROSS=devkit aarch64）部署重启，复现 monitor→managed→connect，**告警与内核 taint 彻底消失（新增计数=0）**，monitor/扫描/蓝牙功能正常。
 
 ---
 
@@ -488,9 +527,51 @@ description:    Realtek Wireless Lan Driver
 
 **问题**：Does BlueZ run on your BLE stack, and is GATT peripheral (advertising) mode supported for device provisioning?
 
-**状态**：待查证
+**状态**：已完成
+
+**测试环境**：陪测设备 MO-62A（`10.5.30.54`），内核 `6.12.35`。
+
+**子问题 1：BlueZ 是否运行？**
+
+| 项目 | 结果 |
+|------|------|
+| BlueZ 版本 | **5.82**（`bluetoothd --version`） |
+| 服务 | `bluetooth.service` **active** |
+| 控制器 | Realtek RTL8821CS BT，经 UART **H5**（`hci_uart` + Realtek H5 protocol）挂为 `hci0` |
+| hci0 | BD `44:87:63:63:67:87`，**UP RUNNING**，LMP **4.2**（支持 BLE），Manufacturer Realtek(93) |
+
+**子问题 2：BLE / GATT 外设（广播）模式是否支持？**
+
+- LE 能力（`btmgmt info`）：supported settings 含 `le advertising secure-conn`；current settings 已含 `le`。
+- 广播能力（`btmgmt advinfo`）：**Max instances 5**；支持 flags `connectable / general-discoverable / limited-discoverable / tx-power / scan-rsp-*`；广播数据 31B + scan-rsp 31B。
+- D-Bus 外设接口（`/org/bluez/hci0`）：
+  ```
+  org.bluez.GattManager1            # 注册 GATT 服务（peripheral 端 GATT server）
+  org.bluez.LEAdvertisingManager1   # RegisterAdvertisement / UnregisterAdvertisement
+  ```
+  这正是设备配网 App 实现 GATT peripheral + LE 广播所用的标准 BlueZ D-Bus API。
+- **实测起停广播**：
+  ```bash
+  $ btmgmt add-adv -d 020106 -u 180a 1
+  Instance added: 1
+  $ btmgmt advinfo            # Instances list with 1 item
+  $ btmgmt rm-adv 1
+  Instance removed: 1
+  ```
+
+**已知风险（BT 稳定性）**：Q4 测试期间观察到一次 `bluetoothd`/`hci_uart` H5 路径的内核 Oops（`Unable to handle kernel paging request`，偶发，后续重启未复现）。与 Wi-Fi 改动无关，属 Realtek BT H5 UART 偶发不稳定；建议持续观察，若批量复现再排查 `hci_uart`/H5 路径。
 
 **结论**：
+1. BlueZ **5.82** 在 `hci0`（Realtek，UART H5）上运行，LMP 4.2 支持 BLE。
+2. **GATT peripheral + LE 广播支持并实测可用**：D-Bus `GattManager1`/`LEAdvertisingManager1` 齐备，可注册/启停广播实例（最多 5 个），满足设备配网（advertising + GATT server）需求。
+3. 稳定性：观察到一次**偶发** BT H5 Oops（未复现），建议观察。
+
+**更新日志**：
+- 2026-06-24：确认 BlueZ 5.82、`bluetooth.service` active；hci0 = Realtek UART H5、LMP 4.2、UP RUNNING。
+- 2026-06-24：`btmgmt info`/`advinfo` 确认 LE + advertising 支持（Max 5 实例）。
+- 2026-06-24：`busctl` 确认 `/org/bluez/hci0` 暴露 `GattManager1` + `LEAdvertisingManager1`。
+- 2026-06-24：实测 `btmgmt add-adv` 起一条 BLE 广播实例成功、`rm-adv` 清除成功。
+- 2026-06-24：记录 Q4 期间一次偶发 `bluetoothd`/`hci_uart` H5 Oops（未复现，待观察）。
 
 ---
 
