@@ -9,6 +9,9 @@ tools/mo62a-tester/reports/
 *.pyc
 doc/ti-firmware-builder-am62axx/
 
+# 本地项目记忆/上下文,不纳入版本库
+/CLAUDE.md
+
 # EdgeAI rootfs reprint temporary working directory (12GB, do not submit)
 /.rootfs-build/
 
