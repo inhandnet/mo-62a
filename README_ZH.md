@@ -630,6 +630,9 @@ Compression (zip|xz|none) (default: zip): zip
 | 软件包 | 被哪个组件依赖 | 用途 |
 |--------|--------------|------|
 | `frei0r-plugins` | `imx219-preview.sh` | 通过 `frei0r-filter-white-balance` GStreamer 元素实现白平衡校正 |
+| `tcpdump`（+`libpcap0.8t64`） | Wi-Fi monitor 模式 | 在 monitor 模式下进行 802.11 空口抓包 |
+
+> **chroot 常见坑**：若 base tar 缺 `/proc`、`/sys`、`/dev`、`/dev/pts`、`/tmp`、`/run` 目录，挂载或 `apt` 会失败（如 `tcpdump` postinst 的 `adduser` 报 `could not open lock file /run/adduser`）。进 chroot 前先 `sudo mkdir -p "$ROOTFS_DIR"/{proc,sys,dev,dev/pts,tmp,run}` 并 `chmod 1777 .../tmp`。
 
 ---
 

@@ -719,6 +719,9 @@ After repacking, re-run the flash tool as normal. The newly installed packages w
 | Package | Required by | Purpose |
 |---------|-------------|---------|
 | `frei0r-plugins` | `imx219-preview.sh` | White-balance correction via `frei0r-filter-white-balance` GStreamer element |
+| `tcpdump` (+`libpcap0.8t64`) | Wi-Fi monitor mode | 802.11 over-the-air packet capture in monitor mode |
+
+> **Common chroot pitfall:** if the base tar lacks the `/proc`, `/sys`, `/dev`, `/dev/pts`, `/tmp`, `/run` directories, mounting or `apt` will fail (e.g. `tcpdump`'s postinst `adduser` errors with `could not open lock file /run/adduser`). Before entering the chroot, run `sudo mkdir -p "$ROOTFS_DIR"/{proc,sys,dev,dev/pts,tmp,run}` and `chmod 1777 .../tmp`.
 
 ### 5.6 Rootfs Maintenance — Known Pitfalls and Fixes
 
