@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# EdgeAI first-boot disk expansion
+# MO-62A first-boot setup
 #
 # Phase 1 (first boot):  resize root partition to fill the disk,
+#                        install prebuilt .deb packages,
 #                        write resize-pending sentinel, reboot.
 # Phase 2 (second boot): online-resize root ext4 filesystem (resize2fs),
 #                        write done sentinel, self-disable.
@@ -11,6 +12,7 @@ set -euo pipefail
 
 SENTINEL_DONE=/opt/ti/.edgeai-installed
 SENTINEL_RESIZE=/opt/ti/.edgeai-resize-pending
+DEB_DIR=/usr/local/share/mo-62a/prebuilt-deb
 LOG=/var/log/edgeai-firstboot-install.log
 
 # Mirror all output to log file (journald also captures via service)
@@ -34,11 +36,20 @@ if [ -f "$SENTINEL_RESIZE" ]; then
     exit 0
 fi
 
-# ── Phase 1: partition resize ──────────────────────────────────────────────────
+# ── Phase 1: partition resize + first-boot package install ─────────────────────
 echo "[edgeai-firstboot] Resizing root partition to fill disk..."
 
 ROOT_PART=$(findmnt -n -o SOURCE /)
 echo "[edgeai-firstboot]   root partition: $ROOT_PART"
+
+# Install any prebuilt .deb packages shipped in the rootfs overlay.
+if [ -d "$DEB_DIR" ] && [ -n "$(ls -A "$DEB_DIR"/*.deb 2>/dev/null)" ]; then
+    echo "[edgeai-firstboot] Installing first-boot packages from $DEB_DIR"
+    dpkg -i "$DEB_DIR"/*.deb
+    echo "[edgeai-firstboot] Package install complete"
+else
+    echo "[edgeai-firstboot] No first-boot packages to install"
+fi
 
 # Parse disk device and partition number from root partition path.
 # Handles both /dev/mmcblk1p2 and /dev/sda2 style names.

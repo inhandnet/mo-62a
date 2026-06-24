@@ -1,5 +1,5 @@
 [Unit]
-Description=EdgeAI first-boot: install Python 3.12 wheels and resize root partition
+Description=MO-62A first-boot: install packages, resize root partition, and expand filesystem
 # sysinit.target ensures udev has settled and block devices (/dev/mmcblk*) are visible.
 After=sysinit.target local-fs.target
 ConditionPathExists=!/opt/ti/.edgeai-installed
@@ -10,7 +10,7 @@ RemainAfterExit=no
 ExecStart=/usr/local/sbin/edgeai-firstboot-install.sh
 StandardOutput=journal+console
 StandardError=journal+console
-# Phase 1 (whl install) can take several minutes on first boot.
+# Phase 1 (package install + partition resize) can take several minutes on first boot.
 TimeoutStartSec=900
 
 [Install]
