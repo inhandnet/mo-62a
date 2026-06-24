@@ -1,5 +1,71 @@
 # 更新日志
 
+## v1.0.7 — 2026-06-24
+
+### 内核与设备树
+
+#### Docker 运行时支持
+
+- 在 RT 内核 fragment 中启用 BPF、cgroup 控制器和 seccomp，使 Docker 能够以默认安全配置运行：
+  - `CONFIG_BPF_SYSCALL=y`、`CONFIG_BPF_JIT=y`、`CONFIG_CGROUP_BPF=y`
+  - `CONFIG_MEMCG`、`CONFIG_BLK_CGROUP`、`CONFIG_CGROUP_PIDS`、
+    `CONFIG_CGROUP_FREEZER`、`CONFIG_CPUSETS`、`CONFIG_CGROUP_CPUACCT`
+  - `CONFIG_SECCOMP=y`、`CONFIG_SECCOMP_FILTER=y`
+- 更新 `am62ax_mo_62a_defconfig`：
+  - 内建 `CONFIG_OVERLAY_FS=y`，供 Docker `overlay2` 使用。
+  - 启用 nftables / masquerade 以支持 Docker 网络。
+  - 启用 `CONFIG_CRYPTO_USER_API_SKCIPHER` 与 `CONFIG_CRYPTO_USER_API_AEAD`，
+    通过 AF_ALG 暴露内核加密接口。
+
+#### Wi-Fi Monitor 模式
+
+- 在 Realtek `rtl8821cs` SDIO 驱动中启用 `CONFIG_WIFI_MONITOR=y`，使 cfg80211
+  注册 `monitor` 接口类型。
+- 注释两处 5 GHz 关联 / 接口类型切换时触发的过严 `rtw_warn_on(1)` 断言；
+  这些警告非致命，但会污染内核 taint。
+
+### 外部驱动
+
+#### cryptodev Linux 6.12 兼容性
+
+- 将 `cryptodev-module-1.14` 中基于 `register_sysctl()` 的 verbosity 控制改为
+  `proc_create()`，消除 Linux 6.12 上的 `sysctl table check failed` 警告。
+
+### 烧录与构建
+
+#### 外部驱动自动编译
+
+- `bin/mo-62a-flash.sh` 现在在制作镜像阶段遍历 `board-support/extra-drivers/*/`，
+  用所选内核源码树交叉编译每个外部驱动，并将模块安装到目标 rootfs。
+- cryptodev 模块因此随烧卡自动集成。
+
+#### 首次启动 `.deb` 安装钩子
+
+- 扩展现有首次启动服务：在扩容 root 分区之前，自动安装
+  `/usr/local/share/mo-62a/prebuilt-deb/` 目录下的所有 `.deb` 包。
+  该目录默认置空；如有需要，客户可自行放入 deb 包。
+
+### 根文件系统
+
+#### Docker 默认启用
+
+- 在 `rootfs-overlay` 中添加 `docker.service` 的 systemd enable 软链，使 Docker
+  守护进程首次启动即运行。
+
+#### 预装 tcpdump
+
+- 在 Debian base rootfs 中预装 `tcpdump`（及 `libpcap`），使 monitor 模式下可
+  直接进行 802.11 空口抓包，无需目标机联网。
+
+### 工厂测试工具
+
+#### Windows 主机支持
+
+- 移植 `tools/mo62a-auto-test/` 以在 Windows PC 上运行（核心框架使用 paramiko，
+  跨平台可用）。
+- 在 Windows 命令后端下禁用基于 ping 的网络测试。
+- 移除旧原型 `tools/mo62a-tester/`。
+
 ## v1.0.6 — 2026-06-18
 
 ### Edge AI —— 设备端 C/C++ SDK

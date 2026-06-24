@@ -1,5 +1,78 @@
 # Changelog
 
+## v1.0.7 — 2026-06-24
+
+### Kernel & Device Tree
+
+#### Docker runtime support
+
+- Enable BPF, cgroup controllers and seccomp in the RT kernel fragment so Docker
+  can run with its default security profile:
+  - `CONFIG_BPF_SYSCALL=y`, `CONFIG_BPF_JIT=y`, `CONFIG_CGROUP_BPF=y`
+  - `CONFIG_MEMCG`, `CONFIG_BLK_CGROUP`, `CONFIG_CGROUP_PIDS`,
+    `CONFIG_CGROUP_FREEZER`, `CONFIG_CPUSETS`, `CONFIG_CGROUP_CPUACCT`
+  - `CONFIG_SECCOMP=y`, `CONFIG_SECCOMP_FILTER=y`
+- Update `am62ax_mo_62a_defconfig`:
+  - Build `CONFIG_OVERLAY_FS=y` for Docker `overlay2`.
+  - Enable nftables / masquerade support required by Docker networking.
+  - Enable `CONFIG_CRYPTO_USER_API_SKCIPHER` and `CONFIG_CRYPTO_USER_API_AEAD`
+    to expose kernel crypto via AF_ALG.
+
+#### Wi-Fi monitor mode
+
+- Enable `CONFIG_WIFI_MONITOR=y` in the Realtek `rtl8821cs` SDIO driver so the
+  `monitor` interface type is registered with cfg80211.
+- Silence two over-strict `rtw_warn_on(1)` assertions triggered during 5 GHz
+  association / interface type changes; the warnings were non-fatal but tainted
+  the kernel.
+
+### External Drivers
+
+#### cryptodev Linux 6.12 compatibility
+
+- Replace the `register_sysctl()` based verbosity control in
+  `cryptodev-module-1.14` with `proc_create()`, eliminating the
+  `sysctl table check failed` warning on Linux 6.12.
+
+### Flashing & Build
+
+#### Automatic external-driver build
+
+- `bin/mo-62a-flash.sh` now iterates over `board-support/extra-drivers/*/`
+  during rootfs creation, cross-compiles each driver against the selected
+  kernel source tree and installs the modules into the target rootfs.
+- This makes the cryptodev module part of the flashed image automatically.
+
+#### First-boot `.deb` install hook
+
+- Extend the existing first-boot service to install any `.deb` packages placed
+  in `/usr/local/share/mo-62a/prebuilt-deb/` before the root partition is
+  resized. The directory is shipped empty; customers can drop their own debs
+  there if needed.
+
+### Root Filesystem
+
+#### Docker enabled by default
+
+- Add a systemd enable symlink for `docker.service` in `rootfs-overlay` so the
+  Docker daemon starts on first boot.
+
+#### tcpdump preinstalled
+
+- Preinstall `tcpdump` (and `libpcap`) in the base Debian rootfs so 802.11
+  monitor-mode packet capture works out of the box without requiring network
+  access on the target.
+
+### Factory Test Tool
+
+#### Windows host support
+
+- Port `tools/mo62a-auto-test/` to run on Windows PCs (the core framework uses
+  paramiko and works cross-platform).
+- Disable the ping-based network test when running with the command backend on
+  Windows.
+- Remove the obsolete `tools/mo62a-tester/` prototype.
+
 ## v1.0.6 — 2026-06-18
 
 ### Edge AI — On-Device C/C++ SDK
