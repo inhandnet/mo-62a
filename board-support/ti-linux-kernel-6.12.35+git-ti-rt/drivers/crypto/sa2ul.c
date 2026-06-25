@@ -997,9 +997,24 @@ int sa_init_sc(struct sa_ctx_info *ctx, const struct sa_match_data *match_data,
 	/* swizzle the security context */
 	sa_swiz_128(sc_buf, SA_CTX_MAX_SZ);
 
+	/*
+	 * MO-62A fix: on rekey (setkey re-run on a live tfm) unmap the
+	 * previous mapping before remapping, otherwise DMA mappings leak.
+	 */
+	if (ctx->sc_phys)
+		dma_unmap_single(dev, ctx->sc_phys, SA_CTX_MAX_SZ,
+				 DMA_BIDIRECTIONAL);
+
 	ctx->sc_phys = dma_map_single(dev, ctx->sc, SA_CTX_MAX_SZ, DMA_BIDIRECTIONAL);
 	if (dma_mapping_error(dev, ctx->sc_phys)) {
-		mempool_free(ctx->sc, data->sc_pool);
+		/*
+		 * MO-62A fix: ctx->sc is owned by the tfm and freed in
+		 * sa_free_ctx_info(); do not free it here (that left a dangling
+		 * pointer -> later memzero/dma_unmap/mempool_free = UAF +
+		 * double-free). Just clear sc_phys so the teardown guard skips
+		 * the unmap of an invalid handle.
+		 */
+		ctx->sc_phys = 0;
 		return -ENOMEM;
 	}
 
@@ -1026,7 +1041,20 @@ static void sa_free_ctx_info(struct sa_ctx_info *ctx,
 
 	if (ctx->sc) {
 		memzero_explicit(ctx->sc, SA_CTX_MAX_SZ);
-		dma_unmap_single(dev, ctx->sc_phys, SA_CTX_MAX_SZ, DMA_BIDIRECTIONAL);
+		/*
+		 * MO-62A fix: ctx->sc is mempool_alloc'd in sa_init_ctx_info()
+		 * but only dma_map_single'd later in sa_init_sc() (setkey path),
+		 * so sc_phys stays 0 for a tfm that is allocated and freed
+		 * without ever being keyed (e.g. AF_ALG bind()/close() probes,
+		 * Bluetooth SMP). Unconditional dma_unmap of handle 0 does a
+		 * cache op on phys_to_virt(0) -> fatal paging fault. Only unmap
+		 * if actually mapped. Ref: BeagleBoard forum sa2ul AF_ALG oops.
+		 */
+		if (ctx->sc_phys) {
+			dma_unmap_single(dev, ctx->sc_phys, SA_CTX_MAX_SZ,
+					 DMA_BIDIRECTIONAL);
+			ctx->sc_phys = 0;
+		}
 		mempool_free(ctx->sc, data->sc_pool);
 		ctx->sc = NULL;
 	}
@@ -2449,7 +2477,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		.alg.skcipher = {
 			.base.cra_name		= "cbc(aes)",
 			.base.cra_driver_name	= "cbc-aes-sa2ul",
-			.base.cra_priority	= 30000,
+			.base.cra_priority	= 50,
 			.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
 						  CRYPTO_ALG_ASYNC |
@@ -2472,7 +2500,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		.alg.skcipher = {
 			.base.cra_name		= "ecb(aes)",
 			.base.cra_driver_name	= "ecb-aes-sa2ul",
-			.base.cra_priority	= 30000,
+			.base.cra_priority	= 50,
 			.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
 						  CRYPTO_ALG_ASYNC |
@@ -2494,7 +2522,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		.alg.skcipher = {
 			.base.cra_name		= "cbc(des3_ede)",
 			.base.cra_driver_name	= "cbc-des3-sa2ul",
-			.base.cra_priority	= 30000,
+			.base.cra_priority	= 50,
 			.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
 						  CRYPTO_ALG_ASYNC |
@@ -2517,7 +2545,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		.alg.skcipher = {
 			.base.cra_name		= "ecb(des3_ede)",
 			.base.cra_driver_name	= "ecb-des3-sa2ul",
-			.base.cra_priority	= 30000,
+			.base.cra_priority	= 50,
 			.base.cra_flags		= CRYPTO_ALG_TYPE_SKCIPHER |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
 						  CRYPTO_ALG_ASYNC |
@@ -2540,7 +2568,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.halg.base = {
 				.cra_name	= "sha1",
 				.cra_driver_name	= "sha1-sa2ul",
-				.cra_priority	= 400,
+				.cra_priority	= 50,
 				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
 						  CRYPTO_ALG_ASYNC |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2569,7 +2597,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.halg.base = {
 				.cra_name	= "sha256",
 				.cra_driver_name	= "sha256-sa2ul",
-				.cra_priority	= 400,
+				.cra_priority	= 50,
 				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
 						  CRYPTO_ALG_ASYNC |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2598,7 +2626,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.halg.base = {
 				.cra_name	= "sha512",
 				.cra_driver_name	= "sha512-sa2ul",
-				.cra_priority	= 400,
+				.cra_priority	= 50,
 				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
 						  CRYPTO_ALG_ASYNC |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2635,7 +2663,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 					CRYPTO_ALG_NEED_FALLBACK,
 				.cra_ctxsize = sizeof(struct sa_tfm_ctx),
 				.cra_module = THIS_MODULE,
-				.cra_priority = 3000,
+				.cra_priority = 50,
 			},
 			.ivsize = AES_BLOCK_SIZE,
 			.maxauthsize = SHA1_DIGEST_SIZE,
@@ -2663,7 +2691,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 				.cra_ctxsize = sizeof(struct sa_tfm_ctx),
 				.cra_module = THIS_MODULE,
 				.cra_alignmask = 0,
-				.cra_priority = 3000,
+				.cra_priority = 50,
 			},
 			.ivsize = AES_BLOCK_SIZE,
 			.maxauthsize = SHA256_DIGEST_SIZE,
@@ -2682,7 +2710,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		       .halg.base = {
 			       .cra_name       = "hmac(sha256)",
 			       .cra_driver_name        = "hmac(sha256-sa2ul)",
-			       .cra_priority   = 1000,
+			       .cra_priority   = 50,
 			       .cra_flags      = CRYPTO_ALG_TYPE_AHASH |
 						 CRYPTO_ALG_ASYNC |
 						 CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2712,7 +2740,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.halg.base = {
 				.cra_name	= "hmac(sha1)",
 				.cra_driver_name	= "hmac(sha1-sa2ul)",
-				.cra_priority	= 400,
+				.cra_priority	= 50,
 				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
 						  CRYPTO_ALG_ASYNC |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2742,7 +2770,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 			.halg.base = {
 				.cra_name	= "hmac(sha512)",
 				.cra_driver_name	= "hmac(sha512-sa2ul)",
-				.cra_priority	= 400,
+				.cra_priority	= 50,
 				.cra_flags	= CRYPTO_ALG_TYPE_AHASH |
 						  CRYPTO_ALG_ASYNC |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
@@ -2771,7 +2799,7 @@ static struct sa_alg_tmpl sa_algs[] = {
 		.alg.aead = {
 			.base.cra_name		= "gcm(aes)",
 			.base.cra_driver_name	= "gcm-aes-sa2ul",
-			.base.cra_priority	= 30000,
+			.base.cra_priority	= 50,
 			.base.cra_flags		= CRYPTO_ALG_TYPE_AEAD |
 						  CRYPTO_ALG_KERN_DRIVER_ONLY |
 						  CRYPTO_ALG_ASYNC |
