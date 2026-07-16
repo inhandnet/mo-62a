@@ -1,5 +1,5 @@
 [Unit]
-Description=MO-62A first-boot: install packages, resize root partition, and expand filesystem
+Description=MO-62A first-boot: install packages, resize rootfs, apply sysconfig.txt
 # sysinit.target ensures udev has settled and block devices (/dev/mmcblk*) are visible.
 After=sysinit.target local-fs.target
 ConditionPathExists=!/opt/ti/.edgeai-installed
@@ -7,10 +7,10 @@ ConditionPathExists=!/opt/ti/.edgeai-installed
 [Service]
 Type=oneshot
 RemainAfterExit=no
-ExecStart=/usr/local/sbin/edgeai-firstboot-install.sh
+ExecStart=/usr/local/sbin/mo-62a-firstboot-install.sh
 StandardOutput=journal+console
 StandardError=journal+console
-# Phase 1 (package install + partition resize) can take several minutes on first boot.
+# Package install + resize + sysconfig can take several minutes on first boot.
 TimeoutStartSec=900
 
 [Install]

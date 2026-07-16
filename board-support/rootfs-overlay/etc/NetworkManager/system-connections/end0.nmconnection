@@ -1,0 +1,18 @@
+[connection]
+id=Wired connection 1
+uuid=2e112ee7-9c17-34b6-af85-799cac11e5ee
+type=ethernet
+interface-name=end0
+autoconnect=true
+
+[ethernet]
+
+[ipv4]
+method=auto
+link-local=enabled
+
+[ipv6]
+method=auto
+link-local=default
+
+[proxy]

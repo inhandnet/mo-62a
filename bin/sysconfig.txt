@@ -1,0 +1,70 @@
+# ============================================================================
+#  MO-62A first-boot configuration   (sysconfig.txt)
+# ----------------------------------------------------------------------------
+#  HOW TO USE
+#    1. This file lives on the BOOT (FAT32) partition of the SD card. After you
+#       flash the image with any tool, it appears as a removable drive named
+#       "BOOT" on Windows / macOS / Linux.
+#    2. Open it in any text editor. To enable a setting, remove the leading '#'
+#       and set its value. Any line still starting with '#' is ignored.
+#    3. Save, insert the card into the board, and power on. The settings are
+#       applied automatically on the first boot.
+#
+#  FORMAT     key=value   (no quotes; everything after '=' is the value, so a
+#             Wi-Fi password may contain spaces or symbols)
+#
+#  SECURITY   After the settings are applied on the first boot, this file is
+#             DELETED automatically so that no password is left readable on the
+#             card. (To reconfigure later, re-flash the card.)
+# ============================================================================
+
+# ---- Login user (created with sudo access) --------------------------------
+#  A default account is shipped enabled so the board is usable out of the box.
+#
+#  !!  SECURITY WARNING  !!
+#  The default password below is well known. For your safety, change
+#  'user_password' (and preferably 'user_name') before the first boot, or
+#  change the password immediately after logging in.
+user_name=debian
+user_password=123456
+# user_realname  - full name shown for the account (optional)
+#user_realname=MO-62A User
+# user_shell     - login shell: bash or zsh
+#user_shell=bash
+
+# ---- Root account ----------------------------------------------------------
+# root_password  - set a password for the root account (optional; the root
+#                  account stays locked if this is left disabled).
+#                  NOTE: this is for LOCAL console / serial / recovery and for
+#                  'su'. It does NOT enable root login over SSH (sshd keeps its
+#                  default 'prohibit-password'); use root_ssh_key for that.
+#root_password=
+
+# ---- Hostname --------------------------------------------------------------
+# hostname       - device hostname; also its "<hostname>.local" mDNS address
+#hostname=Mo62A
+
+# ---- SSH public keys (optional) --------------------------------------------
+#   Paste a full OpenSSH public key line, or give a URL (http/https/file) to
+#   download the key from, to allow key-based SSH login.
+#user_ssh_key=ssh-ed25519 AAAA...your-public-key... comment
+#root_ssh_key=ssh-ed25519 AAAA...your-public-key... comment
+
+# ---- Locale & timezone -----------------------------------------------------
+#locale=en_US.UTF-8
+#timezone=Etc/UTC
+
+# ---- Wi-Fi (optional) ------------------------------------------------------
+#   Set ssid + password to auto-connect Wi-Fi on first boot. wifi_country is
+#   the 2-letter regulatory code (e.g. CN, US, DE).
+#wifi_ssid=
+#wifi_password=
+#wifi_country=CN
+
+# ---- Ethernet static IP (optional; default is DHCP) ------------------------
+#   Set static_ip to switch the wired connection from DHCP to a static address.
+#   The mask may be a prefix length (24) or dotted form (255.255.255.0).
+#static_ip=192.168.1.50
+#static_mask=255.255.255.0
+#static_gateway=192.168.1.1
+#static_dns=8.8.8.8

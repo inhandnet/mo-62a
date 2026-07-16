@@ -450,6 +450,14 @@
 		compatible = "nxp,pcf85263";
 		reg = <0x51>;
 	};
+
+	/* On-board BL24C02 EEPROM (2 Kbit / 256 B), 24c02-compatible.
+	 * Bound by the at24 driver -> /sys/bus/i2c/devices/0-0050/eeprom. */
+	eeprom@50 {
+		compatible = "atmel,24c02";
+		reg = <0x50>;
+		pagesize = <8>;
+	};
 };
 
 &main_i2c1 {

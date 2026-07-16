@@ -5,7 +5,7 @@ set -euo pipefail
 #
 # Interactive only. On launch, prompts to choose:
 #   [1] Write directly to an SD card
-#   [2] Create an offline .img for balenaEtcher
+#   [2] Create an offline .img for Armbian Imager
 #
 # SD card sub-modes (chosen interactively):
 #   full      - create partitions + format + copy BOOT + extract rootfs
@@ -15,7 +15,7 @@ set -euo pipefail
 #
 # See also:
 #   bin/create-mo-62a.sh            (legacy SD card script)
-#   bin/create-mo-62a-etcher-image.sh  (legacy Etcher image script)
+#   bin/create-mo-62a-image.sh       (legacy image script)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
 SDK_ROOT="$(cd "$SCRIPT_DIR/.." && pwd -P)"
@@ -37,16 +37,17 @@ ROOTFS_TARBALL=""
 DEVICE=""
 SD_MODE="full"
 
-# Etcher image globals
-# Image name format: mo-62a-debian13.3-xfce-<version>-<date>
-# Only VERSION and DATE vary between releases; the rest is fixed.
-IMAGE_VERSION="v1.0.0"
+# Image globals
+# Image name format: mo62a-trixie-xfce-<version>   (e.g. mo62a-trixie-xfce-V1.0.0)
+# Only VERSION varies between releases; the rest is fixed. DATE is still used to
+# stamp built external apps (BUILD_DATE) but is no longer part of the image name.
+IMAGE_VERSION="V1.0.0"
 IMAGE_DATE="$(date +%Y-%m-%d)"
-IMAGE_PREFIX="mo-62a-debian13.3-xfce"
+IMAGE_PREFIX="mo62a-trixie-xfce"
 OUT_DIR=""
-NAME="${IMAGE_PREFIX}-${IMAGE_VERSION}-${IMAGE_DATE}"
+NAME="${IMAGE_PREFIX}-${IMAGE_VERSION}"
 IMG_SIZE_GIB=12
-COMPRESS="zip"
+COMPRESS="xz"
 IMG_PATH=""
 LOOPDEV=""
 
@@ -72,7 +73,7 @@ Interactive tool — run without arguments.
 
 On launch you will be asked to choose:
   [1] Write directly to an SD card
-  [2] Create an offline .img for balenaEtcher
+  [2] Create an offline .img for Armbian Imager
 
 SD card sub-modes (chosen interactively after device selection):
   full      - create partitions + format + copy BOOT + extract rootfs
@@ -80,12 +81,12 @@ SD card sub-modes (chosen interactively after device selection):
   boot      - copy BOOT partition content only (strict layout check, no repartition)
   rootfs    - copy rootfs partition content only (strict layout check, no repartition)
 
-Etcher image options (prompted interactively):
+Image options (prompted interactively):
   output dir / name / image size (GiB) / compression (zip|xz|none)
 
 See also:
   bin/create-mo-62a.sh               (legacy SD card script, non-interactive support)
-  bin/create-mo-62a-etcher-image.sh  (legacy Etcher image script)
+  bin/create-mo-62a-image.sh       (legacy image script)
 USAGE
 }
 
@@ -242,6 +243,13 @@ copy_boot_files() {
 
   if [[ -f "$SDK_ROOT/bin/uEnv.txt" ]]; then
     cp -v "$SDK_ROOT/bin/uEnv.txt" "$BOOT_MNT/uEnv.txt"
+  fi
+
+  # First-boot user configuration template (consumed once by mo-62a-auto-config.sh
+  # on first boot, then deleted). Customers may edit it on the BOOT drive before
+  # first boot to preset the login user, Wi-Fi, hostname, etc.
+  if [[ -f "$SDK_ROOT/bin/sysconfig.txt" ]]; then
+    cp -v "$SDK_ROOT/bin/sysconfig.txt" "$BOOT_MNT/sysconfig.txt"
   fi
   sync
 }
@@ -589,7 +597,7 @@ run_sd_flow() {
   pick_mode_interactive
 
   if [[ "$SD_MODE" == "full" || "$SD_MODE" == "rootfs" ]]; then
-    IMAGE_VERSION="$(prompt_with_default "Version (e.g. v1.0.0)" "$IMAGE_VERSION")"
+    IMAGE_VERSION="$(prompt_with_default "Version (e.g. V1.0.0)" "$IMAGE_VERSION")"
     IMAGE_DATE="$(prompt_with_default "Build date (YYYY-MM-DD)" "$IMAGE_DATE")"
   fi
 
@@ -660,7 +668,7 @@ run_sd_flow() {
   esac
 }
 
-# ── Etcher image: helpers ──────────────────────────────────────────────────────
+# ── Image: helpers ─────────────────────────────────────────────────────────────
 create_sparse_image() {
   local img="$1" bytes="$2"
   rm -f "$img"
@@ -716,8 +724,8 @@ format_and_mount_loop_parts() {
   echo "Formatting rootfs: $p3"
   mkfs.ext4 -F -L rootfs "$p3"
 
-  BOOT_MNT="$(mktemp -d /tmp/mo-62a-etcher-boot.XXXXXX)"
-  ROOTFS_MNT="$(mktemp -d /tmp/mo-62a-etcher-rootfs.XXXXXX)"
+  BOOT_MNT="$(mktemp -d /tmp/mo-62a-image-boot.XXXXXX)"
+  ROOTFS_MNT="$(mktemp -d /tmp/mo-62a-image-rootfs.XXXXXX)"
   mount -t vfat "$p1" "$BOOT_MNT"
   mount -t ext4 "$p3" "$ROOTFS_MNT"
 }
@@ -746,7 +754,7 @@ compress_outputs() {
       ;;
     xz)
       have xz || die "xz not found (install xz-utils) or use compression: none/zip"
-      ( cd "$outdir" && rm -f "${base}.img.xz" && xz -T0 -9 -k "${base}.img" )
+      ( cd "$outdir" && rm -f "${base}.img.xz" && xz -T0 -6 -k "${base}.img" )
       ;;
     *) die "Invalid compression: $COMPRESS (expected zip|xz|none)" ;;
   esac
@@ -764,9 +772,9 @@ run_image_flow() {
   ROOTFS_TARBALL="$(pick_rootfs_tarball_interactive)"
 
   OUT_DIR="$(prompt_with_default "Output directory" "$SCRIPT_DIR/out")"
-  IMAGE_VERSION="$(prompt_with_default "Version (e.g. v1.0.0)" "$IMAGE_VERSION")"
+  IMAGE_VERSION="$(prompt_with_default "Version (e.g. V1.0.0)" "$IMAGE_VERSION")"
   IMAGE_DATE="$(prompt_with_default "Date (YYYY-MM-DD)" "$IMAGE_DATE")"
-  NAME="${IMAGE_PREFIX}-${IMAGE_VERSION}-${IMAGE_DATE}"
+  NAME="${IMAGE_PREFIX}-${IMAGE_VERSION}"
   IMG_SIZE_GIB="$(prompt_with_default "Image size (GiB, integer)" "$IMG_SIZE_GIB")"
   COMPRESS="$(prompt_with_default "Compression (zip|xz|none)" "$COMPRESS")"
 
@@ -822,7 +830,7 @@ pick_flash_mode() {
   echo >&2
   echo "Select output target:" >&2
   echo "  [1] Write directly to an SD card" >&2
-  echo "  [2] Create offline image for balenaEtcher" >&2
+  echo "  [2] Create offline image for Armbian Imager" >&2
   echo >&2
   local choice
   read -r -p "Select target [1/2]: " choice
@@ -845,7 +853,7 @@ main() {
   require_root
 
   echo >&2
-  echo "=== MO-62A Flash Tool ===" >&2
+  echo "=== Mo 62A Flash Tool ===" >&2
 
   local target
   target="$(pick_flash_mode)"
