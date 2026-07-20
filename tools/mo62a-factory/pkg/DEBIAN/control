@@ -1,0 +1,16 @@
+Package: mo62a-factory
+Version: 1.0.0
+Architecture: arm64
+Maintainer: MO-62A SDK <sdk@mo-62a>
+Section: utils
+Priority: optional
+Depends: python3, python3-libgpiod
+Description: MO-62A factory production-test tools (internal, not for customers)
+ On-device commissioning and production-test commands for the MO-62A board:
+ EEPROM identity programming, loopback/self-test helpers, etc.
+ .
+ Install before production test:  dpkg -i mo62a-factory_*.deb
+ Remove afterwards:               apt remove mo62a-factory
+ .
+ Deliberately excluded from the customer image (rootfs-overlay) for security;
+ shipped and installed only on the factory line.

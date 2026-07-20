@@ -1,0 +1,141 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+storage — MO-62A SD 卡产测命令（启动介质 mmcblk）。
+
+用法：
+    storage test     # 容量 + 顺序读 + 顺序写 判定 -> OK!/FAIL!
+    storage         # 打印 SD 卡信息
+
+判据：① 容量 ≥ 16GB ② 顺序读 ≥ 20MB/s ③ 顺序写 ≥ 10MB/s，全过 -> OK!，否则 FAIL!。
+     （门限远低于正品实测速度，用于抓山寨/劣化卡。）
+
+写测试写临时文件到 rootfs 后立即删除（crash-safe），不写裸设备、不留残留。需 root。
+"""
+
+import os
+import re
+import signal
+import subprocess
+import sys
+
+MOUNT       = "/"
+READ_MB     = 64
+WRITE_MB    = 16
+CAP_MIN_GB  = 16
+READ_MIN    = 20.0        # MB/s
+WRITE_MIN   = 10.0        # MB/s
+WTEST       = "/var/tmp/mo_sd_wtest"
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _fail(reason=None):
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _sd_device():
+    """返回 (整盘 /dev/xxx, 名字)，取 rootfs 所在盘。"""
+    src = subprocess.run(["findmnt", "-no", "SOURCE", MOUNT],
+                         capture_output=True, text=True).stdout.strip()
+    m = re.match(r"/dev/(mmcblk\d+)p\d+", src)
+    if m:
+        return "/dev/" + m.group(1), m.group(1)
+    m = re.match(r"/dev/([a-z]+)\d+$", src)
+    if m:
+        return "/dev/" + m.group(1), m.group(1)
+    return None, None
+
+
+def _capacity_gb(name):
+    try:
+        with open("/sys/block/%s/size" % name) as f:
+            sectors = int(f.read().strip())
+        return sectors * 512 / 1000 / 1000 / 1000
+    except (OSError, ValueError):
+        return None
+
+
+def _parse_mbps(out):
+    m = re.search(r"([\d.]+)\s*([kMG])B/s", out)
+    if not m:
+        return None
+    return float(m.group(1)) * {"k": 0.001, "M": 1.0, "G": 1000.0}[m.group(2)]
+
+
+def cmd_test():
+    _require_root()
+    dev, name = _sd_device()
+    if not dev:
+        _fail("未识别 SD 卡设备")
+
+    def _cleanup(*_):
+        try:
+            os.remove(WTEST)
+        except OSError:
+            pass
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, lambda *a: (_cleanup(), sys.exit(1)))
+
+    cap = _capacity_gb(name)
+
+    # 顺序读（drop_caches 走真实卡速）
+    subprocess.run(["sh", "-c", "echo 3 > /proc/sys/vm/drop_caches"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    r = subprocess.run(["dd", "if=%s" % dev, "of=/dev/null",
+                        "bs=1M", "count=%d" % READ_MB],
+                       capture_output=True, text=True, timeout=60)
+    rd = _parse_mbps(r.stderr) if r.returncode == 0 else None
+
+    # 顺序写（临时文件 fsync）
+    try:
+        w = subprocess.run(["dd", "if=/dev/zero", "of=%s" % WTEST,
+                            "bs=1M", "count=%d" % WRITE_MB, "conv=fsync"],
+                           capture_output=True, text=True, timeout=60)
+        wr = _parse_mbps(w.stderr) if w.returncode == 0 else None
+    finally:
+        _cleanup()
+
+    if cap is None or cap < CAP_MIN_GB:
+        _fail("容量不足（%.1fGB < %dGB）" % (cap or 0, CAP_MIN_GB))
+    if rd is None or rd < READ_MIN:
+        _fail("读速不达标（%s < %.0f MB/s）"
+              % ("%.1f" % rd if rd else "err", READ_MIN))
+    if wr is None or wr < WRITE_MIN:
+        _fail("写速不达标（%s < %.0f MB/s）"
+              % ("%.1f" % wr if wr else "err", WRITE_MIN))
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_info():
+    dev, name = _sd_device()
+    print("SD 卡产测：")
+    if dev:
+        cap = _capacity_gb(name)
+        print("  设备 : %s  容量 %.1fGB" % (dev, cap or 0))
+    else:
+        print("  设备 : 未识别")
+    print("  判据 : 容量≥%dGB 读≥%.0f 写≥%.0f MB/s" % (CAP_MIN_GB, READ_MIN, WRITE_MIN))
+    print("用法：storage test")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "test":
+        cmd_test()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: storage test | storage")
+
+
+if __name__ == "__main__":
+    main()

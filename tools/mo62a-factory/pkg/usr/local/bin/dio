@@ -1,0 +1,138 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+dio — MO-62A 40-pin GPIO 环回产测。
+
+用法：
+    dio detect      # 对每对短接引脚做双向电平翻转验证 -> OK!/FAIL!
+    dio             # 打印回环对信息
+
+判定：每对 (A,B)：A 输出 0/1、B 读回；再 B 输出 0/1、A 读回；全部一致才过。
+     任一对失败 -> FAIL!（stderr 列出失败对）。
+
+要求：需 root + python3-libgpiod(v2)；需接 40-pin **回环治具**（各对物理短接）；
+     需 microSD-default（全 GPIO）启动标签，且相关脚未被 overlay 占用。
+     pin27/28 = 摄像头 I2C，不在回环之列。
+
+只驱动/读取 GPIO，不改任何持久配置（零持久化）。
+"""
+
+import os
+import sys
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+# 回环对：(输出脚, 输入脚)，每脚 = (gpiochip, line)。来自工厂治具实测。
+PAIRS = [
+    (("gpiochip0", 20), ("gpiochip0", 19)),  # Pin3  <-> Pin5
+    (("gpiochip1", 39), ("gpiochip2", 23)),  # Pin7  <-> Pin11
+    (("gpiochip1", 42), ("gpiochip2", 22)),  # Pin13 <-> Pin15
+    (("gpiochip2", 18), ("gpiochip2", 19)),  # Pin19 <-> Pin21
+    (("gpiochip1", 36), ("gpiochip1", 33)),  # Pin29 <-> Pin31
+    (("gpiochip2", 13), ("gpiochip1", 91)),  # Pin33 <-> Pin35
+    (("gpiochip1", 41), ("gpiochip2",  2)),  # Pin37 <-> Pin40
+    (("gpiochip2", 25), ("gpiochip2", 24)),  # Pin8  <-> Pin10
+    (("gpiochip2",  0), ("gpiochip1", 38)),  # Pin12 <-> Pin14
+    (("gpiochip1", 40), ("gpiochip1", 14)),  # Pin18 <-> Pin22
+    (("gpiochip2", 15), ("gpiochip2", 16)),  # Pin24 <-> Pin26
+    (("gpiochip2",  9), ("gpiochip2",  5)),  # Pin36 <-> Pin38
+    (("gpiochip2", 17), ("gpiochip2", 14)),  # Pin23 <-> Pin32 (GPIO1_17/A17 <-> GPIO1_14/A21)
+]
+
+
+def _fail(reason=None):
+    if reason:
+        print("dio: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def cmd_detect():
+    _require_root()
+    try:
+        import gpiod
+        from gpiod.line import Direction, Value
+    except ImportError:
+        _fail("缺 python3-libgpiod")
+
+    # 每个 chip 一次性 request 其涉及的所有 line（初始 INPUT）
+    chip_lines = {}
+    for out, inp in PAIRS:
+        for chip, line in (out, inp):
+            chip_lines.setdefault(chip, set()).add(line)
+
+    reqs = {}
+    try:
+        for chip, lines in chip_lines.items():
+            cfg = {ln: gpiod.LineSettings(direction=Direction.INPUT) for ln in lines}
+            reqs[chip] = gpiod.request_lines("/dev/%s" % chip,
+                                             consumer="mo62a_dio", config=cfg)
+    except Exception as e:
+        for r in reqs.values():
+            r.release()
+        _fail("申请 GPIO 失败（脚被占用/非全 GPIO 配置？）: %s" % e)
+
+    def drive_read(drv_chip, drv_line, rd_chip, rd_line, val):
+        reqs[drv_chip].reconfigure_lines({drv_line: gpiod.LineSettings(
+            direction=Direction.OUTPUT,
+            output_value=Value.ACTIVE if val else Value.INACTIVE)})
+        reqs[rd_chip].reconfigure_lines({rd_line: gpiod.LineSettings(
+            direction=Direction.INPUT)})
+        got = reqs[rd_chip].get_values([rd_line])[0]
+        return (1 if got == Value.ACTIVE else 0) == val
+
+    errors = []
+    try:
+        for idx, (out, inp) in enumerate(PAIRS, 1):
+            oc, ol = out
+            ic, il = inp
+            good = True
+            try:
+                for v in (0, 1):
+                    if not drive_read(oc, ol, ic, il, v):       # A->B
+                        good = False
+                        break
+                if good:
+                    for v in (0, 1):
+                        if not drive_read(ic, il, oc, ol, v):   # B->A
+                            good = False
+                            break
+            except Exception:
+                good = False
+            if not good:
+                errors.append(idx)
+    finally:
+        for r in reqs.values():
+            r.release()
+
+    if errors:
+        _fail("失败对: %s" % ", ".join("pair%d" % i for i in errors))
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_info():
+    print("40-pin GPIO 回环产测：共 %d 对" % len(PAIRS))
+    for i, (out, inp) in enumerate(PAIRS, 1):
+        print("  pair%-2d  %s:%d <-> %s:%d" % (i, out[0], out[1], inp[0], inp[1]))
+    print("用法：dio detect   （需接 40-pin 回环治具）")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "detect":
+        cmd_detect()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: dio detect | dio")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+mem — MO-62A 内存产测。
+
+用法：
+    mem detect            # 真实 DDR 容量 vs 定型 partnumber -> OK!/FAIL!
+    mem detect 2G|4G|8G   # 真实 DDR 容量 vs 指定容量（定型前用）
+    mem                   # 打印内存信息
+
+真实 DDR 容量取自 device-tree /memory（= 物理 DDR，不受 DTS reserved 影响）；
+不能用 `free -m`——它是内核可用内存，DTS 预留(CMA/DSP 等)后会明显偏小。
+需 root（从定型取期望时要读 EEPROM）。
+"""
+
+import glob
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _dt_ddr_gb():
+    """device-tree /memory@*/reg 求和 → 物理 DDR 容量(GB, 四舍五入)。"""
+    paths = glob.glob("/proc/device-tree/memory@*/reg") \
+        or glob.glob("/sys/firmware/devicetree/base/memory@*/reg")
+    total = 0
+    for p in paths:
+        try:
+            d = open(p, "rb").read()
+        except OSError:
+            continue
+        # arm64: #address-cells=2 #size-cells=2 -> 每组 16 字节 base(8)+size(8)
+        for i in range(0, len(d) - 15, 16):
+            _, size = struct.unpack(">QQ", d[i:i + 16])
+            total += size
+    if total <= 0:
+        return None
+    return int(round(total / (1024 ** 3)))
+
+
+def _parse_cap(s):
+    """'2G'/'2GB'/'2' -> 2。"""
+    m = re.match(r"\s*(\d+)", str(s or ""))
+    return int(m.group(1)) if m else None
+
+
+def _expected_from_model():
+    """从定型 partnumber 取期望容量(GB)。"""
+    try:
+        out = subprocess.run(["factory-model"], capture_output=True, text=True,
+                             timeout=10).stdout
+        return _parse_cap(json.loads(out).get("partnumber"))
+    except Exception:
+        return None
+
+
+def cmd_detect(arg):
+    _require_root()
+    actual = _dt_ddr_gb()
+    if actual is None:
+        _fail()
+    expected = _parse_cap(arg) if arg else _expected_from_model()
+    ok = (expected is not None) and (actual == expected)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    gb = _dt_ddr_gb()
+    pn = _expected_from_model() if (hasattr(os, "geteuid") and os.geteuid() == 0) else None
+    print("内存产测：")
+    print("  真实 DDR   : %s" % ("%dGB" % gb if gb else "读取失败"))
+    print("  定型 partnumber: %s" % ("%dG" % pn if pn else "未读到/未定型"))
+    print("用法：mem detect [2G|4G|8G]")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "detect":
+        cmd_detect(argv[1] if len(argv) > 1 else None)
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

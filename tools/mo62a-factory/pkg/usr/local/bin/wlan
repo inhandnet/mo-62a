@@ -1,0 +1,144 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+wlan — MO-62A Wi-Fi 产测命令。
+
+用法：
+    wlan 2g signal <AP>    # 2.4GHz 扫描指定 SSID，报告信号 -> "signal: -NN dBm" + OK!/FAIL!
+    wlan 5g signal <AP>    # 5GHz 同上
+    wlan                   # 打印无线信息
+
+<AP> 为要查找的 SSID（含空格可直接写，末尾多段自动拼接）。
+扫到该 SSID（对应频段，取最强）-> 打印 signal + OK!；未扫到 -> FAIL!。
+
+验证 Wi-Fi 芯片(RTL8821CS/SDIO) + 天线接收链路。需 root（iw scan）。只扫描不改配置。
+"""
+
+import os
+import re
+import subprocess
+import sys
+import time
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+# 频段范围(MHz)
+BANDS = {"2g": (2400, 2500), "5g": (4900, 5900)}
+
+
+def _fail(reason=None):
+    if reason:
+        print("wlan: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _wlan_iface():
+    if os.path.isdir("/sys/class/net/wlan0/wireless"):
+        return "wlan0"
+    base = "/sys/class/net"
+    try:
+        for n in sorted(os.listdir(base)):
+            if os.path.isdir(os.path.join(base, n, "wireless")):
+                return n
+    except OSError:
+        pass
+    return None
+
+
+def _scan(iface):
+    subprocess.run(["ip", "link", "set", iface, "up"],
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(4):
+        try:
+            r = subprocess.run(["iw", "dev", iface, "scan"],
+                               capture_output=True, text=True, timeout=25)
+        except subprocess.TimeoutExpired:
+            return None
+        if r.returncode == 0:
+            return r.stdout
+        time.sleep(2)          # busy（NM 正在扫）时重试
+    return None
+
+
+def _parse(out):
+    """解析 iw scan 输出 -> [{freq, signal, ssid}, ...]。"""
+    bss = []
+    cur = None
+    for line in out.splitlines():
+        s = line.strip()
+        if line.startswith("BSS "):
+            if cur:
+                bss.append(cur)
+            cur = {"freq": None, "signal": None, "ssid": None}
+        elif cur is not None:
+            if s.startswith("freq:"):
+                try:
+                    cur["freq"] = float(s.split(":", 1)[1])
+                except ValueError:
+                    pass
+            elif s.startswith("signal:"):
+                m = re.search(r"(-?\d+(?:\.\d+)?)", s)
+                if m:
+                    cur["signal"] = float(m.group(1))
+            elif s.startswith("SSID:"):
+                cur["ssid"] = line.split("SSID:", 1)[1].strip()
+    if cur:
+        bss.append(cur)
+    return bss
+
+
+def _signal_fail(reason=None):
+    """信号命令的失败：只打 FAIL!（不打 signal 行、不打诊断行）。"""
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def cmd_signal(band, ssid):
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _signal_fail("需要 root（sudo）")
+    iface = _wlan_iface()
+    if not iface:
+        _signal_fail("未找到无线网卡")
+    out = _scan(iface)
+    if out is None:
+        _signal_fail("扫描失败（iw scan 忙/超时）")
+    lo, hi = BANDS[band]
+    best = None
+    for b in _parse(out):
+        if b["ssid"] == ssid and b["freq"] and lo <= b["freq"] < hi \
+                and b["signal"] is not None:
+            if best is None or b["signal"] > best:
+                best = b["signal"]
+    if best is None:
+        _signal_fail("%s 频段未扫到 SSID %r" % (band, ssid))
+    print("signal: %d dBm" % round(best))
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_info():
+    iface = _wlan_iface()
+    print("Wi-Fi 产测：")
+    print("  无线网卡 : %s" % (iface or "未找到"))
+    print("用法：wlan 2g signal <AP> | wlan 5g signal <AP>")
+
+
+def main():
+    argv = sys.argv[1:]
+    if len(argv) >= 3 and argv[0] in BANDS and argv[1] == "signal":
+        cmd_signal(argv[0], " ".join(argv[2:]))
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: wlan {2g|5g} signal <AP> | wlan")
+
+
+if __name__ == "__main__":
+    main()

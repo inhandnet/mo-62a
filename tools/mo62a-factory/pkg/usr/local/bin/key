@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+key — MO-62A 按键产测（电源键 S1 / tps6594-pwrbutton）。
+
+用法：
+    key power status press      # 当前电源键"按下"? 是 -> OK! ，否 -> FAIL!
+    key power status release    # 当前电源键"松开"? 是 -> OK! ，否 -> FAIL!
+    key                         # 打印按键信息
+
+原理：evdev `EVIOCGKEY` 读设备当前键位(KEY_POWER=116)。press=当前按着，release=当前松开。
+     板上 logind 已配 HandlePowerKey=ignore，按电源键不会关机，可放心按住测试。需 root，只读。
+"""
+
+import fcntl
+import glob
+import os
+import sys
+
+BTN_NAME  = "tps6594-pwrbutton"
+KEY_POWER = 116
+EVIOCGKEY = 0x80604518        # EVIOCGKEY(96)：读当前键位位图
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _event_dev(name):
+    for e in glob.glob("/sys/class/input/event*"):
+        try:
+            with open(os.path.join(e, "device", "name")) as f:
+                n = f.read().strip()
+        except OSError:
+            continue
+        if name in n:
+            return "/dev/input/" + os.path.basename(e)
+    return None
+
+
+def _is_pressed():
+    """当前电源键是否按下；设备缺失/读失败返回 None。"""
+    dev = _event_dev(BTN_NAME)
+    if not dev:
+        return None
+    try:
+        fd = os.open(dev, os.O_RDONLY)
+    except OSError:
+        return None
+    try:
+        buf = bytearray(96)
+        fcntl.ioctl(fd, EVIOCGKEY, buf)
+        return bool(buf[KEY_POWER // 8] & (1 << (KEY_POWER % 8)))
+    except OSError:
+        return None
+    finally:
+        os.close(fd)
+
+
+def cmd_status(want):
+    _require_root()
+    pressed = _is_pressed()
+    if pressed is None:
+        _fail()
+    ok = pressed if want == "press" else (not pressed)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    dev = _event_dev(BTN_NAME)
+    print("按键产测（电源键）：")
+    print("  设备 : %s (%s)" % (dev or "未找到", BTN_NAME))
+    if dev:
+        p = _is_pressed()
+        print("  当前 : %s" % ("按下" if p else "松开" if p is not None else "读失败"))
+    print("用法：key power status press | key power status release")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv[:2] == ["power", "status"] and len(argv) >= 3 and argv[2] in ("press", "release"):
+        cmd_status(argv[2])
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

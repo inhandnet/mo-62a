@@ -148,7 +148,35 @@ install_rootfs_overlay() {
   cp -a "$overlay_dir"/. "$ROOTFS_MNT"/
   # Ensure scripts are executable
   find "$ROOTFS_MNT/usr/local/bin" -type f 2>/dev/null | xargs chmod +x 2>/dev/null || true
+  # NetworkManager refuses to load keyfiles that aren't root:root 0600. git only
+  # tracks the exec bit (not ownership, not 0600), so a fresh clone ships these
+  # 0644/non-root and cp -a carries that in — enforce the required perms here.
+  if [[ -d "$ROOTFS_MNT/etc/NetworkManager/system-connections" ]]; then
+    chown -R 0:0 "$ROOTFS_MNT/etc/NetworkManager/system-connections"
+    chmod 600 "$ROOTFS_MNT"/etc/NetworkManager/system-connections/*.nmconnection 2>/dev/null || true
+  fi
   echo "Rootfs overlay installed."
+}
+
+build_factory_deb() {
+  local version="$1" outdir="$2"
+  local factory_dir="$SDK_ROOT/tools/mo62a-factory"
+  local deb_path="$factory_dir/dist/mo62a-factory-${version}.deb"
+
+  if [[ -d "$factory_dir" ]]; then
+    if [[ -f "$factory_dir/build.sh" ]]; then
+      echo "Building mo62a-factory deb for $version ..." >&2
+      ( cd "$factory_dir" && bash build.sh "$version" ) || die "Failed to build mo62a-factory deb"
+    fi
+
+    if [[ -f "$deb_path" ]]; then
+      cp -v "$deb_path" "$outdir/" >&2
+    else
+      echo "WARN: mo62a-factory deb not found: $deb_path" >&2
+    fi
+  else
+    echo "WARN: mo62a-factory directory not found, skipping factory deb" >&2
+  fi
 }
 
 install_external_apps_into_rootfs() {
@@ -781,6 +809,8 @@ run_image_flow() {
   [[ "$IMG_SIZE_GIB" =~ ^[0-9]+$ ]] || die "Image size must be an integer GiB"
   mkdir -p "$OUT_DIR"
 
+  build_factory_deb "$IMAGE_VERSION" "$OUT_DIR"
+
   echo >&2
   echo "Summary:" >&2
   echo "  rootfs tarball:  $ROOTFS_TARBALL" >&2
@@ -788,6 +818,7 @@ run_image_flow() {
   echo "  name:            $NAME" >&2
   echo "  img size (GiB):  $IMG_SIZE_GIB" >&2
   echo "  compress:        $COMPRESS" >&2
+  echo "  factory deb:     $OUT_DIR/mo62a-factory-${IMAGE_VERSION}.deb" >&2
 
   confirm_or_die "This will create/overwrite: $OUT_DIR/${NAME}.img (and compressed output)."
 
@@ -816,6 +847,7 @@ run_image_flow() {
   echo "Done."
   echo "Output directory: $OUT_DIR"
   echo "Raw image:        $OUT_DIR/${NAME}.img"
+  echo "Factory deb:      $OUT_DIR/mo62a-factory-${IMAGE_VERSION}.deb"
   if [[ "$COMPRESS" == "zip" && -f "$OUT_DIR/${NAME}.img.zip" ]]; then
     echo "Compressed:       $OUT_DIR/${NAME}.img.zip"
   fi

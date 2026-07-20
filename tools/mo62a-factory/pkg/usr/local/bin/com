@@ -1,0 +1,196 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+com — MO-62A 串口（COM）产测命令。
+
+用法：
+    com test debug      # 调试串口(ttyS2) TX↔RX 短接回环自测 -> OK!/FAIL!
+    com                 # 打印串口信息
+
+要求 / 约束（调试口测试）：
+  * 调试口 **TX↔RX 短接**（回环帽/跳线）下运行；
+  * 必须经 **SSH/网络** 触发，勿用被测串口本身当控制口（会中断会话）；
+  * 需 root。
+
+设计铁律（零持久化 + 强制还原）：
+  测试仅做运行时改动——停 serial-getty、压低 printk——**不写 SD 文件系统**；
+  无论成功/失败/异常/被中断，都在 finally 中还原（重启 getty、恢复 printk），
+  以免临时设置残留到 SD 卡发给客户。
+"""
+
+import os
+import select
+import signal
+import subprocess
+import sys
+import termios
+import time
+
+try:
+    import secrets
+    def _rand_hex(n):
+        return secrets.token_hex(n)
+except Exception:
+    def _rand_hex(n):
+        return os.urandom(n).hex()
+
+# 端口表：key -> 设备/getty/波特率。后续新增对外串口在此登记即可。
+PORTS = {
+    "debug": {
+        "dev":   "/dev/ttyS2",              # console=ttyS2,115200n8（实测）
+        "getty": "serial-getty@ttyS2.service",
+        "baud":  termios.B115200,
+    },
+}
+
+READ_WINDOW = 1.5                            # 读回窗口（秒）
+PRINTK = "/proc/sys/kernel/printk"
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+
+
+def _fail(reason=None):
+    if reason:
+        print("com: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _loopback_test(port):
+    """对单个串口做 TX↔RX 回环自测；返回 True/False。含 crash-safe 还原。"""
+    dev, getty, baud = port["dev"], port["getty"], port["baud"]
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _raise)
+    signal.signal(signal.SIGHUP, _raise)
+
+    fd = None
+    old_attrs = None
+    saved_printk = None
+    getty_stopped = False
+    ok = False
+
+    try:
+        # 1) 干掉抢字节的读者（运行时，不持久）
+        if getty:
+            _sh("systemctl", "stop", getty)
+            getty_stopped = True
+
+        # 2) 压低 console 噪声，防标记被日志切断（运行时，不写 /etc）
+        try:
+            with open(PRINTK) as f:
+                saved_printk = f.read()
+            with open(PRINTK, "w") as f:
+                f.write("0 0 0 0\n")
+        except OSError:
+            saved_printk = None
+
+        # 3) 打开串口：RAW / 波特率 / 无回显
+        fd = os.open(dev, os.O_RDWR | os.O_NOCTTY | os.O_NONBLOCK)
+        old_attrs = termios.tcgetattr(fd)
+        a = termios.tcgetattr(fd)           # [iflag,oflag,cflag,lflag,ispeed,ospeed,cc]
+        a[0] = 0
+        a[1] = 0
+        a[2] = (a[2] & ~(termios.PARENB | termios.CSTOPB | termios.CSIZE)) \
+            | termios.CS8 | termios.CREAD | termios.CLOCAL
+        a[3] = 0
+        a[4] = baud
+        a[5] = baud
+        a[6][termios.VMIN] = 0
+        a[6][termios.VTIME] = 0
+        termios.tcsetattr(fd, termios.TCSANOW, a)
+        time.sleep(0.1)
+
+        # 4) 清脏数据后一次性原子发出唯一随机标记
+        termios.tcflush(fd, termios.TCIOFLUSH)
+        token = ("MO62A-COM-%s-END" % _rand_hex(16)).encode("ascii")
+        os.write(fd, b"\n" + token + b"\n")
+
+        # 5) 读回窗口内子串匹配（容忍残余噪声）
+        buf = b""
+        deadline = time.monotonic() + READ_WINDOW
+        while time.monotonic() < deadline:
+            r, _, _ = select.select([fd], [], [], 0.1)
+            if r:
+                try:
+                    chunk = os.read(fd, 4096)
+                except OSError:
+                    chunk = b""
+                if chunk:
+                    buf += chunk
+                    if token in buf:
+                        break
+        ok = token in buf
+
+    except KeyboardInterrupt:
+        ok = False
+    finally:
+        _restore(fd, old_attrs, saved_printk, getty_stopped, getty)
+
+    return ok
+
+
+def _restore(fd, old_attrs, saved_printk, getty_stopped, getty):
+    try:
+        if fd is not None:
+            if old_attrs is not None:
+                termios.tcsetattr(fd, termios.TCSANOW, old_attrs)
+            os.close(fd)
+    except OSError:
+        pass
+    if saved_printk is not None:
+        try:
+            with open(PRINTK, "w") as f:
+                f.write(saved_printk)
+        except OSError:
+            pass
+    if getty_stopped and getty:
+        _sh("systemctl", "start", getty)
+
+
+def cmd_test(args):
+    if not args:
+        _fail("用法: com test <port>（如 com test debug）")
+    key = args[0]
+    port = PORTS.get(key)
+    if port is None:
+        _fail("未知串口 %r（可用: %s）" % (key, ", ".join(PORTS)))
+    _require_root()
+    ok = _loopback_test(port)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    print("COM 产测：")
+    for key, p in PORTS.items():
+        st = subprocess.run(["systemctl", "is-active", p["getty"]],
+                            capture_output=True, text=True).stdout.strip() if p["getty"] else "-"
+        print("  %-8s %s @115200 8N1  getty=%s" % (key, p["dev"], st))
+    print("用法：com test debug   （需 TX↔RX 短接，SSH 触发）")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "test":
+        cmd_test(argv[1:])
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: com test debug | com")
+
+
+if __name__ == "__main__":
+    main()

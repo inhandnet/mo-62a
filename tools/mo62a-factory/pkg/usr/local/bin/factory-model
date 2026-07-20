@@ -1,0 +1,361 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+factory-model — MO-62A 设备定型统一接口（工厂产测）。
+
+用单条命令、JSON 参数下发/校验设备定型信息。底层持久化到板载 EEPROM
+（BL24C02 @ i2c0 0x50）的 ONIE TlvInfo v1 结构中；写保护 WP = GPIO1_7
+（"EEP_WC"，gpiochip2 line 7），写时短暂放开、写完立即回置。
+
+用法（见 Factory_TEST.md）。JSON 为单个参数：MES/程序（execv）调用无需引号；
+shell 手敲无引号也可（本命令会重建被展开的 key:value），值含空格/逗号时才需单引号。
+    factory-model                                             # 查看(等同 read)
+    factory-model {"model":"Mo62A","partnumber":"2G", ...}    # 设置(全量/个别)
+    factory-model verify {"serialnumber":"MO62A...", ...}     # 校验(全量/个别)
+    factory-model read [--json]                               # 查看
+
+返回：设置/校验成功打印 `OK!`，失败打印 `FAIL!`（诊断信息走 stderr）。
+退出码：成功 0，失败非 0。设置/查看需 root（读写 sysfs EEPROM + 驱动 WP GPIO）。
+
+MES 定型字段（6 个）：model partnumber serialnumber ethmac oem hwversion
+  diag_version 由本程序写 EEPROM 时自动填入（不由 MES 下发）。
+  完整定型（含以上 6 个字段）先擦除整片再写；部分定型合并既有字段、不擦除。
+"""
+
+import json
+import os
+import struct
+import sys
+import zlib
+
+# ── 硬件/格式常量 ───────────────────────────────────────────────────────────
+EEPROM_PATH  = "/sys/bus/i2c/devices/0-0050/eeprom"
+GPIOCHIP     = "/dev/gpiochip2"      # GPIO1 = gpiochip2
+WP_LINE      = 7                     # GPIO1_7 / EEP_WC
+I2C_BUS      = 0
+
+TLV_HEADER_ID = b"TlvInfo\x00"
+TLV_VERSION   = 0x01
+TLV_CRC_TYPE  = 0xFE
+EEPROM_SIZE   = 256
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+# 字段名 -> ONIE TLV type
+# MES 定型参数（6 个，纯小写命名）-> ONIE TLV type。
+NAME_TO_TYPE = {
+    "model":        0x21,
+    "partnumber":   0x22,
+    "serialnumber": 0x23,
+    "ethmac":       0x24,   # 标准 Base MAC，便于 U-Boot/内核取用
+    "hwversion":    0x26,   # 字符串（如 V1.1）
+    "oem":          0x2B,
+}
+
+# 产测程序写 EEPROM 时自动填入的诊断版本（不由 MES 下发）。
+DIAG_VERSION = "mo62a-diag-1.0.0"
+DIAG_TYPE    = 0x2E
+TYPE_TO_NAME = {v: k for k, v in NAME_TO_TYPE.items()}
+TYPE_TO_NAME[0x2E] = "diag_version"      # 自动填字段，read --json 用
+
+# 人类可读打印用的规范英文名（与出厂/ONIE 工具输出一致）。
+# 注意：JSON 接口的键仍是 NAME_TO_TYPE 里的连字符小写名，这里只影响 read 的显示。
+DISPLAY_NAME = {
+    0x21: "Model",
+    0x22: "Part Number",
+    0x23: "Serial Number",
+    0x24: "Eth MAC",
+    0x26: "HW Version",
+    0x2B: "OEM",
+    0x2E: "Diag Version",
+}
+
+# 完整定型所需的全部字段。set 时若传入字段涵盖了这一整套 -> 视为“完整定型”
+# （先擦除整片再写，不保留旧字段）；否则为“部分定型”（不擦除，合并既有字段）。
+REQUIRED_FIELDS = [
+    "model", "partnumber", "serialnumber", "ethmac", "oem", "hwversion",
+]
+REQUIRED_TYPES = {NAME_TO_TYPE[n] for n in REQUIRED_FIELDS}
+
+
+# ── 结果输出 ────────────────────────────────────────────────────────────────
+def _ok():
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def _fail(reason=None):
+    if reason:
+        print("factory-model: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+# ── 值编码/解码（与 ONIE TlvInfo 一致）────────────────────────────────────────
+def encode_value(tlv_type, raw):
+    if tlv_type == 0x24:                        # ethmac: AA:BB:CC:DD:EE:FF
+        parts = str(raw).replace("-", ":").split(":")
+        if len(parts) != 6:
+            raise ValueError("ethmac 需 6 段十六进制，得到 %r" % raw)
+        return bytes(int(p, 16) for p in parts)
+    return str(raw).encode("ascii")             # 其余（含 hwversion）：ASCII 文本
+
+
+def decode_value(tlv_type, value):
+    if tlv_type == 0x24:
+        return ":".join("%02X" % b for b in value)
+    try:
+        return value.decode("ascii")
+    except UnicodeDecodeError:
+        return value.hex()
+
+
+# ── 镜像构建/解析 ───────────────────────────────────────────────────────────
+def build_onie_image(type_value_pairs):
+    payload = b""
+    for tlv_type, value in type_value_pairs:
+        if len(value) > 255:
+            raise ValueError("type 0x%02X 值过长 (%d 字节)" % (tlv_type, len(value)))
+        payload += bytes([tlv_type, len(value)]) + value
+    total_len = len(payload) + 6                # + CRC TLV(type+len+4)
+    header = TLV_HEADER_ID + bytes([TLV_VERSION]) + struct.pack(">H", total_len)
+    crc_input = header + payload + bytes([TLV_CRC_TYPE, 0x04])
+    crc = zlib.crc32(crc_input) & 0xFFFFFFFF
+    image = crc_input + struct.pack(">I", crc)
+    if len(image) > EEPROM_SIZE:
+        raise ValueError("镜像 %d 字节超出 EEPROM 容量 %d" % (len(image), EEPROM_SIZE))
+    return image
+
+
+def parse_onie_image(data):
+    """解析镜像；头非法抛 ValueError。返回 dict：
+       version, total_len, fields([(type, value_bytes), ...] 按存储顺序),
+       stored_crc, computed_crc, crc_ok。"""
+    if data[:8] != TLV_HEADER_ID:
+        raise ValueError("非 ONIE TlvInfo 头: %r" % data[:8])
+    version = data[8]
+    total_len = int.from_bytes(data[9:11], "big")
+    body = data[11:11 + total_len]
+    fields = []
+    stored_crc = computed_crc = None
+    crc_ok = None
+    i = 0
+    while i + 2 <= len(body):
+        t = body[i]
+        length = body[i + 1]
+        value = body[i + 2:i + 2 + length]
+        if t == TLV_CRC_TYPE:
+            stored_crc = int.from_bytes(value, "big")
+            computed_crc = zlib.crc32(data[:11 + i] + bytes([t, length])) & 0xFFFFFFFF
+            crc_ok = (stored_crc == computed_crc)
+            break
+        fields.append((t, value))
+        i += 2 + length
+    return {"version": version, "total_len": total_len, "fields": fields,
+            "stored_crc": stored_crc, "computed_crc": computed_crc, "crc_ok": crc_ok}
+
+
+def load_current():
+    """读回并解析当前 EEPROM，返回 {type: value_bytes}；空/非法则返回 {}。"""
+    try:
+        with open(EEPROM_PATH, "rb") as f:
+            data = f.read(EEPROM_SIZE)
+    except OSError:
+        return {}
+    try:
+        info = parse_onie_image(data)
+        return {t: v for t, v in info["fields"]}
+    except ValueError:
+        return {}
+
+
+# ── EEPROM 写入（放开 WP -> 写 -> 回置 WP）──────────────────────────────────
+def write_eeprom(image):
+    import time
+    import subprocess
+    import gpiod
+    from gpiod.line import Direction, Value
+
+    if not os.path.exists(EEPROM_PATH):
+        subprocess.run(["modprobe", "at24"])
+        try:
+            with open("/sys/bus/i2c/devices/i2c-%d/new_device" % I2C_BUS, "w") as f:
+                f.write("24c02 0x50\n")
+        except OSError as e:
+            raise RuntimeError("绑定 at24 失败: %s" % e)
+        time.sleep(1)
+    if not os.path.exists(EEPROM_PATH):
+        raise RuntimeError("%s 不存在" % EEPROM_PATH)
+
+    req = gpiod.request_lines(
+        GPIOCHIP, consumer="factory-model-wp",
+        config={WP_LINE: gpiod.LineSettings(direction=Direction.OUTPUT,
+                                            output_value=Value.INACTIVE)})
+    time.sleep(0.3)
+    try:
+        with open(EEPROM_PATH, "r+b") as f:
+            f.seek(0)
+            f.write(image)
+            f.flush()
+            os.fsync(f.fileno())
+        time.sleep(0.4)
+    finally:
+        req.set_value(WP_LINE, Value.ACTIVE)    # WP 高 = 保护
+        time.sleep(0.2)
+        req.release()
+
+    # 回读逐字节比对
+    with open(EEPROM_PATH, "rb") as f:
+        back = f.read(len(image))
+    if back != image:
+        raise RuntimeError("回读与写入不一致")
+
+
+# ── 输入校验 ────────────────────────────────────────────────────────────────
+def parse_fields(args):
+    """由命令行参数(list) 解析出 {type: raw_str}；键/值非法抛 ValueError。"""
+    obj = _obj_from_args(args)
+    if not isinstance(obj, dict):
+        raise ValueError("参数必须是 JSON 对象")
+    if not obj:
+        raise ValueError("参数为空")
+    out = {}
+    for key, val in obj.items():
+        if key not in NAME_TO_TYPE:
+            raise ValueError("未知字段 %r" % key)
+        out[NAME_TO_TYPE[key]] = val
+    return out
+
+
+def _obj_from_args(args):
+    """由命令行参数得到字段 dict。
+       优先当作单参数 JSON（execv 单参数 / shell 加了单引号）；
+       退化处理 shell 下无引号被花括号展开、去引号成 key:value 片段的情况
+       （MAC 的冒号用首个冒号切分；值含空格/逗号时仍需单引号）。"""
+    joined = " ".join(args).strip()
+    try:
+        obj = json.loads(joined)
+        if isinstance(obj, dict):
+            return obj
+    except Exception:
+        pass
+    obj = {}
+    for tok in args:
+        tok = tok.strip().strip("{}").strip().rstrip(",")
+        if not tok:
+            continue
+        if ":" not in tok:
+            raise ValueError("参数不是合法 JSON（值含空格/逗号时请用单引号包裹整段）")
+        k, v = tok.split(":", 1)
+        k = k.strip().strip('"').strip()
+        v = v.strip().rstrip(",").strip().strip('"')
+        if k:
+            obj[k] = v
+    return obj
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+# ── 子命令 ──────────────────────────────────────────────────────────────────
+def cmd_set(args):
+    _require_root()
+    try:
+        incoming = parse_fields(args)
+        encoded = {t: encode_value(t, v) for t, v in incoming.items()}
+    except ValueError as e:
+        _fail(str(e))
+
+    is_full = REQUIRED_TYPES.issubset(set(incoming.keys()))
+
+    # diag_version 由产测程序自动填入（不由 MES 下发）
+    encoded[DIAG_TYPE] = encode_value(DIAG_TYPE, DIAG_VERSION)
+
+    try:
+        if is_full:
+            # 完整定型：先擦除（整片 0xFF）再写，只保留本次下发的字段。
+            image = build_onie_image(sorted(encoded.items()))
+            blob = image + b"\xff" * (EEPROM_SIZE - len(image))
+        else:
+            # 部分定型：不擦除，合并既有字段，只写镜像长度。
+            merged = load_current()
+            merged.update(encoded)
+            blob = build_onie_image(sorted(merged.items()))
+        write_eeprom(blob)
+    except (ValueError, RuntimeError, OSError) as e:
+        _fail(str(e))
+    _ok()
+
+
+def cmd_verify(args):
+    try:
+        incoming = parse_fields(args)
+        expected = {t: encode_value(t, v) for t, v in incoming.items()}
+    except ValueError as e:
+        _fail(str(e))
+    current = load_current()
+    for t, exp in expected.items():
+        got = current.get(t)
+        if got != exp:
+            _fail("字段 %s 不匹配（期望 %r，实际 %r）"
+                  % (TYPE_TO_NAME.get(t, "0x%02X" % t),
+                     decode_value(t, exp),
+                     decode_value(t, got) if got is not None else None))
+    _ok()
+
+
+def cmd_read(as_json):
+    try:
+        with open(EEPROM_PATH, "rb") as f:
+            data = f.read(EEPROM_SIZE)
+    except OSError as e:
+        _fail("读取 %s 失败: %s" % (EEPROM_PATH, e))
+    try:
+        info = parse_onie_image(data)
+    except ValueError as e:
+        _fail("EEPROM 非有效 ONIE TlvInfo: %s" % e)
+
+    if as_json:
+        obj = {TYPE_TO_NAME.get(t, "0x%02X" % t): decode_value(t, v)
+               for t, v in info["fields"]}
+        obj["_crc_valid"] = info["crc_ok"]
+        print(json.dumps(obj, ensure_ascii=False, indent=2))
+    else:
+        print("TlvInfo header ver=0x%02X total_len=%d"
+              % (info["version"], info["total_len"]))
+        print("CRC: stored=0x%08X computed=0x%08X %s"
+              % (info["stored_crc"] or 0, info["computed_crc"] or 0,
+                 "OK" if info["crc_ok"] else "BAD"))
+        print()
+        print("%-4s  %-20s %-4s %s" % ("Type", "Name", "Len", "Value"))
+        print("-" * 50)
+        for t, v in info["fields"]:
+            if t not in DISPLAY_NAME:      # 只显示已知字段，跳过 CRC/遗留类型
+                continue
+            print("0x%02X  %-20s %-4d %s"
+                  % (t, DISPLAY_NAME[t], len(v), decode_value(t, v)))
+    sys.exit(0 if info["crc_ok"] else 1)
+
+
+# ── 入口（接口固定：位置参数）──────────────────────────────────────────────
+def main():
+    argv = sys.argv[1:]
+    if not argv:
+        cmd_read(True)                  # 无参数：输出 JSON（便于生产脚本解析）
+        return
+
+    if argv[0] == "verify":
+        if len(argv) < 2:
+            _fail("verify 需要 JSON 参数")
+        cmd_verify(argv[1:])
+    elif argv[0] == "read":
+        cmd_read("--json" in argv[1:])
+    else:
+        cmd_set(argv)
+
+
+if __name__ == "__main__":
+    main()

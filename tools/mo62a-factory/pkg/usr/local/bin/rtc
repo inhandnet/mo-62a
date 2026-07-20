@@ -1,0 +1,134 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+rtc — MO-62A RTC 电池产测（PCF85363）。
+
+用法：
+    rtc set              # 断电前：写基准时间到 RTC -> OK!/FAIL!
+    rtc check [epoch]    # 上电后：判 RTC 断电期间是否继续走 -> OK!/FAIL!
+                                 # 给 epoch 则判完把 RTC 设为该时间（恢复正确时间）
+    rtc                          # 打印 RTC 信息
+
+原理：set 写固定基准 T0(2025-01-01 UTC)；断电 ≥N 秒再上电；check 判"断电期间 RTC 走的秒数"
+     = (RTC−T0) − 本次开机 uptime ≥ N：电池好→断电时 RTC 靠电池继续走→≥N→OK!；
+     电池冻住/复位/没电→<N→FAIL!。减 uptime 是排除启动/开机在跑的时间(否则光启动就 >门限)。
+     基准是固定常量，无需存文件、无需外部准时基准（自包含）。
+     NTP：set 先 disable+stop NTP（防上电后联网同步把 RTC 覆盖掉），check 判完无论成败都
+     enable+start 回 NTP（联网则自动重新同步时间）。→ 在线/离线产线都适用。
+
+SOP：set 后尽快断电、check 一上电就跑（开机在跑的时间要小）；断电时长 ≥N。需 root。
+"""
+
+import os
+import subprocess
+import sys
+
+RTC_EPOCH = "/sys/class/rtc/rtc0/since_epoch"
+BASELINE  = 1735689600        # 2025-01-01 00:00:00 UTC
+MIN_OFF   = 10                # 断电期间 RTC 至少应推进的秒数
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+
+
+def _ntp(enable):
+    """开/关 NTP（timedatectl set-ntp 会 enable+start / disable+stop timesyncd，持久）。"""
+    _sh("timedatectl", "set-ntp", "true" if enable else "false")
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _rtc_epoch():
+    try:
+        with open(RTC_EPOCH) as f:
+            return int(f.read().strip())
+    except (OSError, ValueError):
+        return None
+
+
+def _uptime():
+    """本次开机已运行秒数（用于扣除启动/开机在跑的时间）。"""
+    try:
+        with open("/proc/uptime") as f:
+            return int(float(f.read().split()[0]))
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def _rtc_set(epoch):
+    """把 RTC 设为指定 UTC epoch（不改系统时钟）。成功返回 True。"""
+    r = subprocess.run(["hwclock", "--set", "--date=@%d" % int(epoch), "--utc"],
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    return r.returncode == 0
+
+
+def cmd_set():
+    _require_root()
+    _ntp(False)                                  # 先 disable+stop NTP，防上电后同步覆盖 RTC
+    if not _rtc_set(BASELINE):
+        _fail()
+    e = _rtc_epoch()
+    if e is None or abs(e - BASELINE) > 3:        # 回读确认写入
+        _fail()
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_check(restore_epoch):
+    _require_root()
+    t2 = _rtc_epoch()
+    up = _uptime()
+    # 断电期间 RTC 走的秒数 = RTC 推进 − 本次开机时长(排除启动/开机在跑的时间)
+    ok = (t2 is not None) and (up is not None) and ((t2 - BASELINE) - up >= MIN_OFF)
+    _ntp(True)                                    # 无论 OK/FAIL，都把 NTP enable+start 回来
+    if restore_epoch is not None:                 # 可选：离线时把 RTC 设回正确时间
+        try:
+            _rtc_set(int(restore_epoch))
+        except (ValueError, OSError):
+            pass
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    e = _rtc_epoch()
+    name = None
+    try:
+        with open("/sys/class/rtc/rtc0/name") as f:
+            name = f.read().strip()
+    except OSError:
+        pass
+    print("RTC 电池产测：")
+    print("  器件     : %s" % (name or "无 /dev/rtc0"))
+    print("  当前 RTC : %s" % (e if e is not None else "读失败"))
+    print("  基准/门限: T0=%d(2025-01-01 UTC), 断电门限 %ds" % (BASELINE, MIN_OFF))
+    print("用法：rtc set  → 断电≥%ds → rtc check" % MIN_OFF)
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv[:1] == ["set"]:
+        cmd_set()
+    elif argv[:1] == ["check"]:
+        cmd_check(argv[1] if len(argv) > 1 else None)
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

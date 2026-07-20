@@ -1,0 +1,119 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+led — MO-62A 指示灯产测（红/绿状态灯）。
+
+用法：
+    led on all red      # 点亮红灯(熄绿灯) -> OK!/FAIL!，操作员目视确认
+    led on all green    # 点亮绿灯(熄红灯) -> OK!/FAIL!
+    led off all         # 全灭并恢复 led-status 服务（收尾）-> OK!/FAIL!
+    led                 # 打印 LED 信息
+
+会临时停 led-status（防它抢控制）、把红/绿 trigger 设 none 后手动点灯；`led off all`
+或重启即恢复(led-status 重新接管)。均为运行时改动，不写 SD。需 root。
+"""
+
+import os
+import subprocess
+import sys
+
+COLOR_LEDS = ["red", "green"]        # 状态 bicolor 灯（mmc* 是 SD 活动灯，不动）
+LED_SVC    = "led-status"
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+
+
+def _read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def _write(path, val):
+    try:
+        with open(path, "w") as f:
+            f.write(str(val))
+        return True
+    except OSError:
+        return False
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _base(c):
+    return "/sys/class/leds/%s" % c
+
+
+def cmd_on(color):
+    _require_root()
+    if color not in COLOR_LEDS or not os.path.isdir(_base(color)):
+        _fail()
+    _sh("systemctl", "stop", LED_SVC)            # 防 led-status 抢控制
+    ok = True
+    for c in COLOR_LEDS:
+        b = _base(c)
+        if not os.path.isdir(b):
+            continue
+        _write(b + "/trigger", "none")
+        mx = _read(b + "/max_brightness") or "1"
+        if not _write(b + "/brightness", mx if c == color else "0"):
+            ok = False
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_off():
+    _require_root()
+    for c in COLOR_LEDS:
+        b = _base(c)
+        if os.path.isdir(b):
+            _write(b + "/trigger", "none")
+            _write(b + "/brightness", "0")
+    _sh("systemctl", "start", LED_SVC)           # 恢复状态灯服务
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_info():
+    print("LED 产测：")
+    for c in COLOR_LEDS:
+        b = _base(c)
+        if os.path.isdir(b):
+            print("  %-6s: bright=%s max=%s trigger=%s"
+                  % (c, _read(b + "/brightness"), _read(b + "/max_brightness"),
+                     _read(b + "/trigger")))
+        else:
+            print("  %-6s: 无" % c)
+    print("用法：led on all red | led on all green | led off all")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv[:2] == ["on", "all"] and len(argv) >= 3:
+        cmd_on(argv[2])
+    elif argv[:2] == ["off", "all"]:
+        cmd_off()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

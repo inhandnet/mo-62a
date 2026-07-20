@@ -1,0 +1,160 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+fan — MO-62A 风扇产测命令。
+
+用法：
+    fan test        # 0% 与 100% 转速对比 -> OK!/FAIL!
+    fan             # 打印风扇信息
+
+判定：暂停 fancontrol，手动把 PWM 设 0% 与 100%，各稳定后读转速（fan1_input）；
+     100% 转速 ≥ 阈值 且 明显大于 0%（证明风扇在转且随 PWM 变化）-> OK!，否则 FAIL!。
+
+设计铁律（零持久化 + 强制还原）：仅运行时改 sysfs PWM、停 fancontrol；无论成败/异常/中断
+     都在 finally 还原原 PWM 值/模式并重启 fancontrol。不写 SD。
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+FAN_NAME     = "pwmfan"
+FANCONTROL   = "fancontrol.service"
+SETTLE       = 3.0        # 设 PWM 后等待转速稳定（秒）
+FULL_MIN_RPM = 1500       # 100% 至少应达到的转速
+MIN_DELTA    = 300        # 100% 相对 0% 至少高出（证明随 PWM 变化）
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+
+
+def _read(path):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return None
+
+
+def _write(path, val):
+    try:
+        with open(path, "w") as f:
+            f.write(str(val))
+        return True
+    except OSError:
+        return False
+
+
+def _fail(reason=None):
+    if reason:
+        print("fan: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _find_fan():
+    """返回 pwmfan 的 hwmon 目录（含 pwm1/fan1_input）。"""
+    base = "/sys/class/hwmon"
+    try:
+        for h in sorted(os.listdir(base)):
+            d = os.path.join(base, h)
+            if _read(os.path.join(d, "name")) == FAN_NAME \
+                    and os.path.exists(os.path.join(d, "pwm1")) \
+                    and os.path.exists(os.path.join(d, "fan1_input")):
+                return d
+    except OSError:
+        pass
+    return None
+
+
+def _rpm(hw):
+    try:
+        return int(_read(os.path.join(hw, "fan1_input")) or 0)
+    except ValueError:
+        return 0
+
+
+def cmd_test():
+    _require_root()
+    hw = _find_fan()
+    if not hw:
+        _fail("未找到 %s 风扇" % FAN_NAME)
+
+    en_path = os.path.join(hw, "pwm1_enable")
+    pwm_path = os.path.join(hw, "pwm1")
+    en0 = _read(en_path)
+    pwm0 = _read(pwm_path)
+    fc_active = (subprocess.run(["systemctl", "is-active", FANCONTROL],
+                 capture_output=True, text=True).stdout.strip() == "active")
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, _raise)
+
+    off_rpm = full_rpm = -1
+    try:
+        if fc_active:
+            _sh("systemctl", "stop", FANCONTROL)
+        _write(en_path, "1")                 # 手动模式
+        _write(pwm_path, "0")                # 0%
+        time.sleep(SETTLE)
+        off_rpm = _rpm(hw)
+        _write(pwm_path, "255")              # 100%
+        time.sleep(SETTLE)
+        full_rpm = _rpm(hw)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if pwm0 is not None:
+            _write(pwm_path, pwm0)
+        if en0 is not None:
+            _write(en_path, en0)
+        if fc_active:
+            _sh("systemctl", "start", FANCONTROL)
+
+    ok = (full_rpm >= FULL_MIN_RPM) and (full_rpm - off_rpm >= MIN_DELTA)
+    if not ok:
+        print("fan: 0%%=%d 100%%=%d RPM（要求 100%% ≥ %d 且 高出 0%% ≥ %d）"
+              % (off_rpm, full_rpm, FULL_MIN_RPM, MIN_DELTA), file=sys.stderr)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    hw = _find_fan()
+    print("风扇产测：")
+    if hw:
+        print("  hwmon    : %s" % hw)
+        print("  pwm1     : %s  pwm1_enable=%s" %
+              (_read(os.path.join(hw, "pwm1")), _read(os.path.join(hw, "pwm1_enable"))))
+        print("  fan1_input: %d RPM" % _rpm(hw))
+    else:
+        print("  未找到 %s" % FAN_NAME)
+    print("用法：fan test")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "test":
+        cmd_test()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: fan test | fan")
+
+
+if __name__ == "__main__":
+    main()

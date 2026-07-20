@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+bt — MO-62A 蓝牙产测命令。
+
+用法：
+    bt detect      # 打印蓝牙控制器 MAC + OK!；无控制器/MAC 非法 -> FAIL!
+    bt             # 打印蓝牙信息
+
+验证 RTL8821CS 蓝牙(UART/H5，rtk_hciattach)是否起来、有合法 BD Address。需 root。
+只读取，不改配置。
+"""
+
+import os
+import re
+import subprocess
+import sys
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL)
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _bd_address():
+    """从 hciconfig 读第一个控制器的 BD Address（合法且非全 0）。"""
+    try:
+        out = subprocess.run(["hciconfig"], capture_output=True, text=True,
+                             timeout=10).stdout
+    except Exception:
+        return None
+    m = re.search(r"BD Address:\s*([0-9A-Fa-f:]{17})", out)
+    if m and m.group(1).upper() != "00:00:00:00:00:00":
+        return m.group(1).upper()
+    return None
+
+
+def cmd_detect():
+    _require_root()
+    mac = _bd_address()
+    if not mac:                       # 尝试拉起 hci0 再读一次
+        _sh("hciconfig", "hci0", "up")
+        mac = _bd_address()
+    if not mac:
+        _fail()
+    print(mac)
+    print(OK_MSG)
+    sys.exit(0)
+
+
+def cmd_info():
+    print("蓝牙产测：")
+    print("  控制器 MAC : %s" % (_bd_address() or "无"))
+    print("用法：bt detect")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv and argv[0] == "detect":
+        cmd_detect()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,470 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+camera — MO-62A 摄像头产测命令。
+
+用法：
+    camera test csi [<expected>]    # 抓一帧 IMX219 图像，解码二维码 -> OK!/FAIL!
+                                    # 给 <expected> 则还要求解码内容与之相等
+    camera test csi preview [秒]    # 实时投到 HDMI，用于对准/对焦（默认 20s）
+    camera                          # 打印摄像头信息
+
+要求（csi 测试）：
+  * 需 root；CSI cam overlay 需已启用（/dev/media0 里有 imx219）；
+  * 治具里对准一张二维码（固定距离、光照大致稳定）。
+
+判定：抓帧走 IMX219 → CSI → VPAC ISP(NV12) 管线（复用 imx219-preview 的配置），
+  用 OpenCV 解码二维码；解出（且匹配 expected）即 OK!，否则 FAIL!。
+
+设计铁律（零持久化 + 强制还原）：
+  仅抓帧到 /dev/shm（内存），不写 SD；**不停 lightdm、不改 extlinux**（抓文件不需要
+  DRM master）；无论成败/异常都在 finally 清临时帧、杀残留 gst。
+"""
+
+import glob
+import os
+import signal
+import subprocess
+import sys
+import time
+
+os.environ.setdefault("OPENCV_LOG_LEVEL", "SILENT")   # 静音 cv2 imread 等告警
+
+MEDIA    = "/dev/media0"
+DCC_VISS = "/opt/imaging/imx219/linear/dcc_viss.bin"
+DCC_2A   = "/opt/imaging/imx219/linear/dcc_2a.bin"
+
+FPS, VBLANK, EXPOSURE, GAIN, DGAIN = 15, 2438, 3514, 150, 256
+W, H = 1920, 1080
+NUM_BUFFERS = 6                      # 抓几帧预热，取最后帧解码
+DECODE_LAST = 1                      # 只解最后 1 帧
+DECODE_MAXDIM = 1280                 # 解码前缩到该最大边（zbar 对密码更宽容）
+SHM_PAT = "/dev/shm/mo_cam_%d.jpg"
+SHM_GLOB = "/dev/shm/mo_cam_*.jpg"
+
+# media-ctl 管线格式（与 imx219-preview.sh 一致）
+MEDIA_CFG = [
+    '"imx219 2-0010":0 [fmt:SRGGB8_1X8/1920x1080]',
+    '"cdns_csi2rx.30101000.csi-bridge":0 [fmt:SRGGB8_1X8/1920x1080]',
+    '"cdns_csi2rx.30101000.csi-bridge":1 [fmt:SRGGB8_1X8/1920x1080]',
+    '"30102000.ticsi2rx":0 [fmt:SRGGB8_1X8/1920x1080]',
+    '"30102000.ticsi2rx":1 [fmt:SRGGB8_1X8/1920x1080]',
+]
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _sh(*args, **kw):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, **kw)
+
+
+def _stop_gst(proc):
+    """优雅停止 gst-launch：SIGINT 触发 EOS，让 tiovxisp 干净释放 VPAC，
+       否则 SIGKILL/SIGTERM 会把 VPAC 留在坏状态导致后续抓帧卡死。"""
+    if proc is None or proc.poll() is not None:
+        return
+    try:
+        proc.send_signal(signal.SIGINT)
+        proc.wait(timeout=6)
+    except Exception:
+        try:
+            proc.terminate()
+            proc.wait(timeout=3)
+        except Exception:
+            pass
+
+
+def _run_gst(args, timeout):
+    """跑 gst 并在超时时优雅 SIGINT（而非 SIGKILL），保护 VPAC。"""
+    p = subprocess.Popen(args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    try:
+        p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _stop_gst(p)
+    return p.returncode
+
+
+def _out(*args):
+    try:
+        return subprocess.run(list(args), capture_output=True, text=True,
+                              timeout=10).stdout
+    except Exception:
+        return ""
+
+
+def _fail(reason=None):
+    if reason:
+        print("camera: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _find_video_dev():
+    """v4l2-ctl --list-devices 里 j721e-csi2rx 下的第一个 /dev/video*。"""
+    out = _out("v4l2-ctl", "--list-devices")
+    found = False
+    for line in out.splitlines():
+        if "j721e-csi2rx" in line:
+            found = True
+            continue
+        if found and "/dev/video" in line:
+            dev = line.strip()
+            if os.path.exists(dev):
+                return dev
+    return None
+
+
+def _find_imx219_subdev():
+    out = _out("media-ctl", "-d", MEDIA, "--print-topology")
+    grab = False
+    for line in out.splitlines():
+        if "imx219" in line:
+            grab = True
+        if grab:
+            for tok in line.replace('"', " ").replace("(", " ").replace(")", " ").split():
+                if tok.startswith("/dev/v4l-subdev"):
+                    return tok
+    return "/dev/v4l-subdev2"
+
+
+def _cleanup():
+    _sh("pkill", "-INT", "-f", "gst-launch.*multifilesink")
+    for f in glob.glob(SHM_GLOB):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+
+def _setup_pipeline():
+    """配置 CSI media 管线 + 传感器控制，返回采集 /dev/videoN。"""
+    vdev = _find_video_dev()
+    if not vdev:
+        raise RuntimeError("未找到 CSI 采集设备（j721e-csi2rx）——摄像头未接/overlay 未启用")
+    if not (os.path.exists(DCC_VISS) and os.path.exists(DCC_2A)):
+        raise RuntimeError("DCC 调优文件缺失（%s）——先 init-imx219" % DCC_VISS)
+    for c in MEDIA_CFG:
+        _sh("media-ctl", "-d", MEDIA, "--set-v4l2", c)
+    subdev = _find_imx219_subdev()
+    for ctrl, val in (("vertical_blanking", VBLANK), ("exposure", EXPOSURE),
+                      ("analogue_gain", GAIN), ("digital_gain", DGAIN)):
+        _sh("v4l2-ctl", "-d", subdev, "--set-ctrl=%s=%d" % (ctrl, val))
+    return vdev
+
+
+def _capture():
+    """配置管线并抓 NUM_BUFFERS 帧到 /dev/shm，返回按序 jpg 路径列表。"""
+    vdev = _setup_pipeline()
+
+    for f in glob.glob(SHM_GLOB):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+    gst = [
+        "gst-launch-1.0", "-e",
+        "v4l2src", "device=%s" % vdev, "io-mode=5", "num-buffers=%d" % NUM_BUFFERS, "!",
+        "queue", "max-size-buffers=2", "leaky=downstream", "!",
+        "video/x-bayer,format=rggb,width=%d,height=%d,framerate=%d/1" % (W, H, FPS), "!",
+        "tiovxisp", "sensor-name=SENSOR_SONY_IMX219_RPI",
+        "dcc-isp-file=%s" % DCC_VISS, "sink_0::dcc-2a-file=%s" % DCC_2A, "format-msb=7", "!",
+        "video/x-raw,format=NV12,width=%d,height=%d" % (W, H), "!",
+        "videoconvert", "!", "jpegenc", "!", "multifilesink", "location=%s" % SHM_PAT,
+    ]
+    _run_gst(gst, 20)
+
+    pngs = sorted(glob.glob(SHM_GLOB),
+                  key=lambda p: int(p.rsplit("_", 1)[1].split(".")[0]))
+    return pngs
+
+
+_ZB = None
+_ZB_INIT = False
+
+
+def _zbar_lib():
+    """加载 libzbar.so.0 并设好 argtypes（缓存）；不可用返回 None。"""
+    global _ZB, _ZB_INIT
+    if _ZB_INIT:
+        return _ZB
+    _ZB_INIT = True
+    import ctypes
+    try:
+        zb = ctypes.CDLL("libzbar.so.0")
+    except OSError:
+        _ZB = None
+        return None
+    for name, res in (("zbar_image_scanner_create", ctypes.c_void_p),
+                      ("zbar_image_create", ctypes.c_void_p),
+                      ("zbar_image_first_symbol", ctypes.c_void_p),
+                      ("zbar_symbol_next", ctypes.c_void_p)):
+        getattr(zb, name).restype = res
+    zb.zbar_image_first_symbol.argtypes = [ctypes.c_void_p]
+    zb.zbar_symbol_next.argtypes = [ctypes.c_void_p]
+    zb.zbar_symbol_get_data.restype = ctypes.c_char_p
+    zb.zbar_symbol_get_data.argtypes = [ctypes.c_void_p]
+    zb.zbar_image_set_data.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong, ctypes.c_void_p]
+    zb.zbar_image_set_format.argtypes = [ctypes.c_void_p, ctypes.c_ulong]
+    zb.zbar_image_set_size.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int]
+    zb.zbar_scan_image.argtypes = [ctypes.c_void_p, ctypes.c_void_p]
+    zb.zbar_image_scanner_set_config.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_int, ctypes.c_int]
+    zb.zbar_image_destroy.argtypes = [ctypes.c_void_p]
+    zb.zbar_image_scanner_destroy.argtypes = [ctypes.c_void_p]
+    _ZB = zb
+    return zb
+
+
+def _zbar_decode(gray):
+    """用 libzbar 解灰度 numpy 图；返回 str 或 None。"""
+    import ctypes
+    import numpy as np
+    zb = _zbar_lib()
+    if zb is None:
+        return None
+    g = np.ascontiguousarray(gray)
+    h, w = g.shape[:2]
+    data = g.tobytes()
+    sc = zb.zbar_image_scanner_create()
+    zb.zbar_image_scanner_set_config(sc, 0, 0, 1)      # ZBAR_CFG_ENABLE=1（全部符号）
+    im = zb.zbar_image_create()
+    y800 = ord('Y') | (ord('8') << 8) | (ord('0') << 16) | (ord('0') << 24)
+    zb.zbar_image_set_format(im, y800)
+    zb.zbar_image_set_size(im, w, h)
+    buf = ctypes.create_string_buffer(data, len(data))
+    zb.zbar_image_set_data(im, buf, len(data), None)
+    out = None
+    try:
+        if zb.zbar_scan_image(sc, im) > 0:
+            s = zb.zbar_image_first_symbol(im)
+            if s:
+                out = zb.zbar_symbol_get_data(s).decode("utf-8", "replace")
+    finally:
+        zb.zbar_image_destroy(im)
+        zb.zbar_image_scanner_destroy(sc)
+    return out or None
+
+
+def _decode_frame(gray):
+    """zbar 可用就只用 zbar（快且抗角度/光照）；无 libzbar 才退回 cv2。"""
+    if _zbar_lib() is not None:
+        return _zbar_decode(gray)
+    import cv2
+    try:
+        data, _, _ = cv2.QRCodeDetector().detectAndDecode(gray)
+    except cv2.error:
+        data = None
+    return data or None
+
+
+def _load_gray(path):
+    import cv2
+    try:                                   # 跳过正在写/已被轮转删的半帧，避免 imread 告警
+        if os.path.getsize(path) < 1024:
+            return None
+    except OSError:
+        return None
+    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
+    if img is None:
+        return None
+    h, w = img.shape[:2]
+    scale = float(DECODE_MAXDIM) / max(w, h)
+    if scale < 1.0:
+        img = cv2.resize(img, (int(w * scale), int(h * scale)))
+    return img
+
+
+def _decode_qr(pngs):
+    for p in list(reversed(pngs))[:DECODE_LAST]:
+        img = _load_gray(p)
+        if img is None:
+            continue
+        data = _decode_frame(img)
+        if data:
+            return data
+    return None
+
+
+def cmd_test_csi(expected):
+    _require_root()
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _raise)
+    signal.signal(signal.SIGHUP, _raise)
+
+    ok = False
+    detail = ""
+    try:
+        pngs = _capture()
+        if not pngs:
+            _cleanup()
+            _fail("抓帧失败（CSI 采集无输出，检查摄像头连接/CSI 焊接）")
+        data = _decode_qr(pngs)
+        if not data:
+            detail = "抓到 %d 帧但未解出二维码（检查对准/对焦/光照）" % len(pngs)
+            ok = False
+        elif expected is not None and data != expected:
+            detail = "二维码内容不符（解得 %r，期望 %r）" % (data, expected)
+            ok = False
+        else:
+            detail = "解得二维码 %r" % data
+            ok = True
+    except KeyboardInterrupt:
+        ok = False
+        detail = "中断"
+    except (RuntimeError, OSError) as e:
+        _cleanup()
+        _fail(str(e))
+    finally:
+        _cleanup()
+
+    if not ok and detail:
+        print("camera: %s" % detail, file=sys.stderr)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_preview(seconds):
+    """HDMI 实时预览（供对准/对焦）+ 同时后台持续解码二维码：
+       一旦解出立即返回，否则 seconds 超时。会临时停 lightdm（kmssink 需 DRM
+       master），结束/异常都恢复；临时帧在 /dev/shm，不写 SD。
+       输出：成功 -> "OK!\\nThe content of the QR code is: <内容>"；失败 -> "Fail!"。"""
+    _require_root()
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, _raise)
+
+    dm = "lightdm"
+    dm_active = (subprocess.run(["systemctl", "is-active", dm],
+                 capture_output=True, text=True).stdout.strip() == "active")
+    play = None
+    result = None
+    try:
+        if dm_active:
+            _sh("systemctl", "stop", dm)
+            time.sleep(1)
+        vdev = _setup_pipeline()
+        for f in glob.glob(SHM_GLOB):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+
+        # tee：一路 kmssink 上 HDMI；一路降到 3fps 编 jpeg 到 /dev/shm 供解码
+        gst = [
+            "gst-launch-1.0", "-e",
+            "v4l2src", "device=%s" % vdev, "io-mode=5", "!",
+            "queue", "max-size-buffers=2", "leaky=downstream", "!",
+            "video/x-bayer,format=rggb,width=%d,height=%d,framerate=%d/1" % (W, H, FPS), "!",
+            "tiovxisp", "sensor-name=SENSOR_SONY_IMX219_RPI",
+            "dcc-isp-file=%s" % DCC_VISS, "sink_0::dcc-2a-file=%s" % DCC_2A, "format-msb=7", "!",
+            "video/x-raw,format=NV12,width=%d,height=%d" % (W, H), "!",
+            "tee", "name=t",
+            "t.", "!", "queue", "!",
+            "kmssink", "sync=false", "driver-name=tidss", "force-modesetting=true",
+            "t.", "!", "queue", "leaky=downstream", "max-size-buffers=2", "!",
+            "videorate", "!", "video/x-raw,framerate=3/1", "!",
+            "jpegenc", "!", "multifilesink", "location=%s" % SHM_PAT, "max-files=6",
+        ]
+        play = subprocess.Popen(gst, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        dbg = bool(os.environ.get("CAM_DEBUG"))
+        t0 = time.monotonic()
+        deadline = t0 + max(1, seconds)
+        it = 0
+        while time.monotonic() < deadline:
+            it += 1
+            if play.poll() is not None:            # gst 意外退出
+                if dbg:
+                    print("dbg: gst exited rc=%s at %.1fs" %
+                          (play.returncode, time.monotonic() - t0), file=sys.stderr)
+                break
+            files = sorted(glob.glob(SHM_GLOB),
+                           key=lambda p: int(p.rsplit("_", 1)[1].split(".")[0]))
+            # 取次新一帧（最新那张可能正在写）
+            cand = files[-2] if len(files) >= 2 else (files[-1] if files else None)
+            if cand:
+                img = _load_gray(cand)
+                if img is not None:
+                    data = _decode_frame(img)
+                    if dbg:
+                        print("dbg: it=%d t=%.1f nfiles=%d decoded=%r" %
+                              (it, time.monotonic() - t0, len(files), bool(data)),
+                              file=sys.stderr)
+                    if data:
+                        result = data
+                        break
+            time.sleep(0.2)
+    except KeyboardInterrupt:
+        pass
+    except (RuntimeError, OSError) as e:
+        _stop_gst(play)
+        _sh("pkill", "-INT", "-f", "gst-launch.*kmssink")
+        time.sleep(0.5)
+        if dm_active:
+            _sh("systemctl", "start", dm)
+        for f in glob.glob(SHM_GLOB):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        print("Fail!")
+        sys.exit(1)
+    finally:
+        _stop_gst(play)
+        _sh("pkill", "-INT", "-f", "gst-launch.*kmssink")
+        time.sleep(0.5)
+        for f in glob.glob(SHM_GLOB):
+            try:
+                os.remove(f)
+            except OSError:
+                pass
+        if dm_active:
+            _sh("systemctl", "start", dm)
+
+    if result:
+        print("OK!")
+        print("The content of the QR code is: %s" % result)
+        sys.exit(0)
+    print("Fail!")
+    sys.exit(1)
+
+
+def cmd_info():
+    print("摄像头产测：")
+    print("  media : %s" % (MEDIA if os.path.exists(MEDIA) else "无 /dev/media0"))
+    top = _out("media-ctl", "-d", MEDIA, "--print-topology")
+    print("  imx219: %s" % ("已启用" if "imx219" in top else "未检测到（overlay 未启用？）"))
+    vdev = _find_video_dev()
+    print("  采集  : %s" % (vdev or "未找到 j721e-csi2rx 采集设备"))
+    print("用法：  camera test csi [<expected>]        （治具内对准二维码）")
+    print("        camera test csi preview [秒]        （HDMI 预览对准/对焦）")
+
+
+def main():
+    argv = sys.argv[1:]
+    if len(argv) >= 2 and argv[0] == "test" and argv[1] == "csi":
+        rest = argv[2:]
+        if rest and rest[0] == "preview":               # camera test csi preview [秒]
+            secs = int(rest[1]) if len(rest) >= 2 and rest[1].isdigit() else 20
+            cmd_preview(secs)
+        else:                                           # camera test csi [<expected>]
+            cmd_test_csi(rest[0] if rest else None)
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: camera test csi [<expected>] | camera test csi preview [秒] | camera")
+
+
+if __name__ == "__main__":
+    main()

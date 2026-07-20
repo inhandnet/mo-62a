@@ -9,7 +9,7 @@ autoconnect=true
 
 [ipv4]
 method=auto
-link-local=enabled
+link-local=3
 
 [ipv6]
 method=auto

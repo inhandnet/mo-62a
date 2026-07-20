@@ -1,0 +1,412 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+audio — MO-62A 音频产测命令。
+
+用法：
+    audio test headphone          # 3.5mm 耳机口 TRRS 回环（播放1kHz+录音，FFT SNR）-> OK!/FAIL!
+    audio test hdmi               # HDMI 音频：播放 1kHz，等 PC 回传 WAV，FFT 验证 -> OK!/FAIL!
+    audio                         # 打印音频信息（声卡/可测对象）
+
+要求（headphone 测试）：
+  * 3.5mm 口插 **TRRS 回环线**（HP L/R 各经 ~100Ω 接到 MIC/SLEEVE）；
+  * 需 root。板载声卡 = card 0（AM62Ax-SKEVM）。
+
+要求（hdmi 测试）：
+  * HDMI 接口连接采集卡，采集卡 USB 接 PC；
+  * PC 把采集到的 HDMI 音频 WAV 通过 scp 发到 /tmp/mo_hdmi_audio.wav；
+  * 本命令播放 1kHz 正弦波到 HDMI 声卡(hw:1,0)，等 WAV 回传后 FFT 验证 1kHz 峰值。
+
+判定：录音做 FFT，1kHz 分量相对 200–900Hz/1100–3000Hz 噪声的 SNR ≥ 10 dB -> OK!。
+
+设计铁律（零持久化 + 强制还原）：
+  用 `alsactl store/restore` 存/复原整卡 mixer；临时文件一律放 /dev/shm；
+  无论成败/异常/中断都在 finally 还原 mixer、清临时文件、杀残留 gst。
+"""
+
+import os
+import signal
+import subprocess
+import sys
+import time
+
+CARD          = 0
+DEVICE        = "hw:0,0"
+RATE          = 48000
+CHANNELS      = 2
+TEST_FREQ     = 1000
+PLAY_VOL      = 0.2
+REC_SECONDS   = 1
+SNR_THRESHOLD = 10.0
+
+CAP_WAV       = "/tmp/mo_hdmi_audio.wav"
+REF_WAV       = "/tmp/mo_audio_test.wav"
+HDMI_DEVICE   = "hw:1,0"
+HDMI_WAIT_S   = 60
+HDMI_RATE     = 48000
+HDMI_CHANNELS = 2
+
+# 临时文件放 /dev/shm（Linux 恒为 tmpfs/内存），与镜像 /tmp 挂载方式无关，
+# 保证测试临时数据绝不落 SD 文件系统。
+STATE_BAK = "/dev/shm/mo_audio_state.bak"
+REC_RAW   = "/dev/shm/mo_audio_loopback.raw"
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+VERBOSE  = bool(os.environ.get("MO_FACTORY_VERBOSE"))
+
+# 已验证的 WM8960/AM62Ax mixer 配置（顺序执行）：HP 输出 + Mic3R 采集路径。
+MIXER = [
+    ("PCM", "80"),
+    ("HP", "on"),
+    ("HP DAC", "70"),
+    ("Left HP Mixer DACL1", "on"),
+    ("Right HP Mixer DACR1", "on"),
+    ("Left PGA Mixer Line1L", "off"),
+    ("Left PGA Mixer Line1R", "off"),
+    ("Left PGA Mixer Line2L", "off"),
+    ("Left PGA Mixer Mic3L", "off"),
+    ("Left PGA Mixer Mic3R", "on"),
+    ("Right PGA Mixer Line1L", "off"),
+    ("Right PGA Mixer Line1R", "off"),
+    ("Right PGA Mixer Line2R", "off"),
+    ("Right PGA Mixer Mic3L", "off"),
+    ("Right PGA Mixer Mic3R", "on"),
+    ("PGA", "40,40,on"),
+]
+
+
+def _sh(*args, **kw):
+    return subprocess.run(list(args), stdout=subprocess.DEVNULL,
+                          stderr=subprocess.DEVNULL, **kw)
+
+
+def _fail(reason=None):
+    if reason:
+        print("audio: %s" % reason, file=sys.stderr)
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail("需要 root（sudo）")
+
+
+def _amixer_set(name, val):
+    _sh("amixer", "-c", str(CARD), "sset", name, val)
+
+
+def _calc_snr(left):
+    """左声道 int16 numpy 数组 -> 1kHz 相对邻近噪声的 SNR(dB)。"""
+    import numpy as np
+    data = left.astype(np.float32)
+    n = min(len(data), RATE)
+    fft = np.abs(np.fft.rfft(data[:n]))
+    freqs = np.fft.rfftfreq(n, 1.0 / RATE)
+    i1k = int(TEST_FREQ * n / RATE)
+    sig = fft[i1k]
+    mask = ((freqs >= 200) & (freqs < 900)) | ((freqs > 1100) & (freqs <= 3000))
+    noise = float(np.max(fft[mask])) if mask.any() else 1.0
+    return float(20.0 * np.log10(sig / (noise + 1e-10)))
+
+
+def _cleanup(state_saved):
+    _sh("pkill", "-f", "gst-launch")
+    if state_saved:
+        _sh("alsactl", "--file", STATE_BAK, "restore", str(CARD))
+    for f in (STATE_BAK, REC_RAW):
+        try:
+            os.remove(f)
+        except OSError:
+            pass
+
+
+def test_headphone():
+    _require_root()
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    signal.signal(signal.SIGTERM, _raise)
+    signal.signal(signal.SIGHUP, _raise)
+
+    # 声卡在否
+    try:
+        with open("/proc/asound/cards") as f:
+            cards = f.read()
+    except OSError:
+        cards = ""
+    if "AM62Ax" not in cards and "am62ax" not in cards.lower():
+        _fail("未找到板载声卡 AM62Ax（card %d）" % CARD)
+
+    state_saved = False
+    ok = False
+    detail = ""
+    try:
+        # 存整卡 mixer（运行时，临时文件在 /tmp）
+        if _sh("alsactl", "--file", STATE_BAK, "store", str(CARD)).returncode == 0:
+            state_saved = True
+
+        # 配置 mixer
+        for name, val in MIXER:
+            _amixer_set(name, val)
+
+        # 同步播放 1kHz + 录音
+        play_bufs = int(RATE * (REC_SECONDS + 1) / 800)
+        rec_bufs = int(RATE * REC_SECONDS / 480)
+        _sh("pkill", "-f", "gst-launch")
+        time.sleep(0.2)
+        try:
+            os.remove(REC_RAW)
+        except OSError:
+            pass
+
+        play = subprocess.Popen(
+            ["gst-launch-1.0", "audiotestsrc", "wave=sine",
+             "freq=%d" % TEST_FREQ, "volume=%s" % PLAY_VOL,
+             "num-buffers=%d" % play_bufs, "!",
+             "audio/x-raw,rate=%d,channels=%d" % (RATE, CHANNELS), "!",
+             "alsasink", "device=%s" % DEVICE],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        time.sleep(0.3)
+
+        rec = subprocess.run(
+            ["gst-launch-1.0", "alsasrc", "device=%s" % DEVICE,
+             "num-buffers=%d" % rec_bufs, "!",
+             "audio/x-raw,rate=%d,format=S16LE,channels=%d" % (RATE, CHANNELS), "!",
+             "filesink", "location=%s" % REC_RAW],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=REC_SECONDS + 10)
+        try:
+            play.terminate()
+        except Exception:
+            pass
+        _sh("pkill", "-f", "gst-launch")
+
+        if rec.returncode != 0:
+            _cleanup(state_saved)
+            _fail("录音失败（gst rc=%d）" % rec.returncode)
+
+        with open(REC_RAW, "rb") as f:
+            raw = f.read()
+        if len(raw) < RATE * 2:          # < 0.5s 立体声数据
+            _cleanup(state_saved)
+            _fail("录音数据过短（%d 字节）" % len(raw))
+
+        import numpy as np
+        alls = np.frombuffer(raw, dtype=np.int16)
+        left = alls[::2]                 # 偶数索引 = 左声道
+        snr = _calc_snr(left)
+        detail = "SNR=%.1f dB (阈值 %.0f)" % (snr, SNR_THRESHOLD)
+        ok = snr >= SNR_THRESHOLD
+
+    except KeyboardInterrupt:
+        ok = False
+        detail = "中断"
+    except Exception as e:
+        _cleanup(state_saved)
+        _fail(str(e))
+    finally:
+        _cleanup(state_saved)
+
+    if not ok and detail:                # 仅失败时把 SNR 打到 stderr 便于排查
+        if VERBOSE:
+            print("audio: %s" % detail, file=sys.stderr)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def _wait_wav(deadline):
+    while time.monotonic() < deadline:
+        if os.path.exists(CAP_WAV) and os.path.getsize(CAP_WAV) > 100:
+            return True
+        time.sleep(0.2)
+    return False
+
+
+def _calc_peak_snr(samples, rate, freq):
+    """计算指定频率相对于邻近噪声的 SNR(dB)。samples 为 numpy int16 数组。"""
+    import numpy as np
+    data = samples.astype(np.float32)
+    n = min(len(data), rate)
+    fft = np.abs(np.fft.rfft(data[:n]))
+    freqs = np.fft.rfftfreq(n, 1.0 / rate)
+    i_peak = int(freq * n / rate)
+    if i_peak >= len(fft):
+        return None
+    sig = fft[i_peak]
+    mask = ((freqs >= 200) & (freqs < 900)) | ((freqs > 1100) & (freqs <= 3000))
+    noise = float(np.max(fft[mask])) if mask.any() else 1.0
+    return float(20.0 * np.log10(sig / (noise + 1e-10)))
+
+
+def _gen_1khz_wav(path, rate=HDMI_RATE, channels=HDMI_CHANNELS, seconds=3):
+    """生成 1kHz 正弦波 WAV 文件，作为 HDMI 音频测试源。"""
+    import wave
+    import struct
+    import math
+    import numpy as np
+    n = int(rate * seconds)
+    t = np.arange(n, dtype=np.float64) / rate
+    samples = (32767 * 0.5 * np.sin(2 * np.pi * TEST_FREQ * t)).astype(np.int16)
+    interleaved = np.repeat(samples, channels)
+    with wave.open(path, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(rate)
+        wf.writeframes(interleaved.tobytes())
+
+
+def test_hdmi(loopback=False, wait_s=HDMI_WAIT_S):
+    _require_root()
+
+    def _raise(signum, frame):
+        raise KeyboardInterrupt
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, _raise)
+
+    # 确认 HDMI 声卡存在
+    try:
+        with open("/proc/asound/cards") as f:
+            cards = f.read()
+    except OSError:
+        cards = ""
+    if "HDMI" not in cards:
+        _fail("未找到 HDMI 声卡")
+
+    ok = False
+    detail = ""
+    play = None
+    try:
+        _sh("pkill", "-f", "gst-launch")
+        time.sleep(0.2)
+
+        # 生成参考 WAV 并播放（时长覆盖整个等待窗口）
+        _gen_1khz_wav(REF_WAV, seconds=wait_s + 5)
+
+        play = subprocess.Popen(
+            ["gst-launch-1.0", "filesrc", "location=%s" % REF_WAV, "!",
+             "wavparse", "!", "alsasink", "device=%s" % HDMI_DEVICE],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        if loopback:
+            import shutil
+            shutil.copy(REF_WAV, CAP_WAV)
+            if VERBOSE:
+                print("自测模式：已复制 %s -> %s" % (REF_WAV, CAP_WAV), file=sys.stderr)
+        else:
+            if VERBOSE:
+                print("HDMI 已输出 1kHz 测试音，等待 PC 回传: %s (超时 %ds)" % (CAP_WAV, wait_s), file=sys.stderr)
+                print("参考音频已保存: %s (复制为 %s 即模拟 PC 回传)" % (REF_WAV, CAP_WAV), file=sys.stderr)
+
+        deadline = time.monotonic() + wait_s
+        got_wav = False
+        while time.monotonic() < deadline:
+            if play.poll() is not None and play.returncode != 0:
+                _fail("gst 播放异常退出 (rc=%d)" % play.returncode)
+            if os.path.exists(CAP_WAV) and os.path.getsize(CAP_WAV) > 100:
+                got_wav = True
+                break
+            time.sleep(0.2)
+
+        if not got_wav:
+            detail = "超时未收到 %s" % CAP_WAV
+        else:
+            import wave
+            try:
+                with wave.open(CAP_WAV, "rb") as wf:
+                    nchannels = wf.getnchannels()
+                    framerate = wf.getframerate()
+                    nframes = wf.getnframes()
+                    raw = wf.readframes(nframes)
+            except Exception as e:
+                _fail("读取 WAV 失败: %s" % e)
+
+            if nframes < framerate // 2:
+                _fail("WAV 数据过短（%d 帧 @ %d Hz）" % (nframes, framerate))
+
+            import numpy as np
+            samples = np.frombuffer(raw, dtype=np.int16)
+            # 立体声取左声道
+            if nchannels >= 2:
+                mono = samples[::nchannels]
+            else:
+                mono = samples
+
+            snr = _calc_peak_snr(mono, framerate, TEST_FREQ)
+            detail = "SNR=%.1f dB (阈值 %.0f)" % (snr, SNR_THRESHOLD)
+            ok = snr is not None and snr >= SNR_THRESHOLD
+    except KeyboardInterrupt:
+        ok = False
+        detail = "中断"
+    except Exception as e:
+        _sh("pkill", "-f", "gst-launch")
+        _fail(str(e))
+    finally:
+        # 用内层 try/except 屏蔽可能因信号延迟抛出的 KeyboardInterrupt，
+        # 确保 gst 子进程和临时文件都能清理。
+        try:
+            # 恢复默认信号处理，避免 terminate/pkill 再次触发 KeyboardInterrupt
+            for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+                signal.signal(s, signal.SIG_DFL)
+            if play is not None:
+                try:
+                    play.terminate()
+                    play.wait(timeout=2)
+                except Exception:
+                    pass
+            _sh("pkill", "-f", "gst-launch")
+            for f in (CAP_WAV, REF_WAV):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+        except KeyboardInterrupt:
+            pass
+
+    if detail and not ok and VERBOSE:
+        print("audio: %s" % detail, file=sys.stderr)
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    print("音频产测：")
+    try:
+        with open("/proc/asound/cards") as f:
+            sys.stdout.write(f.read())
+    except OSError:
+        pass
+    print("可测对象： headphone（3.5mm 回环，需 TRRS 回环线）")
+    print("           hdmi（HDMI 音频回环，需 PC 回传 WAV）")
+    print("用法：     audio test headphone | audio test hdmi")
+
+
+def main():
+    argv = sys.argv[1:]
+    if len(argv) >= 2 and argv[0] == "test" and argv[1] == "headphone":
+        test_headphone()
+    elif len(argv) >= 2 and argv[0] == "test" and argv[1] == "hdmi":
+        loopback = False
+        wait_s = HDMI_WAIT_S
+        rest = argv[2:]
+        i = 0
+        while i < len(rest):
+            if rest[i] in ("--loopback", "-l"):
+                loopback = True
+            elif rest[i] == "--timeout" and i + 1 < len(rest):
+                try:
+                    wait_s = int(rest[i + 1])
+                except ValueError:
+                    _fail("--timeout 需要整数秒")
+                i += 1
+            i += 1
+        test_hdmi(loopback=loopback, wait_s=wait_s)
+    elif not argv:
+        cmd_info()
+    else:
+        _fail("用法: audio test headphone | audio test hdmi [--loopback] [--timeout N] | audio")
+
+
+if __name__ == "__main__":
+    main()

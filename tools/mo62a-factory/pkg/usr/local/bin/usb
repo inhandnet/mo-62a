@@ -1,0 +1,105 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+usb — MO-62A USB 产测。
+
+用法：
+    usb hub detect        # 检测板载 USB Hub 芯片(0424:2514/USB2514) -> OK!/FAIL!
+    usb driver detect     # 逐个 U盘裸设备只读校验，能读通数 ≥4 -> OK!/FAIL!
+    usb                   # 打印 USB 信息
+
+hub：lsusb 里有 0424:2514 即过（验 Hub 芯片枚举/焊接）。
+driver：对每个 USB 块设备 `dd` 裸读 4MB —— 非破坏、不需文件系统(空白盘也能读)，
+        验的是 USB 数据通路(bulk 传输)；能读通的 U盘 ≥4 才过。需 root。
+"""
+
+import os
+import subprocess
+import sys
+
+HUB_ID       = "0424:2514"       # Microchip USB2514 Hub
+EXPECT_DISKS = 4
+READ_MB      = 4                 # 每个 U盘裸读 4MB
+
+OK_MSG   = "OK!"
+FAIL_MSG = "FAIL!"
+
+
+def _fail():
+    print(FAIL_MSG)
+    sys.exit(1)
+
+
+def _require_root():
+    if not hasattr(os, "geteuid") or os.geteuid() != 0:
+        _fail()
+
+
+def _out(*args):
+    try:
+        return subprocess.run(list(args), capture_output=True, text=True,
+                              timeout=15).stdout
+    except Exception:
+        return ""
+
+
+def _usb_disks():
+    """所有 USB 整盘设备名(sda, sdb, ...)。"""
+    out = []
+    for line in _out("lsblk", "-dno", "NAME,TRAN").splitlines():
+        p = line.split()
+        if len(p) >= 2 and p[1] == "usb":
+            out.append(p[0])
+    return out
+
+
+def _read_ok(disk):
+    """裸读 READ_MB 成功即认为该 U盘/端口数据通路好（只读，非破坏）。"""
+    try:
+        r = subprocess.run(
+            ["dd", "if=/dev/%s" % disk, "of=/dev/null",
+             "bs=1M", "count=%d" % READ_MB, "iflag=nocache"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=30)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
+def cmd_hub():
+    ok = HUB_ID in _out("lsusb")
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_driver():
+    _require_root()
+    passed = sum(1 for d in _usb_disks() if _read_ok(d))
+    ok = passed >= EXPECT_DISKS
+    print(OK_MSG if ok else FAIL_MSG)
+    sys.exit(0 if ok else 1)
+
+
+def cmd_info():
+    hub = HUB_ID in _out("lsusb")
+    disks = _usb_disks()
+    print("USB 产测：")
+    print("  Hub(%s) : %s" % (HUB_ID, "在位" if hub else "未检测到"))
+    print("  U盘(USB块设备): %d 个 %s (要求 ≥%d 且能裸读)"
+          % (len(disks), disks, EXPECT_DISKS))
+    print("用法：usb hub detect | usb driver detect")
+
+
+def main():
+    argv = sys.argv[1:]
+    if argv[:2] == ["hub", "detect"]:
+        cmd_hub()
+    elif argv[:2] == ["driver", "detect"]:
+        cmd_driver()
+    elif not argv:
+        cmd_info()
+    else:
+        _fail()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+# 安装本包携带的离线依赖 deb（factory 场景，不依赖外网 apt 源）。
+# 这些依赖是通用 Python 库， uninstall 时保留不影响客户镜像。
+DP_DIR="/usr/local/share/mo62a-factory/deps"
+if [ -d "$DP_DIR" ]; then
+    for deb in "$DP_DIR"/*.deb; do
+        [ -f "$deb" ] || continue
+        dpkg -i "$deb" >/dev/null 2>&1 || true
+    done
+fi
+
+# 确保工厂命令可执行
+chmod 0755 /usr/local/bin/factory-model /usr/local/bin/com /usr/local/bin/net \
+    /usr/local/bin/wlan /usr/local/bin/bt /usr/local/bin/storage \
+    /usr/local/bin/mem /usr/local/bin/rtc /usr/local/bin/usb \
+    /usr/local/bin/audio /usr/local/bin/led /usr/local/bin/key \
+    /usr/local/bin/fan /usr/local/bin/dio /usr/local/bin/camera \
+    /usr/local/bin/display 2>/dev/null || true
+
+#DEBHELPER#
+exit 0
