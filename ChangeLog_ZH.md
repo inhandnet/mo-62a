@@ -1,5 +1,61 @@
 # 更新日志
 
+## v1.0.8 — 2026-07-20
+
+### 首次启动预配置
+
+#### 通过 `sysconfig.txt` 进行系统预配置
+
+- SD 卡的 BOOT（FAT32）分区新增 `sysconfig.txt`，首次启动时自动应用并随后删除。
+  支持项：登录用户（用户名 / 密码 / shell）、root 密码、主机名、SSH 公钥、locale、
+  时区、Wi-Fi（SSID / 密码 / 国家码），以及有线静态 IP（否则走 DHCP）。
+- 首次启动服务（`mo-62a-firstboot-install`）依次安装随包 `.deb`、扩容 root 文件
+  系统，再应用 `sysconfig.txt`。
+
+#### 安全：不再内置默认账户
+
+- 镜像不再内置固定的默认用户 / 密码。账户仅由 `sysconfig.txt` 创建，且该文件在
+  首启后被删除，卡上不残留任何凭据。
+
+### 网络
+
+#### PC 直连的有线 link-local
+
+- `end0.nmconnection` 将 `ipv4.link-local` 设为数值枚举 `3`。NetworkManager
+  keyfile 要求整数形式，字符串 `enabled` 会被当作 `0`，导致直连以太网口的 PC
+  拿不到 `169.254.x.x` link-local 地址。
+- `bin/mo-62a-flash.sh` 对每个 NetworkManager keyfile 强制 `root:root` / `0600`
+  （git 既不跟踪属主也不跟踪 `0600`，须在烧卡时修正）。
+
+### 启动
+
+#### 直接引导默认项（不再弹交互菜单）
+
+- `extlinux.conf` 不再定义 `menu`，U-Boot 直接引导 `default` 项，而不是弹出
+  "Enter choice" 交互菜单。这同时避免了 debug UART 收到回环输入时的启动卡死
+  （菜单会把回显当成无穷无尽的非法选择反复读取）。启动 overlay 仍用
+  `bootcfg switch <label>` 切换。
+
+#### U-Boot autoboot 打断键
+
+- U-Boot autoboot 现在用 `Ctrl+C`（`\x03`）打断，并去掉了 `d`"延时"键。此前的
+  `d` / 空格键可能被正常的串口流量（如回环的 debug UART）触发而中止 autoboot。
+
+#### 内核 console 日志级别
+
+- 内核命令行设置 `loglevel=7`，使 debug 级驱动消息（如 Realtek H5 蓝牙 `BT_DBG`）
+  不再刷屏 `ttyS2`，同时保留正常内核日志。
+
+### 加密
+
+#### sa2ul：修复未设密钥 transform 拆除时的崩溃
+
+- TI `sa2ul` 驱动对一个从未做过 DMA 映射（`sc_phys == 0`）的上下文调用
+  `dma_unmap_single()`，从而对 `phys_to_virt(0)` 做 cache 维护 —— 只要 transform
+  分配后在 `setkey` 之前被释放（AF_ALG bind/close、蓝牙 SMP）就会致命缺页。现为
+  unmap 加 `if (ctx->sc_phys)` 守卫，并修复 rekey 的 DMA 映射泄漏与映射失败路径
+  上的越界释放。
+
 ## v1.0.7 — 2026-06-24
 
 ### 内核与设备树

@@ -1,5 +1,70 @@
 # Changelog
 
+## v1.0.8 — 2026-07-20
+
+### First-boot provisioning
+
+#### System pre-configuration via `sysconfig.txt`
+
+- The SD card's BOOT (FAT32) partition now carries a `sysconfig.txt`. On the
+  first boot the device applies it and then deletes it. Supported settings:
+  login user (name / password / shell), root password, hostname, SSH public
+  keys, locale, timezone, Wi-Fi (SSID / password / country), and a static
+  Ethernet IP (DHCP otherwise).
+- The first-boot service (`mo-62a-firstboot-install`) installs the bundled
+  `.deb` packages, grows the root filesystem, and then applies `sysconfig.txt`.
+
+#### Security: no built-in default account
+
+- The image no longer ships a hard-coded default user / password. An account is
+  created only from `sysconfig.txt`, and the file is wiped after the first boot
+  so no credentials remain readable on the card.
+
+### Networking
+
+#### Wired link-local for a directly-connected PC
+
+- `end0.nmconnection` now sets `ipv4.link-local` to the numeric enum value `3`.
+  NetworkManager keyfiles require the integer form; the string `enabled` was
+  parsed as `0`, so a PC connected directly to the Ethernet port could not
+  obtain a `169.254.x.x` link-local address.
+- `bin/mo-62a-flash.sh` enforces `root:root` / `0600` on every NetworkManager
+  keyfile (git tracks neither ownership nor `0600`, so they are fixed at flash
+  time).
+
+### Boot
+
+#### Boot the default entry directly (no interactive menu)
+
+- `extlinux.conf` no longer defines a `menu`, so U-Boot boots the `default`
+  entry directly instead of showing an interactive "Enter choice" menu. This
+  also prevents a boot hang when the debug UART receives looped-back input (the
+  menu would read the echo as an endless stream of invalid choices). Boot
+  overlays are still switched with `bootcfg switch <label>`.
+
+#### U-Boot autoboot key
+
+- U-Boot autoboot is now aborted with `Ctrl+C` (`\x03`); the `d` "delay" key is
+  removed. The previous `d` / space keys could be triggered by ordinary console
+  traffic (e.g. a looped-back debug UART), stopping autoboot.
+
+#### Kernel console log level
+
+- The kernel command line sets `loglevel=7` so debug-level driver messages
+  (e.g. Realtek H5 Bluetooth `BT_DBG`) no longer flood the `ttyS2` console while
+  normal kernel logs are kept.
+
+### Crypto
+
+#### sa2ul: fix crash on un-keyed transform teardown
+
+- The TI `sa2ul` driver called `dma_unmap_single()` on a context whose DMA
+  address was never mapped (`sc_phys == 0`), performing cache maintenance on
+  `phys_to_virt(0)` — a fatal fault whenever a transform was allocated but freed
+  before `setkey` (AF_ALG bind/close, Bluetooth SMP). The unmap is now guarded
+  with `if (ctx->sc_phys)`; a rekey DMA-map leak and an out-of-bounds free on
+  the map-failure path are also fixed.
+
 ## v1.0.7 — 2026-06-24
 
 ### Kernel & Device Tree
