@@ -55,31 +55,25 @@ tools/mo62a-factory/
 
 ### HDMI 显示/音频回环
 
-HDMI 测试需要 PC 端采集卡配合：Mo62A 输出二维码/1kHz 音频到 HDMI，经采集卡到
-PC，PC 把 PNG/WAV 通过 scp 回传到 Mo62A 固定路径，Mo62A 自己解码/FFT 判定。
+HDMI 测试需 PC 端采集卡配合。视频用 Challenge Code（设备显示随机串二维码，PC 解码后
+把串回填到命令 stdin 精确比对，设备不依赖 zbar/cv2）；音频用随机频率 Challenge（PC 测频后回填数值，设备按容差比对）。
 
-- 视频：`display hdmi detect [expected_qr]`
-  - 回传文件：`/tmp/mo_hdmi_cap.png`
-  - 参考文件：`/tmp/mo_hdmi_test.png`
-  - 自测（无采集卡）：`display hdmi detect --loopback TEST123`
-  - 自定义超时：`display hdmi detect --timeout 30`
-- 音频：`audio test hdmi`
-  - 回传文件：`/tmp/mo_hdmi_audio.wav`
-  - 参考文件：`/tmp/mo_audio_test.wav`
-  - 自测（无采集卡）：`audio test hdmi --loopback`
-  - 自定义超时：`audio test hdmi --timeout 30`
+- 视频：`display hdmi detect`（Challenge Code，读回对端解码结果比对）
+  - PC 端 4 步采集脚本：`pc-tools/hdmi-capture-example/mo_hdmi_capture.py`
+    （find 采集卡 / activate 激活 / capture 抓帧 / decode 解码；回填由产测框架自理）
+  - 自测（无采集卡）：`display hdmi detect --selftest`
+  - 自定义超时：`display hdmi detect --timeout 30`（默认 30s）
+- 音频：`audio test hdmi`（随机频率 Challenge，读回对端测得频率比对）
+  - PC 端测频：`mo_hdmi_capture.py` 的 find-audio / capture-audio / detect-freq
+  - 自测（无采集卡）：`audio test hdmi --selftest`
+  - 自定义超时：`audio test hdmi --timeout 30`（默认 30s）
 
 PC 端采集+回传示例及操作说明见 `pc-tools/hdmi-capture-example/`。
 
-## 离线依赖
+## 依赖
 
-本包在 `usr/local/share/mo62a-factory/deps/` 中携带了部分 arm64 deb，安装时由
-`postinst` 自动 `dpkg -i`：
-
-- `python3-qrcode` — `display` 命令生成二维码
-- `python3-pillow` — qrcode 的图像依赖
-
-这些库已包含在 base 镜像中，但为保产线完全离线，仍一并打包。
+命令依赖 `python3`、`python3-libgpiod`、`python3-qrcode`、`python3-pil`，均已包含在 base
+镜像中（`display` 生成二维码用 qrcode + pil）。本包不再随包携带离线依赖 deb。
 
 ## 打包 / 安装 / 卸载
 ```bash

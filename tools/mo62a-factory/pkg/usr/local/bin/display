@@ -1,40 +1,49 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-display — MO-62A 显示产测命令。
+display — MO-62A 显示产测命令（Challenge Code 方案）。
 
 用法：
-    display hdmi detect [expected_qr]     # HDMI 输出二维码，等 PC 回传采集图，解码比对
+    display hdmi detect [--timeout N]     # HDMI 输出随机 Challenge Code 二维码，
+                                          # 读回对端解码结果并比对 -> OK!/FAIL!
+    display hdmi detect --selftest        # 自测：显示后自行回填比对（不读 stdin）
     display                               # 打印显示信息
 
-HDMI 画面回环流程：
-  1. Mo62A 停 lightdm，在 HDMI(fb0) 上全屏显示一个二维码
-  2. 等待 PC 通过 scp 把采集到的 HDMI 图像发到 /tmp/mo_hdmi_cap.jpg
-  3. 解码二维码，与 expected_qr（或生成值）比对 -> OK!/FAIL!
-  4. 无论成败，恢复 lightdm
+Challenge Code 回环流程：
+  1. Mo62A 随机生成一串 16~32 字符（大小写+数字+符号，无空格/回车）作为 Challenge Code
+  2. 停 lightdm，在 HDMI(fb0) 上全屏显示该串的二维码
+  3. 打印 "Challenge Code:" 提示，等待对端从 stdin 输入
+  4. 对端（PC 采集卡抓帧 + 解码二维码）把解得的字符串输入回来
+  5. 与生成值精确比对 -> OK!/FAIL!；无论成败恢复 lightdm
 
-PC 端只做采集+scp，不做判断。
+设备端只做「生成 + 显示 + 比对」；二维码解码在 PC 端完成，设备不依赖 zbar/cv2。
+判定结果只走 stdout（OK!/FAIL!），提示与诊断走 stderr。
 """
 
 import glob
 import os
+import secrets
+import select
 import signal
 import subprocess
 import sys
 import time
 
-os.environ.setdefault("OPENCV_LOG_LEVEL", "SILENT")
-
-FB_PATH       = "/dev/fb0"
-FB_SIZE_PATH  = "/sys/class/graphics/fb0/virtual_size"
-FB_BPP_PATH   = "/sys/class/graphics/fb0/bits_per_pixel"
-FB_STRIDE_PATH= "/sys/class/graphics/fb0/stride"
-CAP_PATH      = "/tmp/mo_hdmi_cap.png"
-REF_PATH      = "/tmp/mo_hdmi_test.png"
-DM_SVC        = "lightdm"
-WAIT_S        = 60
-QR_SIZE       = 800                    # 二维码像素尺寸（cv2 解码需要足够大）
-VERBOSE       = bool(os.environ.get("MO_FACTORY_VERBOSE"))
+FB_PATH        = "/dev/fb0"
+FB_SIZE_PATH   = "/sys/class/graphics/fb0/virtual_size"
+FB_BPP_PATH    = "/sys/class/graphics/fb0/bits_per_pixel"
+FB_STRIDE_PATH = "/sys/class/graphics/fb0/stride"
+DM_SVC         = "lightdm"
+HDMI_STATUS_GLOB = "/sys/class/drm/card*-HDMI*/status"
+HDMI_WAIT_S    = 15                     # 等 HDMI sink 上线(PC 激活采集卡)的超时(秒)
+WAIT_S         = 30                     # 等待对端输入的默认超时(秒)，--timeout 可覆盖
+QR_SIZE        = 800                    # 二维码像素尺寸（够大，PC 端易解）
+# Challenge Code 字符集：可打印 ASCII 0x21-0x7E（大小写+数字+符号），排除空格与 CR/LF
+CHALLENGE_CHARS = "".join(chr(c) for c in range(0x21, 0x7F))
+CHALLENGE_MIN  = 16
+CHALLENGE_MAX  = 32
+PROMPT         = "Challenge Code:"      # 提示单独一行，输入落到下一行行首
+VERBOSE        = bool(os.environ.get("MO_FACTORY_VERBOSE"))
 
 OK_MSG   = "OK!"
 FAIL_MSG = "FAIL!"
@@ -55,6 +64,12 @@ def _fail(reason=None):
 def _require_root():
     if not hasattr(os, "geteuid") or os.geteuid() != 0:
         _fail("需要 root（sudo）")
+
+
+def _gen_challenge():
+    """随机 16~32 字符 Challenge Code（大小写+数字+符号，无空格/CR/LF）。"""
+    n = CHALLENGE_MIN + secrets.randbelow(CHALLENGE_MAX - CHALLENGE_MIN + 1)
+    return "".join(secrets.choice(CHALLENGE_CHARS) for _ in range(n))
 
 
 def _fb_info():
@@ -85,7 +100,7 @@ def _generate_qr(content):
     qr.add_data(content)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-    # 最近邻放大，保持模块边缘锐利，便于 cv2 解码
+    # 最近邻放大，保持模块边缘锐利，便于 PC 端解码
     img = img.resize((QR_SIZE, QR_SIZE), Image.NEAREST)
     return img
 
@@ -106,17 +121,9 @@ def _show_qr(content):
     off_x = (w - QR_SIZE) // 2
     off_y = (h - QR_SIZE) // 2
 
-    # 同时保存一份参考图到 /tmp（PNG 无损，避免 cv2 解码失败）
-    try:
-        qr.convert("RGB").save(REF_PATH)
-    except Exception:
-        if VERBOSE:
-            import traceback
-            traceback.print_exc()
-
     with open(FB_PATH, "r+b") as fb:
         # 白底
-        _clear_fb(fb, w, h, bpp, stride, b"\xff\xff\xff\xff"[:bpp//8])
+        _clear_fb(fb, w, h, bpp, stride, b"\xff\xff\xff\xff"[:bpp // 8])
         # 把二维码贴到中央
         px = list(qr.getdata())  # [(R,G,B,A), ...]
         for y in range(QR_SIZE):
@@ -137,41 +144,51 @@ def _show_qr(content):
         os.fsync(fb.fileno())
 
 
-def _decode_qr(path):
-    import cv2
-    img = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
-    if img is None:
-        return None
-    data, _, _ = cv2.QRCodeDetector().detectAndDecode(img)
-    return data
-
-
-def _wait_capture(deadline):
-    while time.monotonic() < deadline:
-        if os.path.exists(CAP_PATH) and os.path.getsize(CAP_PATH) > 100:
-            return True
-        time.sleep(0.2)
+def _hdmi_connected():
+    for p in glob.glob(HDMI_STATUS_GLOB):
+        try:
+            with open(p) as f:
+                if f.read().strip() == "connected":
+                    return True
+        except OSError:
+            pass
     return False
 
 
-def cmd_hdmi_detect(expected=None, loopback=False, wait_s=WAIT_S):
+def _wait_hdmi_connected(timeout):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if _hdmi_connected():
+            return True
+        time.sleep(0.3)
+    return False
+
+
+def _read_line(timeout):
+    """从 stdin 读一行（去尾部 CR/LF）；超时或 EOF 返回 None。"""
+    try:
+        r, _, _ = select.select([sys.stdin], [], [], timeout)
+    except Exception:
+        return None
+    if not r:
+        return None
+    line = sys.stdin.readline()
+    if line == "":
+        return None          # EOF
+    return line.rstrip("\r\n")
+
+
+def cmd_hdmi_detect(wait_s=WAIT_S, selftest=False):
     _require_root()
 
     def _raise(signum, frame):
         raise KeyboardInterrupt
-    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+    for s in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
         signal.signal(s, _raise)
 
-    # 生成或复用期望内容
-    if expected is None:
-        import secrets
-        expected = "MO62A-HDMI-" + secrets.token_hex(8)
-    else:
-        expected = str(expected)
-
+    challenge = _gen_challenge()
     dm_active = (subprocess.run(["systemctl", "is-active", DM_SVC],
                                 capture_output=True, text=True).stdout.strip() == "active")
-
     ok = False
     detail = ""
     try:
@@ -179,39 +196,36 @@ def cmd_hdmi_detect(expected=None, loopback=False, wait_s=WAIT_S):
             _sh("systemctl", "stop", DM_SVC)
             time.sleep(1)
 
-        _show_qr(expected)
-
-        if loopback:
-            # 自测模式：直接复制参考图为回传图
-            import shutil
-            shutil.copy(REF_PATH, CAP_PATH)
-
-        if VERBOSE:
-            if loopback:
-                print("自测模式：已复制 %s -> %s" % (REF_PATH, CAP_PATH), file=sys.stderr)
-            else:
-                print("HDMI 已输出二维码，内容: %s" % expected, file=sys.stderr)
-                print("参考图已保存: %s (复制为 %s 即模拟 PC 回传)" % (REF_PATH, CAP_PATH), file=sys.stderr)
-                print("等待 PC 回传采集图: %s (超时 %ds)" % (CAP_PATH, wait_s), file=sys.stderr)
-
-        if _wait_capture(time.monotonic() + wait_s):
-            data = _decode_qr(CAP_PATH)
-            if data == expected:
-                detail = "解码匹配: %s" % data
-                ok = True
-            else:
-                detail = "二维码不匹配（期望 %r，解得 %r）" % (expected, data)
+        if not selftest and not _wait_hdmi_connected(HDMI_WAIT_S):
+            detail = "HDMI 未连接（%ds 内 sink 未上线；PC 是否已激活采集卡？）" % HDMI_WAIT_S
         else:
-            detail = "超时未收到 %s" % CAP_PATH
+            _show_qr(challenge)
+
+            if VERBOSE:
+                print("Challenge Code(明文,仅调试): %s" % challenge, file=sys.stderr)
+
+            if selftest:
+                print("[selftest] 显示后自动回填 Challenge Code", file=sys.stderr)
+                got = challenge
+            else:
+                sys.stderr.write(PROMPT + "\n")
+                sys.stderr.flush()
+                got = _read_line(wait_s)
+
+            if got is None:
+                detail = "超时/EOF 未收到输入（%ds）" % wait_s
+            elif got == challenge:
+                ok = True
+                detail = "匹配"
+            else:
+                detail = "不匹配（期望 %d 字节，收到 %d 字节）" % (len(challenge), len(got))
+                if VERBOSE:
+                    detail += "；收到=%r" % got
     except KeyboardInterrupt:
         detail = "中断"
     except Exception as e:
         detail = str(e)
     finally:
-        try:
-            os.remove(CAP_PATH)
-        except OSError:
-            pass
         if dm_active:
             _sh("systemctl", "start", DM_SVC)
 
@@ -236,36 +250,34 @@ def cmd_info():
         print("  fb0: %dx%d bpp=%d stride=%d" % info)
     else:
         print("  fb0: 读取失败")
-    print("用法：display hdmi detect [expected_qr]")
+    print("用法：display hdmi detect [--timeout N] | display hdmi detect --selftest")
 
 
 def main():
     argv = sys.argv[1:]
     if len(argv) >= 2 and argv[0] == "hdmi" and argv[1] == "detect":
         rest = argv[2:]
-        loopback = False
+        selftest = False
         wait_s = WAIT_S
-        skip_next = False
-        filtered = []
-        for i, tok in enumerate(rest):
-            if skip_next:
-                skip_next = False
-                continue
-            if tok in ("--loopback", "-l"):
-                loopback = True
+        i = 0
+        while i < len(rest):
+            tok = rest[i]
+            if tok == "--selftest":
+                selftest = True
             elif tok == "--timeout" and i + 1 < len(rest):
                 try:
                     wait_s = int(rest[i + 1])
                 except ValueError:
                     _fail("--timeout 需要整数秒")
-                skip_next = True
+                i += 1
             else:
-                filtered.append(tok)
-        cmd_hdmi_detect(filtered[0] if filtered else None, loopback=loopback, wait_s=wait_s)
+                _fail("未知参数: %s" % tok)
+            i += 1
+        cmd_hdmi_detect(wait_s=wait_s, selftest=selftest)
     elif not argv:
         cmd_info()
     else:
-        _fail("用法: display hdmi detect [--loopback] [--timeout N] [expected_qr] | display")
+        _fail("用法: display hdmi detect [--timeout N] [--selftest] | display")
 
 
 if __name__ == "__main__":

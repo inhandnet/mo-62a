@@ -149,8 +149,8 @@ Type  Name                 Len  Value
 | 15 | USB 测试 | 已拆为 ↓ Hub(16) + U盘(17) | — | 见 16/17 | ✅ | usb/hub |
 | 16 | USB Hub 测试 | `lsusb` 有 0424:2514(USB2514) | 验证 | `usb hub detect` | ✅ | usb/hub |
 | 17 | U盘测试(4个) | 枚举≥4 且每个裸设备只读 4MB 通过(非破坏,不挑FS) | 验证 | `usb driver detect` | ✅ | usb（storage） |
-| 18 | HDMI 显示测试 | Mo62A 输出二维码 -> 采集卡 -> PC scp 回传 -> Mo62A 解码比对 | 验证 | `display hdmi detect [expected_qr]` | ✅ | 新写 |
-| 19 | HDMI 音频测试 | Mo62A HDMI 播放 1kHz -> 采集卡 -> PC scp 回传 WAV -> FFT 验证 | 验证 | `audio test hdmi` | ✅ | 新写 |
+| 18 | HDMI 显示测试 | Mo62A 显示随机 Challenge Code 二维码 -> 采集卡 -> PC 解码 -> 回填 stdin 精确比对 | 验证 | `display hdmi detect` | ✅ | 新写 |
+| 19 | HDMI 音频测试 | Mo62A 播随机频率正弦 -> 采集卡 -> PC FFT 测频 -> 回填比对 | 验证 | `audio test hdmi` | ✅ | 新写 |
 
 > 说明：**Debug 调试串口**已实现为 `com test debug`（真机验证 OK）；其余 15 项可复用
 > `tools/mo62a-auto-test/` 现有测试逻辑，转成设备端工厂命令即可。下方按 auto-test 现有实现
@@ -233,29 +233,34 @@ Type  Name                 Len  Value
 
 | 单元        | 检测内容 / 判定            | 类型   | 工厂命令 | 状态  |
 | --------- | -------------------- | ---- | ---- | --- |
-| HDMI 显示测试 | Mo62A 输出二维码 -> 采集卡 -> PC scp 回传 PNG -> Mo62A 解码比对 | 验证 | `display hdmi detect [expected_qr]` | ✅ | 新写 |
-| HDMI 显示自测 | 不依赖采集卡，直接复制参考图完成闭环验证 | 验证 | `display hdmi detect --loopback [expected_qr]` | ✅ | 新写 |
+| HDMI 显示测试 | Mo62A 显示随机 Challenge Code 二维码，PC 解码后回填 stdin，设备精确比对 | 验证 | `display hdmi detect` | ✅ | 新写 |
+| HDMI 显示自测 | 不依赖采集卡：显示后自动回填自身值验证闭环 | 验证 | `display hdmi detect --selftest` | ✅ | 新写 |
 | 红色 LED    | 点亮（人工）               | 人工确认 | `led on all red` | ✅ | display/led |
 | 绿色 LED    | 点亮（人工）               | 人工确认 | `led on all green` | ✅ | display/led |
 | IMX219 识别 | media-ctl 有 imx219   | 查看   | `camera`（info） | ✅ | camera |
 | IMX219 预览 | 预览画面（人工）             | 人工确认 | `camera test csi preview` | ✅ | camera |
 
-**HDMI 显示测试流程**
+**HDMI 显示测试流程（Challenge Code）**
+
+设备随机生成 16~32 字符 Challenge Code（大小写+数字+符号，无空格/换行），显示其二维码，
+等对端把「解码得到的字符串」写回 stdin 精确比对。解码在 PC 端做，设备不依赖 zbar/cv2。
 
 ```shell
-# 产线真实流程（需 PC 采集卡回传）
+# 设备端（等 HDMI 连上再画码，读回一行比对）
 Mo62A(factory)# display hdmi detect
+Challenge Code:
+<PC 解码得到的串>
 OK!
-# PC 端：采集卡抓图后 scp 到 /tmp/mo_hdmi_cap.png
 
-# 无采集卡时的自测验证
-Mo62A(factory)# display hdmi detect --loopback TEST123
+# 无采集卡时的自测（显示后自动回填自身值）
+Mo62A(factory)# display hdmi detect --selftest
 OK!
 ```
 
-- 不指定 `expected_qr` 时，命令自动生成随机内容。
-- 参考图自动保存到 `/tmp/mo_hdmi_test.png`；真实回传目标为 `/tmp/mo_hdmi_cap.png`。
-- 命令会停 `lightdm` 独占 framebuffer，测试完自动恢复。
+- PC 端 4 步采集脚本见 `pc-tools/hdmi-capture-example/mo_hdmi_capture.py`
+  （find 采集卡 / activate 激活 / capture 抓帧 / decode 解码；回填 stdin 由产测框架自理）。
+- 采集卡是 HDMI sink：**PC 必须先激活采集卡，Mo62A 才输出**；设备端会等 HDMI 连上(默认 15s)再画码。
+- 命令停 `lightdm` 独占 framebuffer，无论成败/超时都自动恢复；默认等待回填 30s（`--timeout` 可调）。
 
 
 ### power 电源
@@ -282,25 +287,31 @@ OK!
 
 | 单元      | 检测内容 / 判定                  | 类型  | 工厂命令 | 状态  |
 | ------- | -------------------------- | --- | ---- | --- |
-| HDMI 音频 | Mo62A HDMI 播放 1kHz -> 采集卡 -> PC scp 回传 WAV -> FFT 验证 | 验证 | `audio test hdmi` | ✅ | 新写 |
-| HDMI 音频自测 | 不依赖采集卡，直接复制参考 WAV 完成闭环验证 | 验证 | `audio test hdmi --loopback` | ✅ | 新写 |
+| HDMI 音频 | Mo62A 播随机频率正弦 -> 采集卡 -> PC FFT 测频 -> 回填 stdin 比对 | 验证 | `audio test hdmi` | ✅ | 新写 |
+| HDMI 音频自测 | 不依赖采集卡：播放后自动回填生成频率验证闭环 | 验证 | `audio test hdmi --selftest` | ✅ | 新写 |
 | 耳机回环    | 播放+录音 FFT SNR ≥ 10dB（需回环线） | 验证 | `audio test headphone` | ✅ | audio/loopback |
 
-**HDMI 音频测试流程**
+**HDMI 音频测试流程（Challenge 频率）**
+
+设备等 HDMI 连上后，在 HDMI 声卡(hw:1,0) 播一个随机频率正弦，等对端回填「测得频率」，
+按容差(±60Hz)比对。PC 侧经采集卡音频输入(audio-only)抓取 + FFT 测频，设备只生成+比对。
 
 ```shell
-# 产线真实流程（需 PC 采集卡回传）
+# 设备端（等 HDMI 连上 → 播随机音 → 读回频率比对）
 Mo62A(factory)# audio test hdmi
+Tone Freq (Hz):
+<PC 测得的频率>
 OK!
-# PC 端：采集卡录音后 scp 到 /tmp/mo_hdmi_audio.wav
 
-# 无采集卡时的自测验证
-Mo62A(factory)# audio test hdmi --loopback
+# 无采集卡时的自测（自动回填生成频率）
+Mo62A(factory)# audio test hdmi --selftest
 OK!
 ```
 
-- 参考音频自动保存到 `/tmp/mo_audio_test.wav`；真实回传目标为 `/tmp/mo_hdmi_audio.wav`。
-- FFT 验证 1kHz 峰值相对噪声 SNR ≥ 10dB。
+- PC 端测频用 `pc-tools/hdmi-capture-example/mo_hdmi_capture.py`：find-audio / capture-audio / detect-freq。
+- 采集卡需 PC 先打开其视频或音频流（激活）；实测 sii902x HDMI 音频正常、PC FFT 测频准确
+  （播 1kHz 实测 1001.8Hz / SNR 33dB）。
+- 频率随机 → 防脚本假过；SNR 高判定为干净正弦。
 
 
 ### expansion 40-pin 扩展
@@ -313,7 +324,7 @@ OK!
 
 ### 其它（非物理接口）
 
-- **HDMI 测试**：已拆分为 `display hdmi detect`（视频）和 `audio test hdmi`（音频），通过 HDMI 采集卡 + PC 回传完成闭环验证；支持 `--loopback` 自测模式。
+- **HDMI 测试**：拆分为 `display hdmi detect`（视频，Challenge Code 二维码 PC 解码回读，`--selftest` 自测）与 `audio test hdmi`（音频，采集卡录音 scp 回传 FFT，`--loopback` 自测）。
 - **EEPROM 读写**：已由「设备定型 `factory-model`」覆盖（写入即读回校验），无需单列。
 - **C7x DSP**：非物理接口；如需可另加推理自检（不在物理接口范围）。
 - **Bluetooth**：与 Wi-Fi 同芯片、共用一根天线，RF/天线由 Wi-Fi 测试代表；默认不单列（如需覆盖 BT 的 UART/H5 通路，可加一行式 `hciconfig hci0` 在位检查）。

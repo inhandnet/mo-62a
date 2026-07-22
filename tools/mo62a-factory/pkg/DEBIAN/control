@@ -4,7 +4,7 @@ Architecture: arm64
 Maintainer: MO-62A SDK <sdk@mo-62a>
 Section: utils
 Priority: optional
-Depends: python3, python3-libgpiod
+Depends: python3, python3-libgpiod, python3-qrcode, python3-pil
 Description: MO-62A factory production-test tools (internal, not for customers)
  On-device commissioning and production-test commands for the MO-62A board:
  EEPROM identity programming, loopback/self-test helpers, etc.
