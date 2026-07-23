@@ -6,26 +6,32 @@ camera — MO-62A 摄像头产测命令。
 用法：
     camera test csi [<expected>]    # 抓一帧 IMX219 图像，解码二维码 -> OK!/FAIL!
                                     # 给 <expected> 则还要求解码内容与之相等
-    camera test csi preview [秒]    # 实时投到 HDMI，用于对准/对焦（默认 20s）
+    camera test csi preview [秒]    # 实时投到 HDMI 并用 DNN 画出二维码区域红框（对准/对焦）
+                                    # 退出：Ctrl+C；不给秒数=一直跑到 Ctrl+C，给秒数=到点自动退
     camera                          # 打印摄像头信息
 
 要求（csi 测试）：
   * 需 root；CSI cam overlay 需已启用（/dev/media0 里有 imx219）；
   * 治具里对准一张二维码（固定距离、光照大致稳定）。
 
-判定：抓帧走 IMX219 → CSI → VPAC ISP(NV12) 管线（复用 imx219-preview 的配置），
-  用 OpenCV 解码二维码；解出（且匹配 expected）即 OK!，否则 FAIL!。
+判定（camera test csi）：抓帧走 IMX219 → CSI → VPAC ISP(NV12) 管线，用 OpenCV/zbar
+  解码二维码；解出（且匹配 expected）即 OK!，否则 FAIL!。
+
+预览（camera test csi preview）功能①：不解码，只用微信 wechat_qrcode 的 detect DNN
+  找出画面中的二维码区域并在 HDMI 上画红框，供对准/对焦。高帧率做法见 cmd_preview。
 
 设计铁律（零持久化 + 强制还原）：
-  仅抓帧到 /dev/shm（内存），不写 SD；**不停 lightdm、不改 extlinux**（抓文件不需要
-  DRM master）；无论成败/异常都在 finally 清临时帧、杀残留 gst。
+  camera test csi 仅抓帧到 /dev/shm（内存），不写 SD、不停 lightdm；预览需 DRM master
+  故临时停 lightdm，无论成败/异常都在 finally 恢复 lightdm、干净释放 VPAC。
 """
 
 import glob
+import math
 import os
 import signal
 import subprocess
 import sys
+import threading
 import time
 
 os.environ.setdefault("OPENCV_LOG_LEVEL", "SILENT")   # 静音 cv2 imread 等告警
@@ -36,11 +42,20 @@ DCC_2A   = "/opt/imaging/imx219/linear/dcc_2a.bin"
 
 FPS, VBLANK, EXPOSURE, GAIN, DGAIN = 15, 2438, 3514, 150, 256
 W, H = 1920, 1080
-NUM_BUFFERS = 6                      # 抓几帧预热，取最后帧解码
-DECODE_LAST = 1                      # 只解最后 1 帧
-DECODE_MAXDIM = 1280                 # 解码前缩到该最大边（zbar 对密码更宽容）
+PREVIEW_FPS = 30                     # 预览采集帧率（IMX219 1080p 上限约 30）
+DISP_W, DISP_H = 1280, 720           # 预览显示降采样到 720p（标准 HDMI 模式）提帧率
+DET_W, DET_H = 640, 360              # 检测支路分辨率（喂 DNN 前再缩到 ~400²）
+NUM_BUFFERS = 10                     # 多抓几帧（覆盖传感器预热 + 逐帧抖动/眩光）
+DECODE_MAXDIM = 1280                 # 解码前缩到该最大边（1280 实测又快<0.2s又能稳解，1920 慢到 1s）
 SHM_PAT = "/dev/shm/mo_cam_%d.jpg"
 SHM_GLOB = "/dev/shm/mo_cam_*.jpg"
+
+# 微信 wechat_qrcode 模型（detect 找区域 + sr 超分辅助解码，Caffe）
+MODEL_DIR    = "/opt/wechat_qrcode"
+DETECT_PROTO = os.path.join(MODEL_DIR, "detect_2021nov.prototxt")
+DETECT_MODEL = os.path.join(MODEL_DIR, "detect_2021nov.caffemodel")
+SR_PROTO     = os.path.join(MODEL_DIR, "sr_2021nov.prototxt")
+SR_MODEL     = os.path.join(MODEL_DIR, "sr_2021nov.caffemodel")
 
 # media-ctl 管线格式（与 imx219-preview.sh 一致）
 MEDIA_CFG = [
@@ -107,7 +122,7 @@ def _require_root():
 
 
 def _find_video_dev():
-    """v4l2-ctl --list-devices 里 j721e-csi2rx 下的第一个 /dev/video*。"""
+    """v4l2-ctl --list-devices 里 j721e-csi2rx 下的第一个 /dev/video*（需 root，否则枚举失败）。"""
     out = _out("v4l2-ctl", "--list-devices")
     found = False
     for line in out.splitlines():
@@ -252,10 +267,54 @@ def _zbar_decode(gray):
     return out or None
 
 
+_WQR = None
+_WQR_INIT = False
+
+
+def _wechat_qr():
+    """加载 cv2.wechat_qrcode（detect + sr 四模型，缓存）；模型缺失/不支持返回 None。
+       比 zbar/cv2.QRCodeDetector 强很多（自带检测 + 超分），实测对本治具二维码稳定解出。"""
+    global _WQR, _WQR_INIT
+    if _WQR_INIT:
+        return _WQR
+    _WQR_INIT = True
+    if not all(os.path.isfile(f) for f in (DETECT_PROTO, DETECT_MODEL, SR_PROTO, SR_MODEL)):
+        return None
+    try:
+        import cv2
+        try:
+            _WQR = cv2.wechat_qrcode_WeChatQRCode(DETECT_PROTO, DETECT_MODEL, SR_PROTO, SR_MODEL)
+        except AttributeError:
+            _WQR = cv2.wechat_qrcode.WeChatQRCode(DETECT_PROTO, DETECT_MODEL, SR_PROTO, SR_MODEL)
+    except Exception:
+        _WQR = None
+    return _WQR
+
+
 def _decode_frame(gray):
-    """zbar 可用就只用 zbar（快且抗角度/光照）；无 libzbar 才退回 cv2。"""
+    """优先用 wechat_qrcode（检测+超分+解码，最稳）；不可用/解不出再退回 zbar，
+       最后 cv2.QRCodeDetector 兜底。zbar 对光照不均敏感，失败时补一次 OTSU 二值化。"""
+    qr = _wechat_qr()
+    if qr is not None:
+        try:
+            texts, _pts = qr.detectAndDecode(gray)
+            for t in (texts or []):
+                if t:
+                    return t
+        except Exception:
+            pass
     if _zbar_lib() is not None:
-        return _zbar_decode(gray)
+        data = _zbar_decode(gray)
+        if data:
+            return data
+        import cv2
+        try:
+            _, binary = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            data = _zbar_decode(binary)
+            if data:
+                return data
+        except Exception:
+            pass
     import cv2
     try:
         data, _, _ = cv2.QRCodeDetector().detectAndDecode(gray)
@@ -281,8 +340,65 @@ def _load_gray(path):
     return img
 
 
+QR_SOCK = "/run/mo62a-qr.sock"       # 常驻解码 daemon 的 Unix socket
+
+
+def _qr_query(header, extra=b""):
+    """连 daemon 发请求（省掉每次 ~7s 的 import cv2），解析返回的区域。
+       返回 [(nx0,ny0,nx1,ny1,text),...]（归一化）；daemon 不可用返回 None（调用方兜底）。"""
+    import socket
+    try:
+        s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        s.settimeout(3.0)
+        s.connect(QR_SOCK)
+        s.settimeout(15.0)
+        s.sendall(header + extra)
+        s.shutdown(socket.SHUT_WR)             # 告知请求结束（DECODE 靠此停止读路径）
+        buf = b""
+        while True:
+            b = s.recv(65536)
+            if not b:
+                break
+            buf += b
+        s.close()
+    except Exception:
+        return None
+    lines = buf.decode("utf-8", "replace").splitlines()
+    if not lines:
+        return []
+    try:
+        n = int(lines[0])
+    except ValueError:
+        return []
+    res = []
+    for ln in lines[1:1 + n]:
+        parts = ln.split(" ", 4)
+        if len(parts) < 4:
+            continue
+        try:
+            x0, y0, x1, y1 = (float(parts[0]), float(parts[1]),
+                              float(parts[2]), float(parts[3]))
+        except ValueError:
+            continue
+        res.append((x0, y0, x1, y1, parts[4] if len(parts) > 4 else ""))
+    return res
+
+
+def _detect_via_daemon(gray):
+    """preview 用：把实时灰度帧发给 daemon（DETECT 模式），返回区域列表或 None。"""
+    h, w = gray.shape[:2]
+    return _qr_query(("DETECT %d %d\n" % (w, h)).encode("utf-8"), gray.tobytes())
+
+
 def _decode_qr(pngs):
-    for p in list(reversed(pngs))[:DECODE_LAST]:
+    # test csi 用：优先 daemon（DECODE 模式，cv2 已热，快）；daemon 不可用则进程内逐帧解码兜底。
+    regs = _qr_query(("DECODE\n" + "\n".join(reversed(pngs)) + "\n").encode("utf-8"))
+    if regs is not None:
+        for (_a, _b, _c, _d, t) in regs:
+            if t:
+                return t
+        return None
+    for p in reversed(pngs):           # 兜底：逐帧尝试（新→旧），任一帧解出即返回
         img = _load_gray(p)
         if img is None:
             continue
@@ -307,6 +423,7 @@ def cmd_test_csi(expected):
         if not pngs:
             _cleanup()
             _fail("抓帧失败（CSI 采集无输出，检查摄像头连接/CSI 焊接）")
+        # 解码优先走常驻 daemon（cv2 已热，~0.1s）；daemon 不在则进程内兜底（首次付 ~7s import）
         data = _decode_qr(pngs)
         if not data:
             detail = "抓到 %d 帧但未解出二维码（检查对准/对焦/光照）" % len(pngs)
@@ -332,123 +449,193 @@ def cmd_test_csi(expected):
     sys.exit(0 if ok else 1)
 
 
+# ==== 功能①+②：wechat_qrcode 检测二维码区域 + 解码 + cairooverlay 画框/打印值（预览）====
+# 归一化框 (x0,y0,x1,y1,text)，0..1，text 为解码值（检测到未解出时为 ""）。
+# 检测线程写、cairo 绘制回调读，用锁保护。
+_boxes = []
+_boxes_lock = threading.Lock()
+_det_np = None                       # cmd_preview 里赋值（numpy / Gst）
+_det_gst = None
+_draw_n = 0                          # 显示帧计数（CAM_DEBUG 时打 fps）
+_draw_t0 = None
+
+
+def _on_new_sample(sink):
+    """检测 appsink 回调：取降分辨率灰度帧发给常驻 daemon 检测+解码，更新 _boxes。
+       走 daemon 是为了 preview 启动快（不在进程内 import cv2 的那 ~7s）；daemon 不在则本帧无框。"""
+    Gst = _det_gst
+    sample = sink.emit("pull-sample")
+    if sample is None:
+        return Gst.FlowReturn.OK
+    buf = sample.get_buffer()
+    st = sample.get_caps().get_structure(0)
+    w, h = st.get_value("width"), st.get_value("height")
+    ok, mi = buf.map(Gst.MapFlags.READ)
+    if ok:
+        try:
+            gray = _det_np.frombuffer(mi.data, _det_np.uint8, count=w * h).reshape(h, w)
+            regs = _detect_via_daemon(gray)          # daemon（DETECT 模式）
+            if regs is not None:
+                with _boxes_lock:
+                    _boxes[:] = regs
+                if os.environ.get("CAM_DEBUG") and regs:
+                    print("detect: %d 个区域, 值=%r"
+                          % (len(regs), [b[4] for b in regs]), file=sys.stderr)
+        except Exception:
+            pass
+        finally:
+            buf.unmap(mi)
+    return Gst.FlowReturn.OK
+
+
+def _on_draw(overlay, ctx, timestamp, duration):
+    """cairooverlay 回调：在 720p 显示画布上画红框（归一化坐标 × 显示分辨率），
+       解出值则在框上方打印二维码内容。"""
+    global _draw_n, _draw_t0
+    if os.environ.get("CAM_DEBUG"):
+        _draw_n += 1
+        now = time.monotonic()
+        if _draw_t0 is None:
+            _draw_t0 = now
+        elif now - _draw_t0 >= 2.0:
+            print("display fps=%.1f" % (_draw_n / (now - _draw_t0)), file=sys.stderr)
+            _draw_n, _draw_t0 = 0, now
+    with _boxes_lock:
+        cur = list(_boxes)
+    for (nx0, ny0, nx1, ny1, text) in cur:
+        x0, y0 = nx0 * DISP_W, ny0 * DISP_H
+        x1, y1 = nx1 * DISP_W, ny1 * DISP_H
+        ctx.set_source_rgb(1.0, 0.0, 0.0)
+        ctx.set_line_width(3)
+        ctx.rectangle(x0, y0, x1 - x0, y1 - y0)
+        ctx.stroke()
+        label = text if text else "QR"
+        ctx.set_font_size(26)
+        ctx.move_to(x0, max(26.0, y0 - 8.0))       # 框上方打印解码值
+        ctx.show_text(label)
+
+
 def cmd_preview(seconds):
-    """HDMI 实时预览（供对准/对焦）+ 同时后台持续解码二维码：
-       一旦解出立即返回，否则 seconds 超时。会临时停 lightdm（kmssink 需 DRM
-       master），结束/异常都恢复；临时帧在 /dev/shm，不写 SD。
-       输出：成功 -> "OK!\\nThe content of the QR code is: <内容>"；失败 -> "Fail!"。"""
+    """功能①+②：IMX219 实时预览到 HDMI，用 wechat_qrcode 检测二维码区域画红框，
+       并解码、在框上方打印二维码值（对准/对焦 + 读值）。
+       退出：Ctrl+C（SIGINT）或 seconds 超时。需 root（kmssink 要 DRM master）。
+
+       架构（单管线，稳）：
+         - v4l2src → tiovxisp(NV12 1080p) → tee
+             · 显示支路 tiovxmultiscaler 缩到 720p → videoconvert→BGRx → cairooverlay(画框)
+               → kmssink（HDMI，force-modesetting，显示器缩放回原生）
+             · 检测支路 videoscale→640x360 → GRAY8 → appsink（喂 DNN，drop=true 慢就丢帧）
+         - 检测在后台线程（appsink new-sample 回调）跑 cv2.dnn，更新归一化框；
+         - cairooverlay 的 draw 回调每帧用最新一批框绘制，实时不掉帧。
+       降到 720p 是因为 cairooverlay 需 BGRx、1080p 软件色转只有 ~12fps 天花板；720p ~18-20fps。
+       零持久化：不写 SD；临时停 lightdm，结束/异常都恢复并干净释放 VPAC。"""
+    global _det_np, _det_gst
     _require_root()
 
-    def _raise(signum, frame):
-        raise KeyboardInterrupt
-    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-        signal.signal(s, _raise)
+    # 检测/解码走常驻 daemon（mo62a-qr-daemon），preview 本身不 import cv2，故启动快（~2s，
+    # 不再付进程内 import cv2 的 ~7s）。daemon 不在则画面正常、只是暂时没框。
+    import numpy as np
+    import gi
+    gi.require_version("Gst", "1.0")
+    from gi.repository import Gst, GLib
+    _det_np, _det_gst = np, Gst
+
+    Gst.init(None)
+    if not os.path.exists(QR_SOCK):
+        print("camera: 提示——解码 daemon 未就绪(%s 不存在)，预览可显示但暂无二维码框；"
+              "稍候片刻(daemon 预热 ~7s)或确认 mo62a-qr-daemon.service 已启动。" % QR_SOCK,
+              file=sys.stderr)
 
     dm = "lightdm"
     dm_active = (subprocess.run(["systemctl", "is-active", dm],
                  capture_output=True, text=True).stdout.strip() == "active")
-    play = None
-    result = None
+    pipe = None
     try:
         if dm_active:
             _sh("systemctl", "stop", dm)
             time.sleep(1)
         vdev = _setup_pipeline()
-        for f in glob.glob(SHM_GLOB):
-            try:
-                os.remove(f)
-            except OSError:
-                pass
 
-        # tee：一路 kmssink 上 HDMI；一路降到 3fps 编 jpeg 到 /dev/shm 供解码
-        gst = [
-            "gst-launch-1.0", "-e",
-            "v4l2src", "device=%s" % vdev, "io-mode=5", "!",
-            "queue", "max-size-buffers=2", "leaky=downstream", "!",
-            "video/x-bayer,format=rggb,width=%d,height=%d,framerate=%d/1" % (W, H, FPS), "!",
-            "tiovxisp", "sensor-name=SENSOR_SONY_IMX219_RPI",
-            "dcc-isp-file=%s" % DCC_VISS, "sink_0::dcc-2a-file=%s" % DCC_2A, "format-msb=7", "!",
-            "video/x-raw,format=NV12,width=%d,height=%d" % (W, H), "!",
-            "tee", "name=t",
-            "t.", "!", "queue", "!",
-            "kmssink", "sync=false", "driver-name=tidss", "force-modesetting=true",
-            "t.", "!", "queue", "leaky=downstream", "max-size-buffers=2", "!",
-            "videorate", "!", "video/x-raw,framerate=3/1", "!",
-            "jpegenc", "!", "multifilesink", "location=%s" % SHM_PAT, "max-files=6",
-        ]
-        play = subprocess.Popen(gst, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        head = (
+            "v4l2src device=%s io-mode=5 ! "
+            "video/x-bayer,format=rggb,width=%d,height=%d,framerate=%d/1 ! "
+            "tiovxisp sensor-name=SENSOR_SONY_IMX219_RPI dcc-isp-file=%s "
+            "sink_0::dcc-2a-file=%s format-msb=7 ! "
+            "video/x-raw,format=NV12,width=%d,height=%d ! "
+        ) % (vdev, W, H, PREVIEW_FPS, DCC_VISS, DCC_2A, W, H)
+        disp = (
+            "tiovxmultiscaler ! video/x-raw,format=NV12,width=%d,height=%d ! "
+            "videoconvert ! video/x-raw,format=BGRx ! cairooverlay name=ov ! "
+            "kmssink sync=false driver-name=tidss force-modesetting=true"
+        ) % (DISP_W, DISP_H)
+        if os.environ.get("CAM_NODETECT"):
+            desc = head + disp
+        else:
+            desc = (head + "tee name=t t. ! queue max-size-buffers=2 leaky=downstream ! "
+                    + disp +
+                    " t. ! queue max-size-buffers=1 leaky=downstream ! "
+                    "videoscale ! video/x-raw,width=%d,height=%d ! "
+                    "videoconvert ! video/x-raw,format=GRAY8 ! "
+                    "appsink name=det emit-signals=true max-buffers=1 drop=true sync=false"
+                    % (DET_W, DET_H))
 
-        dbg = bool(os.environ.get("CAM_DEBUG"))
-        t0 = time.monotonic()
-        deadline = t0 + max(1, seconds)
-        it = 0
-        while time.monotonic() < deadline:
-            it += 1
-            if play.poll() is not None:            # gst 意外退出
-                if dbg:
-                    print("dbg: gst exited rc=%s at %.1fs" %
-                          (play.returncode, time.monotonic() - t0), file=sys.stderr)
-                break
-            files = sorted(glob.glob(SHM_GLOB),
-                           key=lambda p: int(p.rsplit("_", 1)[1].split(".")[0]))
-            # 取次新一帧（最新那张可能正在写）
-            cand = files[-2] if len(files) >= 2 else (files[-1] if files else None)
-            if cand:
-                img = _load_gray(cand)
-                if img is not None:
-                    data = _decode_frame(img)
-                    if dbg:
-                        print("dbg: it=%d t=%.1f nfiles=%d decoded=%r" %
-                              (it, time.monotonic() - t0, len(files), bool(data)),
-                              file=sys.stderr)
-                    if data:
-                        result = data
-                        break
-            time.sleep(0.2)
-    except KeyboardInterrupt:
-        pass
+        pipe = Gst.parse_launch(desc)
+        pipe.get_by_name("ov").connect("draw", _on_draw)
+        det = pipe.get_by_name("det")
+        if det is not None:
+            det.connect("new-sample", _on_new_sample)
+
+        loop = GLib.MainLoop()
+        bus = pipe.get_bus()
+        bus.add_signal_watch()
+
+        def _on_msg(_b, msg):
+            if msg.type == Gst.MessageType.ERROR:
+                err, _d = msg.parse_error()
+                print("camera: gst 错误 %s" % err, file=sys.stderr)
+                loop.quit()
+            elif msg.type == Gst.MessageType.EOS:
+                loop.quit()
+        bus.connect("message", _on_msg)
+
+        # Ctrl+C（SIGINT）/ SIGTERM 退出——SSH 下比 Esc 稳，参考 imx219-preview.sh。
+        for s in (signal.SIGINT, signal.SIGTERM):
+            GLib.unix_signal_add(GLib.PRIORITY_DEFAULT, s,
+                                 lambda *_a: (loop.quit(), False)[1])
+
+        if seconds and seconds > 0:
+            GLib.timeout_add_seconds(seconds, lambda: (loop.quit(), False)[1])
+        else:
+            print("camera: 预览中，按 Ctrl+C 退出…", file=sys.stderr)
+
+        pipe.set_state(Gst.State.PLAYING)
+        loop.run()
     except (RuntimeError, OSError) as e:
-        _stop_gst(play)
-        _sh("pkill", "-INT", "-f", "gst-launch.*kmssink")
-        time.sleep(0.5)
+        if pipe is not None:
+            pipe.set_state(Gst.State.NULL)
         if dm_active:
             _sh("systemctl", "start", dm)
-        for f in glob.glob(SHM_GLOB):
-            try:
-                os.remove(f)
-            except OSError:
-                pass
-        print("Fail!")
-        sys.exit(1)
+        _fail(str(e))
     finally:
-        _stop_gst(play)
-        _sh("pkill", "-INT", "-f", "gst-launch.*kmssink")
-        time.sleep(0.5)
-        for f in glob.glob(SHM_GLOB):
-            try:
-                os.remove(f)
-            except OSError:
-                pass
+        if pipe is not None:
+            pipe.set_state(Gst.State.NULL)         # 干净释放 VPAC
         if dm_active:
+            time.sleep(0.3)
             _sh("systemctl", "start", dm)
 
-    if result:
-        print("OK!")
-        print("The content of the QR code is: %s" % result)
-        sys.exit(0)
-    print("Fail!")
-    sys.exit(1)
+    sys.exit(0)
 
 
 def cmd_info():
     print("摄像头产测：")
     print("  media : %s" % (MEDIA if os.path.exists(MEDIA) else "无 /dev/media0"))
     top = _out("media-ctl", "-d", MEDIA, "--print-topology")
-    print("  imx219: %s" % ("已启用" if "imx219" in top else "未检测到（overlay 未启用？）"))
+    print("  imx219: %s" % ("已启用" if "imx219" in top else "未检测到（需 sudo；或 overlay 未启用）"))
     vdev = _find_video_dev()
-    print("  采集  : %s" % (vdev or "未找到 j721e-csi2rx 采集设备"))
-    print("用法：  camera test csi [<expected>]        （治具内对准二维码）")
-    print("        camera test csi preview [秒]        （HDMI 预览对准/对焦）")
+    print("  采集  : %s" % (vdev or "未找到 j721e-csi2rx 采集设备（需 sudo）"))
+    print("  模型  : %s" % ("已就绪" if os.path.isfile(DETECT_MODEL) else "缺失 %s" % MODEL_DIR))
+    print("用法：  camera test csi [<expected>]        （治具内对准二维码，解码判定）")
+    print("        camera test csi preview [秒]        （HDMI 预览 + DNN 画二维码区域框，Ctrl+C 退出；不给秒数=一直跑）")
 
 
 def main():
@@ -456,8 +643,8 @@ def main():
     if len(argv) >= 2 and argv[0] == "test" and argv[1] == "csi":
         rest = argv[2:]
         if rest and rest[0] == "preview":               # camera test csi preview [秒]
-            secs = int(rest[1]) if len(rest) >= 2 and rest[1].isdigit() else 20
-            cmd_preview(secs)
+            secs = int(rest[1]) if len(rest) >= 2 and rest[1].isdigit() else 0
+            cmd_preview(secs)                            # 不给秒数=一直跑到 Ctrl+C
         else:                                           # camera test csi [<expected>]
             cmd_test_csi(rest[0] if rest else None)
     elif not argv:

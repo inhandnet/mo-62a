@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+mo62a-qr-daemon — 常驻二维码检测/解码服务（保持 OpenCV/wechat_qrcode 热加载）。
+
+背景：`import cv2` 在本板 A53 上要 ~7s（整体 .so 初始化，无法只导子模块），
+每次 `camera test csi`/`preview` 单独付这 7s 很慢。本 daemon 装包/开机时 import 一次、
+常驻监听 Unix socket，把 cv2 + wechat 模型热加载在内存里，供 camera 反复快速调用。
+
+监听 /run/mo62a-qr.sock（0600，仅 root；camera 以 root 运行）。请求两种模式（首行命令）：
+  DECODE                 后跟若干行 jpg 路径；逐帧 imread 解码，返回首个解出文本那一帧的区域。
+  DETECT <w> <h>         后跟 w*h 字节原始灰度帧；对该帧检测+解码，返回区域。
+统一响应：首行区域数 N，随后 N 行「nx0 ny0 nx1 ny1 text」（归一化 0..1，text 为余下全部，可空）。
+连接处理完即关闭。模型缺失/cv2 不可用则退出（服务失败）；camera 端会自动退回进程内解码兜底。
+"""
+
+import os
+import socket
+import sys
+
+SOCK      = "/run/mo62a-qr.sock"
+MODEL_DIR = "/opt/wechat_qrcode"
+FILES = ("detect_2021nov.prototxt", "detect_2021nov.caffemodel",
+         "sr_2021nov.prototxt", "sr_2021nov.caffemodel")
+MAXDIM = 1280                        # 解码前缩到该最大边（实测又快又稳）
+
+
+def _make_qr():
+    import cv2
+    paths = [os.path.join(MODEL_DIR, f) for f in FILES]
+    for p in paths:
+        if not os.path.isfile(p):
+            print("[qr-daemon] 模型缺失：%s" % p, file=sys.stderr)
+            sys.exit(1)
+    try:
+        return cv2, cv2.wechat_qrcode_WeChatQRCode(*paths)
+    except AttributeError:
+        return cv2, cv2.wechat_qrcode.WeChatQRCode(*paths)
+
+
+def _regions(cv2, np, qr, gray):
+    """对灰度图检测+解码，返回归一化 (nx0,ny0,nx1,ny1,text) 列表。"""
+    h, w = gray.shape[:2]
+    scale = float(MAXDIM) / max(w, h)
+    proc = cv2.resize(gray, (int(w * scale), int(h * scale))) if scale < 1.0 else gray
+    ph, pw = proc.shape[:2]
+    try:
+        texts, points = qr.detectAndDecode(proc)
+    except Exception:
+        return []
+    res = []
+    if points is None:
+        return res
+    for i in range(len(points)):
+        try:
+            pts = np.asarray(points[i], dtype="float32").reshape(-1, 2)
+        except Exception:
+            continue
+        if pts.shape[0] < 2:
+            continue
+        x0, y0 = float(pts[:, 0].min()), float(pts[:, 1].min())
+        x1, y1 = float(pts[:, 0].max()), float(pts[:, 1].max())
+        t = texts[i] if (texts is not None and i < len(texts)) else ""
+        res.append((x0 / pw, y0 / ph, x1 / pw, y1 / ph, t or ""))
+    return res
+
+
+def _readline(conn, acc):
+    """从已缓冲 acc + socket 读到一整行（含换行），返回 (line_bytes, rest_acc)。"""
+    while b"\n" not in acc:
+        b = conn.recv(65536)
+        if not b:
+            break
+        acc += b
+    if b"\n" in acc:
+        line, _, rest = acc.partition(b"\n")
+        return line, rest
+    return acc, b""
+
+
+def _handle(cv2, np, qr, conn):
+    acc = b""
+    line, acc = _readline(conn, acc)
+    cmd = line.decode("utf-8", "replace").strip()
+    regs = []
+    if cmd.startswith("DETECT"):
+        parts = cmd.split()
+        w, h = int(parts[1]), int(parts[2])
+        need = w * h
+        while len(acc) < need:
+            b = conn.recv(65536)
+            if not b:
+                break
+            acc += b
+        if len(acc) >= need:
+            gray = np.frombuffer(acc[:need], np.uint8).reshape(h, w)
+            regs = _regions(cv2, np, qr, gray)
+    elif cmd.startswith("DECODE"):
+        while True:
+            line, acc = _readline(conn, acc)
+            if not line:
+                break
+            p = line.decode("utf-8", "replace").strip()
+            if not p:
+                continue
+            img = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+            if img is None:
+                continue
+            r = _regions(cv2, np, qr, img)
+            if any(x[4] for x in r):        # 首个解出文本的帧
+                regs = r
+                break
+    out = ["%d" % len(regs)]
+    for (x0, y0, x1, y1, t) in regs:
+        out.append("%.4f %.4f %.4f %.4f %s" % (x0, y0, x1, y1, t))
+    conn.sendall(("\n".join(out) + "\n").encode("utf-8"))
+
+
+def main():
+    import numpy as np
+    cv2, qr = _make_qr()             # 一次性 import cv2 + 加载模型（~7s）
+
+    try:
+        os.unlink(SOCK)
+    except OSError:
+        pass
+    srv = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    srv.bind(SOCK)
+    os.chmod(SOCK, 0o600)            # 仅 root 可连（camera 以 root 运行）
+    srv.listen(8)
+    print("[qr-daemon] 就绪，监听 %s" % SOCK, file=sys.stderr)
+
+    while True:
+        try:
+            conn, _ = srv.accept()
+        except (KeyboardInterrupt, SystemExit):
+            break
+        except OSError:
+            continue
+        try:
+            _handle(cv2, np, qr, conn)
+        except Exception:
+            try:
+                conn.sendall(b"0\n")
+            except OSError:
+                pass
+        finally:
+            conn.close()
+
+
+if __name__ == "__main__":
+    main()

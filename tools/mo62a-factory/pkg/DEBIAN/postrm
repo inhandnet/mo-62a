@@ -1,0 +1,18 @@
+#!/bin/sh
+set -e
+
+# 产测后 apt remove / dpkg -r（及 purge）不留痕：删掉随包安装的 wechat_qrcode 二维码模型，
+# 连同 /opt/wechat_qrcode 整个目录一并清掉（含产测过程中可能手动丢入的文件）。
+# 仅在移除/清除时执行；升级（upgrade）时不动，避免误删新装的文件。
+case "$1" in
+    remove|purge)
+        rm -rf /opt/wechat_qrcode
+        rm -f /run/mo62a-qr.sock
+        if [ -d /run/systemd/system ]; then
+            systemctl daemon-reload || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+exit 0

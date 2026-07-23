@@ -1,0 +1,15 @@
+[Unit]
+Description=MO-62A factory QR decode daemon (keeps OpenCV/wechat_qrcode warm)
+After=multi-user.target
+# 模型缺失时 daemon 自行退出(exit 1)，限制重启避免刷屏
+StartLimitIntervalSec=30
+StartLimitBurst=3
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/mo62a-qr-daemon
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

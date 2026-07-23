@@ -1,0 +1,14 @@
+#!/bin/sh
+set -e
+
+# 移除/卸载前停掉常驻二维码解码服务（remove 和 deconfigure 都停；upgrade 时不停）。
+case "$1" in
+    remove|deconfigure)
+        if [ -d /run/systemd/system ]; then
+            systemctl disable --now mo62a-qr-daemon.service || true
+        fi
+        ;;
+esac
+
+#DEBHELPER#
+exit 0
