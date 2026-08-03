@@ -10,6 +10,7 @@ autoconnect=true
 [ipv4]
 method=auto
 link-local=3
+dhcp-timeout=2147483647
 
 [ipv6]
 method=auto

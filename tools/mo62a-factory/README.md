@@ -37,6 +37,7 @@ tools/mo62a-factory/
 | 命令 | 功能 |
 |---|---|
 | `factory-model` | EEPROM 设备定型 |
+| `infactory` | 工厂进入口令校验（PBKDF2 密文比对） |
 | `com` | 调试串口 TX↔RX 回环 |
 | `net` | 以太网千兆 + ping |
 | `wlan` | Wi-Fi 2.4/5G 信号扫描 |

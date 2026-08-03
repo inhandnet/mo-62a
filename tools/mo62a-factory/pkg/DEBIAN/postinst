@@ -7,7 +7,8 @@ chmod 0755 /usr/local/bin/factory-model /usr/local/bin/com /usr/local/bin/net \
     /usr/local/bin/mem /usr/local/bin/rtc /usr/local/bin/usb \
     /usr/local/bin/audio /usr/local/bin/led /usr/local/bin/key \
     /usr/local/bin/fan /usr/local/bin/dio /usr/local/bin/camera \
-    /usr/local/bin/display /usr/local/bin/mo62a-qr-daemon 2>/dev/null || true
+    /usr/local/bin/display /usr/local/bin/infactory \
+    /usr/local/bin/mo62a-qr-daemon 2>/dev/null || true
 
 # 启动常驻二维码解码服务（预热 OpenCV/wechat_qrcode，Type=simple 不阻塞安装；约 7s 后就绪，
 # 期间 camera 会自动退回进程内解码兜底）。

@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+infactory — MO-62A 工厂进入口令校验。
+
+用法：
+    infactory           # 提示 Input password:，校验后 OK!/FAIL!
+
+流程：
+  1. 提示 "Input password:"，用 getpass 读取（不回显）
+  2. 与内置 PBKDF2-SHA256 加盐哈希比较（常数时间）
+  3. 匹配 -> 静默退出(0，无任何输出)；不匹配 -> FAIL!(1)
+
+安全：脚本内只存 PBKDF2-SHA256 加盐哈希（pbkdf2_sha256$iter$salt$digest），
+  不含密码明文；即使脚本泄露也无法反推口令。校验在设备端完成，不联网。
+"""
+
+import getpass
+import hashlib
+import hmac
+import sys
+
+# PBKDF2-SHA256 加盐哈希（iter$salt$digest），对应口令为工厂产测专用口令。
+# 生成方式：os.urandom(16) 盐 + hashlib.pbkdf2_hmac("sha256", pw, salt, 100000)
+PASSWORD_HASH = "pbkdf2_sha256$100000$76239af2baaf021a45e9ac6d47b5f9cd$9c926f483d6ba3ca36f3e26ce1c247c0986ea400aa7be7de3c1e3663a47b9d27"
+
+FAIL_MSG = "FAIL!"
+
+
+def _check(pw):
+    """密码是否正确（常数时间比较）。"""
+    algo, iters_s, salt_hex, dk_hex = PASSWORD_HASH.split("$")
+    if algo != "pbkdf2_sha256":
+        return False
+    iters = int(iters_s)
+    salt = bytes.fromhex(salt_hex)
+    expected = bytes.fromhex(dk_hex)
+    dk = hashlib.pbkdf2_hmac("sha256", pw.encode("utf-8"), salt, iters, dklen=len(expected))
+    return hmac.compare_digest(dk, expected)
+
+
+def main():
+    try:
+        pw = getpass.getpass("Input password: ")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        print(FAIL_MSG)
+        return 1
+    if _check(pw):
+        return 0                      # 成功不输出任何内容
+    print(FAIL_MSG)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())
