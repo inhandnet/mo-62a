@@ -41,7 +41,8 @@ export TI_SECURE_DEV_PKG=$(TI_SDK_PATH)/board-support/core-secdev-k3
 ### PLATFORM CONFIG ###
 
 ### rt fragment config ###
-RT_FRAGMENT=ti_rt.config
+# mo62a_cpufreq.config 必须排在 ti_rt.config 之后，用于覆盖后者关闭的 CONFIG_CPU_FREQ
+RT_FRAGMENT=ti_rt.config mo62a_cpufreq.config
 
 #platform
 SOC=am62a
