@@ -1,0 +1,105 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="760" viewBox="0 0 1280 760">
+<defs>
+<linearGradient id="g_app" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#3f66c9"/></linearGradient>
+<linearGradient id="g_fw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#8b7bd8"/><stop offset="1" stop-color="#6a58bd"/></linearGradient>
+<linearGradient id="g_backend" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#a86bd0"/><stop offset="1" stop-color="#8442ae"/></linearGradient>
+<linearGradient id="g_rt" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#4834d4"/></linearGradient>
+<linearGradient id="g_vx" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#4834d4"/><stop offset="1" stop-color="#2d1f96"/></linearGradient>
+<linearGradient id="g_ipc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#f0932b"/><stop offset="1" stop-color="#cf7714"/></linearGradient>
+<linearGradient id="g_fwc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#d63bd6"/><stop offset="1" stop-color="#a029a0"/></linearGradient>
+<linearGradient id="g_hw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e74c3c"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_vpac" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ff9f43"/><stop offset="1" stop-color="#df801f"/></linearGradient>
+<linearGradient id="g_mem" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#16a085"/><stop offset="1" stop-color="#0c7862"/></linearGradient>
+<linearGradient id="g_ok" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#27ae60"/><stop offset="1" stop-color="#1c8449"/></linearGradient>
+<linearGradient id="g_warn" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#eb4d4b"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_gray" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#9aa5b1"/><stop offset="1" stop-color="#7b8794"/></linearGradient>
+<linearGradient id="g_dark" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#3d566e"/><stop offset="1" stop-color="#2b3f52"/></linearGradient>
+<linearGradient id="g_sram" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#22a6b3"/><stop offset="1" stop-color="#12838f"/></linearGradient>
+<linearGradient id="g_gold" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e1b12c"/><stop offset="1" stop-color="#bd9218"/></linearGradient>
+<linearGradient id="g_slate" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#7f8fa6"/><stop offset="1" stop-color="#64748b"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#16204a" flood-opacity="0.20"/></filter>
+<filter id="shs" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#16204a" flood-opacity="0.15"/></filter>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#5a6480"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#ffffff"/></marker>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#eb4d4b"/></marker>
+<marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#e08424"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#27ae60"/></marker>
+</defs>
+<rect width="1280" height="760" fill="#f5f7fb"/>
+<text x="640.0" y="42" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="26" fill="#1f2437" text-anchor="middle" font-weight="700" opacity="1.0">DDR 内存分布（实测 2 GB）</text>
+<text x="640.0" y="68" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#6b7280" text-anchor="middle" font-weight="400" opacity="1.0">AI 相关区域占 615 MB —— 这就是 free 只看到 1.35 GB 的原因</text>
+<text x="70" y="100" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">物理内存总览</text>
+<rect x="70" y="116" width="230" height="300" rx="8" fill="url(#g_mem)" opacity="1.0"/>
+<text x="185.0" y="262.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">保留区</text>
+<text x="185.0" y="284.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="16" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">615 MB</text>
+<polyline points="70,412 93,420 116,412 139,420 162,412 185,420 208,412 231,420 254,412 277,420 300,412" fill="none" stroke="#f5f7fb" stroke-width="7"/>
+<polyline points="70,412 93,420 116,412 139,420 162,412 185,420 208,412 231,420 254,412 277,420 300,412" fill="none" stroke="#aab3c5" stroke-width="1.6"/>
+<rect x="70" y="426" width="230" height="236" rx="8" fill="url(#g_gray)" opacity="1.0"/>
+<text x="185.0" y="540.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">Linux 可用内存</text>
+<text x="185.0" y="562.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="16" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">1379 MB</text>
+<text x="70" y="686" font-family="DejaVu Sans Mono, Noto Sans Mono CJK SC, monospace" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x8000_0000</text>
+<text x="70" y="86" font-family="DejaVu Sans Mono, Noto Sans Mono CJK SC, monospace" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0xC000_0000</text>
+<text x="185.0" y="716" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#6b7280" text-anchor="middle" font-weight="400" opacity="1.0">断轴：Linux 区已压缩</text>
+<path d="M 300 116 L 470 116" fill="none" stroke="#b6bece" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4"/>
+<path d="M 300 416 L 470 656" fill="none" stroke="#b6bece" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="5 4"/>
+<rect x="470" y="116" width="740" height="540" rx="12" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="490" y="100" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">保留区 615 MB 展开（按地址从高到低，等距绘制）</text>
+<rect x="488" y="139" width="6" height="43.55555555555556" rx="3" fill="url(#g_mem)" opacity="1.0"/>
+<rect x="504" y="139" width="150" height="43.55555555555556" rx="7" fill="url(#g_mem)" opacity="1.0"/>
+<text x="579" y="165.77777777777777" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">292 MB</text>
+<text x="670" y="159.77777777777777" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">EdgeAI Core Heap</text>
+<text x="670" y="178.77777777777777" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0xADC0_0000   ·   网络权重 · 中间激活值</text>
+<rect x="1114" y="151.77777777777777" width="59" height="21" rx="10.5" fill="#16a085" filter="url(#shs)"/>
+<text x="1143.635" y="166.47777777777776" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">AI 相关</text>
+<rect x="488" y="194.55555555555554" width="6" height="43.55555555555556" rx="3" fill="url(#g_ok)" opacity="1.0"/>
+<rect x="504" y="194.55555555555554" width="150" height="43.55555555555556" rx="7" fill="url(#g_ok)" opacity="1.0"/>
+<text x="579" y="221.33333333333331" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">172 MB</text>
+<text x="670" y="215.33333333333331" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">EdgeAI 共享内存池</text>
+<text x="670" y="234.33333333333331" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0xA300_0000   ·   dma_heap 暴露 · A53↔C7x 零拷贝</text>
+<rect x="1114" y="207.33333333333331" width="59" height="21" rx="10.5" fill="#16a085" filter="url(#shs)"/>
+<text x="1143.635" y="222.0333333333333" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">AI 相关</text>
+<rect x="488" y="250.1111111111111" width="6" height="43.55555555555556" rx="3" fill="url(#g_sram)" opacity="1.0"/>
+<rect x="504" y="250.1111111111111" width="150" height="43.55555555555556" rx="7" fill="url(#g_sram)" opacity="1.0"/>
+<text x="579" y="276.88888888888886" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">32 MB</text>
+<text x="670" y="270.88888888888886" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">EdgeAI DMA</text>
+<text x="670" y="289.88888888888886" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0xA100_0000   ·   DMA 缓冲</text>
+<rect x="1114" y="262.88888888888886" width="59" height="21" rx="10.5" fill="#16a085" filter="url(#shs)"/>
+<text x="1143.635" y="277.58888888888885" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">AI 相关</text>
+<rect x="488" y="305.66666666666663" width="6" height="43.55555555555556" rx="3" fill="url(#g_ipc)" opacity="1.0"/>
+<rect x="504" y="305.66666666666663" width="150" height="43.55555555555556" rx="7" fill="url(#g_ipc)" opacity="1.0"/>
+<text x="579" y="332.4444444444444" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">16 MB</text>
+<text x="670" y="326.4444444444444" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">IPC 共享内存</text>
+<text x="670" y="345.4444444444444" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0xA000_0000   ·   跨核 IPC</text>
+<rect x="488" y="361.2222222222222" width="6" height="43.55555555555556" rx="3" fill="url(#g_dark)" opacity="1.0"/>
+<rect x="504" y="361.2222222222222" width="150" height="43.55555555555556" rx="7" fill="url(#g_dark)" opacity="1.0"/>
+<text x="579" y="387.99999999999994" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">24 MB</text>
+<text x="670" y="381.99999999999994" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">OP-TEE 安全世界</text>
+<text x="670" y="400.99999999999994" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x9E80_0000   ·   安全世界</text>
+<rect x="488" y="416.7777777777777" width="6" height="43.55555555555556" rx="3" fill="url(#g_slate)" opacity="1.0"/>
+<rect x="504" y="416.7777777777777" width="150" height="43.55555555555556" rx="7" fill="url(#g_slate)" opacity="1.0"/>
+<text x="579" y="443.5555555555555" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">47 MB</text>
+<text x="670" y="437.5555555555555" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">R5F DMA / 固件 ×4</text>
+<text x="670" y="456.5555555555555" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x9B80_0000   ·   两个 R5F 核</text>
+<rect x="488" y="472.33333333333326" width="6" height="43.55555555555556" rx="3" fill="url(#g_fwc)" opacity="1.0"/>
+<rect x="504" y="472.33333333333326" width="150" height="43.55555555555556" rx="7" fill="url(#g_fwc)" opacity="1.0"/>
+<text x="579" y="499.11111111111103" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">31 MB</text>
+<text x="670" y="493.11111111111103" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">C7x 固件运行区</text>
+<text x="670" y="512.1111111111111" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x9990_0000   ·   am62a-c71_0-fw 加载于此</text>
+<rect x="1114" y="485.11111111111103" width="59" height="21" rx="10.5" fill="#16a085" filter="url(#shs)"/>
+<text x="1143.635" y="499.811111111111" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">AI 相关</text>
+<rect x="488" y="527.8888888888888" width="6" height="43.55555555555556" rx="3" fill="url(#g_gold)" opacity="1.0"/>
+<rect x="504" y="527.8888888888888" width="150" height="43.55555555555556" rx="7" fill="url(#g_gold)" opacity="1.0"/>
+<text x="579" y="554.6666666666666" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">1 MB</text>
+<text x="670" y="548.6666666666666" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">C7x vring</text>
+<text x="670" y="567.6666666666666" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x9980_0000   ·   IPC 环形缓冲（命令通道）</text>
+<rect x="1114" y="540.6666666666666" width="59" height="21" rx="10.5" fill="#16a085" filter="url(#shs)"/>
+<text x="1143.635" y="555.3666666666667" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">AI 相关</text>
+<rect x="488" y="583.4444444444443" width="6" height="43.55555555555556" rx="3" fill="url(#g_warn)" opacity="1.0"/>
+<rect x="504" y="583.4444444444443" width="150" height="43.55555555555556" rx="7" fill="url(#g_warn)" opacity="1.0"/>
+<text x="579" y="610.2222222222222" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#fff" text-anchor="middle" font-weight="700" opacity="1.0">0.5 MB</text>
+<text x="670" y="604.2222222222222" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">TF-A</text>
+<text x="670" y="623.2222222222222" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">0x8000_0000   ·   Arm Trusted Firmware</text>
+<rect x="70" y="700" width="1140" height="34" rx="9" fill="#fdecea" stroke="#f5b7b1" stroke-width="1.3"/>
+<rect x="70" y="700" width="5" height="34" rx="2.5" fill="#eb4d4b"/>
+<text x="88" y="722" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13" fill="#a93226" text-anchor="start" font-weight="700" opacity="1.0">部署大模型报 algAlloc failed 时，先怀疑 Core Heap 292 MB 不够，而不是急着怀疑算子不支持 —— DSP 日志会打印网络的真实内存需求。</text>
+</svg>

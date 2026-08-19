@@ -8,3 +8,11 @@ ONR-SS-8730-deeplabv3-mobv3-lite-large-cocoseg21-512x512
 # odd resolution
 TVM-CL-3430-gluoncv-mxnet-xception
 TFL-CL-0040-InceptionNetV3
+# TIDL 11_02_17_00 import crashes (SIGSEGV) — regression vs 11.01, which compiled it fine.
+# 3x RESIZE_BILINEAR upsampling to 512x512 (scales > 4) plus ARG_MAX; the importer
+# warns "Resize layer - with scales > 4 is not optimal" and then segfaults.
+# Reproduced 2/2. No TFLite-side graph-rewrite tool exists (the 65-rule
+# tidl-onnx-model-optimizer only handles ONNX), so there is no workaround.
+# Equivalent ONNX model ONR-SS-8610-deeplabv3lite-mobv2-ade20k32-512x512 works and
+# covers the same use case, so this entry was dropped from the shipped model_zoo.
+TFL-SS-2580-deeplabv3_mobv2-ade20k32-mlperf-512x512

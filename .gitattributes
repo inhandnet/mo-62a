@@ -9,6 +9,11 @@ k3r5-devkit/** filter=lfs diff=lfs merge=lfs -text
 
 # EdgeAI cp313 runtime+C7x firmware+ISP DCC (large binary uses LFS)
 board-support/rootfs-overlay/opt/ti/firmware/am62a-c71_0-fw filter=lfs diff=lfs merge=lfs -text
+# TIDL 11_02_17_00 ARM-side runtime libs + ONNX Runtime 1.23 C library
+board-support/rootfs-overlay/opt/ti/edgeai/lib/*.so.* filter=lfs diff=lfs merge=lfs -text
+# C7x firmware at TI's official path (merged-usr: /lib -> usr/lib, so kept under usr/lib)
+board-support/rootfs-overlay/usr/lib/firmware/ti-ipc/**/*.out filter=lfs diff=lfs merge=lfs -text
+board-support/rootfs-overlay/usr/lib/firmware/ti-ipc/**/*.signed filter=lfs diff=lfs merge=lfs -text
 board-support/rootfs-overlay/usr/local/lib/python3.13/dist-packages/**/*.so filter=lfs diff=lfs merge=lfs -text
 board-support/rootfs-overlay/opt/imaging/**/*.bin filter=lfs diff=lfs merge=lfs -text
 doc/ai-runtime-cp313/*.whl filter=lfs diff=lfs merge=lfs -text
@@ -27,3 +32,5 @@ doc/**/*.pdf filter=lfs diff=lfs merge=lfs -text
 
 # edgeai-cpp prebuilt TFLite static libs (~76MB binary) use LFS
 board-support/extra-applications/edgeai-cpp/**/*.a filter=lfs diff=lfs merge=lfs -text
+# edgeai-cpp prebuilt TI runtime shared libs (TIDL 11_02_17_00 / ORT 1.23) use LFS
+board-support/extra-applications/edgeai-cpp/prebuilt/**/*.so* filter=lfs diff=lfs merge=lfs -text

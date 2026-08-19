@@ -1,7 +1,8 @@
-numGraphNodes=469
+numGraphNodes=789
 0:subGraphName=subgraph_0
 0:numInputs=1
 0:numOutputs=2
 0:inputIdx=0
 0:inDataNames=inputNet_IN
 0:outDataNames=labels,boxes
+0:outDataTypes=7,1

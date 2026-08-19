@@ -15,6 +15,22 @@ CHROOT="$SELF_DIR/.build-chroot"
 OUT="$SELF_DIR/out"
 QEMU="$(command -v qemu-aarch64-static || echo /usr/bin/qemu-aarch64-static)"
 
+# Parallelism is bounded by RAM, not cores: an aarch64 cc1plus running under
+# qemu-user costs roughly 1 GB once the emulator's own overhead is counted, and
+# this box has been OOM-killed before when a build was allowed to fan out. So
+# budget one job per GB of *available* memory (keeping 2 GB headroom) and clamp
+# to the core count. Override with JOBS=<n>.
+if [ -z "${JOBS:-}" ]; then
+  _cores=$(nproc)
+  _mem_gb=$(awk '/MemAvailable/{printf "%d", $2/1048576}' /proc/meminfo)
+  _by_mem=$(( _mem_gb - 2 ))
+  [ "$_by_mem" -lt 1 ] && _by_mem=1
+  JOBS=$(( _cores < _by_mem ? _cores : _by_mem ))
+  [ "$JOBS" -lt 1 ] && JOBS=1
+fi
+export JOBS       # the compile step runs inside chroot with `set -u`
+echo "  build parallelism: -j$JOBS (cores=$(nproc), MemAvailable=$(awk '/MemAvailable/{printf "%.1fG", $2/1048576}' /proc/meminfo))"
+
 # --- args ---
 INSTALL_ROOTFS=""
 BASE_TAR="$SDK_ROOT/filesystem/debian-13.5-edgeai-base-arm64.tar.xz"
@@ -56,6 +72,22 @@ cp -a "$SELF_DIR/src" "$CHROOT/opt/ecpp/"
 cp -a "$SELF_DIR/include" "$CHROOT/opt/ecpp/"
 cp -a "$SELF_DIR/prebuilt" "$CHROOT/opt/ecpp/"
 
+# The base rootfs ships the TIDL runtime that matched the image it was built for.
+# When the SDK is upgraded (e.g. TIDL 11_02_17_00 / ONNX Runtime 1.23) those .so
+# files are stale: the app would link against the old libonnxruntime SONAME and
+# the old libtivision_apps, then fail on-device. Override them here if the
+# upgraded libraries are staged next to this script.
+TIDL_LIB_OVERRIDE="${TIDL_LIB_OVERRIDE:-$SELF_DIR/prebuilt/ti-lib}"
+if [ -d "$TIDL_LIB_OVERRIDE" ]; then
+  echo "  overriding TI runtime libs from $TIDL_LIB_OVERRIDE"
+  mkdir -p "$CHROOT/opt/ti/edgeai/lib"
+  cp -a "$TIDL_LIB_OVERRIDE"/. "$CHROOT/opt/ti/edgeai/lib/"
+  ( cd "$CHROOT/opt/ti/edgeai/lib"
+    [ -f libonnxruntime.so.1.23.0 ]    && ln -sf libonnxruntime.so.1.23.0 libonnxruntime.so
+    [ -f libtivision_apps.so.11.1.0 ]  && ln -sf libtivision_apps.so.11.1.0 libtivision_apps.so
+    true )
+fi
+
 echo "[4/6] Compile inside chroot"
 chroot "$CHROOT" /bin/bash -euo pipefail -c '
 export SOC=am62a
@@ -76,14 +108,14 @@ CF="-DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPI
 echo "  -> edgeai-dl-inferer"
 cd /opt/ecpp/src/edgeai-dl-inferer && rm -rf build && mkdir build && cd build
 cmake .. $CF
-make -j2 edgeai_dl_inferer edgeai_pre_process edgeai_post_process
+make -j${JOBS} edgeai_dl_inferer edgeai_pre_process edgeai_post_process
 cp -f ../lib/Release/libedgeai_dl_inferer.a /usr/local/lib/
 cp -f ../lib/Release/libedgeai_pre_process.a /usr/local/lib/
 cp -f ../lib/Release/libedgeai_post_process.a /usr/local/lib/
 echo "  -> app_edgeai"
 cd /opt/ecpp/src/apps_cpp && rm -rf build && mkdir build && cd build
 cmake .. $CF
-make -j2 app_edgeai
+make -j${JOBS} app_edgeai
 file /opt/ecpp/src/apps_cpp/bin/Release/app_edgeai
 '
 

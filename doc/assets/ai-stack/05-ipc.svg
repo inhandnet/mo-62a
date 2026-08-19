@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="720" viewBox="0 0 1200 720">
+<defs>
+<linearGradient id="g_app" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#3f66c9"/></linearGradient>
+<linearGradient id="g_fw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#8b7bd8"/><stop offset="1" stop-color="#6a58bd"/></linearGradient>
+<linearGradient id="g_backend" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#a86bd0"/><stop offset="1" stop-color="#8442ae"/></linearGradient>
+<linearGradient id="g_rt" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#4834d4"/></linearGradient>
+<linearGradient id="g_vx" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#4834d4"/><stop offset="1" stop-color="#2d1f96"/></linearGradient>
+<linearGradient id="g_ipc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#f0932b"/><stop offset="1" stop-color="#cf7714"/></linearGradient>
+<linearGradient id="g_fwc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#d63bd6"/><stop offset="1" stop-color="#a029a0"/></linearGradient>
+<linearGradient id="g_hw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e74c3c"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_vpac" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ff9f43"/><stop offset="1" stop-color="#df801f"/></linearGradient>
+<linearGradient id="g_mem" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#16a085"/><stop offset="1" stop-color="#0c7862"/></linearGradient>
+<linearGradient id="g_ok" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#27ae60"/><stop offset="1" stop-color="#1c8449"/></linearGradient>
+<linearGradient id="g_warn" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#eb4d4b"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_gray" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#9aa5b1"/><stop offset="1" stop-color="#7b8794"/></linearGradient>
+<linearGradient id="g_dark" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#3d566e"/><stop offset="1" stop-color="#2b3f52"/></linearGradient>
+<linearGradient id="g_sram" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#22a6b3"/><stop offset="1" stop-color="#12838f"/></linearGradient>
+<linearGradient id="g_gold" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e1b12c"/><stop offset="1" stop-color="#bd9218"/></linearGradient>
+<linearGradient id="g_slate" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#7f8fa6"/><stop offset="1" stop-color="#64748b"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#16204a" flood-opacity="0.20"/></filter>
+<filter id="shs" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#16204a" flood-opacity="0.15"/></filter>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#5a6480"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#ffffff"/></marker>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#eb4d4b"/></marker>
+<marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#e08424"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#27ae60"/></marker>
+</defs>
+<rect width="1200" height="720" fill="#f5f7fb"/>
+<text x="600.0" y="42" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="26" fill="#1f2437" text-anchor="middle" font-weight="700" opacity="1.0">A53 与 C7x 如何对话</text>
+<text x="600.0" y="68" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#6b7280" text-anchor="middle" font-weight="400" opacity="1.0">关键设计：命令走 vring，数据走共享内存 —— 每帧图像不经过 IPC 通道</text>
+<rect x="60" y="100" width="300" height="330" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">A53 / Linux 侧</text>
+<rect x="82" y="150" width="256" height="62" rx="13" fill="url(#g_app)" opacity="1.0" filter="url(#sh)"/>
+<text x="210.0" y="180.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">推理程序</text>
+<text x="210.0" y="196.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">ONNX Runtime / 你的程序</text>
+<rect x="82" y="226" width="256" height="62" rx="13" fill="url(#g_vx)" opacity="1.0" filter="url(#sh)"/>
+<text x="210.0" y="256.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">libtivision_apps</text>
+<text x="210.0" y="272.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">OpenVX host 侧</text>
+<rect x="82" y="302" width="256" height="62" rx="13" fill="url(#g_slate)" opacity="1.0" filter="url(#sh)"/>
+<text x="210.0" y="332.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">rpmsg 驱动</text>
+<text x="210.0" y="348.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">/dev/rpmsg0-4</text>
+<line x1="210" y1="212" x2="210" y2="222" stroke="#8b93ab" stroke-width="2.2" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="210" y1="288" x2="210" y2="298" stroke="#8b93ab" stroke-width="2.2" marker-end="url(#ar)" stroke-linecap="round"/>
+<rect x="440" y="100" width="320" height="330" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="458" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">共享内存（物理）</text>
+<rect x="462" y="150" width="276" height="96" rx="13" fill="url(#g_gold)" opacity="1.0" filter="url(#sh)"/>
+<text x="600.0" y="188.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">vring 环形缓冲</text>
+<text x="600.0" y="205.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">0x9980_0000  ·  1 MB</text>
+<text x="600.0" y="223.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="0.95">传「命令」</text>
+<rect x="462" y="268" width="276" height="118" rx="13" fill="url(#g_ok)" opacity="1.0" filter="url(#sh)"/>
+<text x="600.0" y="309.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">EdgeAI 共享池</text>
+<text x="600.0" y="326.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">0xA300_0000  ·  172 MB</text>
+<text x="600.0" y="344.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="0.95">传「数据」· 零拷贝</text>
+<text x="600.0" y="359.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.8">/dev/dma_heap/carveout_...</text>
+<rect x="840" y="100" width="300" height="330" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="858" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">C7x 侧</text>
+<rect x="862" y="150" width="256" height="62" rx="13" fill="url(#g_fwc)" opacity="1.0" filter="url(#sh)"/>
+<text x="990.0" y="179.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">TIOVX target kernel</text>
+<text x="990.0" y="196.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">接收节点创建/执行命令</text>
+<rect x="862" y="268" width="256" height="118" rx="13" fill="url(#g_hw)" opacity="1.0" filter="url(#sh)"/>
+<text x="990.0" y="317.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">TIDL 算法 + MMALIB</text>
+<text x="990.0" y="334.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">逐层计算</text>
+<text x="990.0" y="351.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">MMA 矩阵阵列</text>
+<path d="M 340 320 L 458 198" fill="none" stroke="#cf7714" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar)"/>
+<text x="352" y="214" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#cf7714" text-anchor="start" font-weight="700" opacity="1.0">小消息 · 命令/应答</text>
+<path d="M 742 198 L 858 181" fill="none" stroke="#cf7714" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#ar)"/>
+<path d="M 340 345 C 400 345, 400 330, 458 330" fill="none" stroke="#27ae60" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arg)" stroke-dasharray="6 4"/>
+<text x="352" y="372" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#1e8449" text-anchor="start" font-weight="700" opacity="1.0">只传 buffer 句柄</text>
+<path d="M 742 327 L 858 327" fill="none" stroke="#27ae60" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arg)"/>
+<text x="800" y="316" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#1e8449" text-anchor="middle" font-weight="700" opacity="1.0">直接读写</text>
+<rect x="60" y="462" width="1080" height="120" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="488" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">性能含义</text>
+<text x="84" y="516" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#a93226" text-anchor="start" font-weight="700" opacity="1.0">会话创建（一次性）：几百毫秒 ~ 数秒</text>
+<text x="84" y="546" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">包含 algAlloc 分配内存 + algInit 初始化各层核函数</text>
+<text x="84" y="566" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">绝大多数版本错配的失败都发生在这一步</text>
+<text x="660" y="516" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#1e8449" text-anchor="start" font-weight="700" opacity="1.0">逐帧推理：几毫秒</text>
+<text x="660" y="546" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">务必复用 session，不要每帧重建</text>
+<path d="M 640 500 L 640 566" fill="none" stroke="#dde3ee" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

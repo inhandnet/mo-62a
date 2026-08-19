@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1320" height="950" viewBox="0 0 1320 950">
+<defs>
+<linearGradient id="g_app" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#3f66c9"/></linearGradient>
+<linearGradient id="g_fw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#8b7bd8"/><stop offset="1" stop-color="#6a58bd"/></linearGradient>
+<linearGradient id="g_backend" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#a86bd0"/><stop offset="1" stop-color="#8442ae"/></linearGradient>
+<linearGradient id="g_rt" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#4834d4"/></linearGradient>
+<linearGradient id="g_vx" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#4834d4"/><stop offset="1" stop-color="#2d1f96"/></linearGradient>
+<linearGradient id="g_ipc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#f0932b"/><stop offset="1" stop-color="#cf7714"/></linearGradient>
+<linearGradient id="g_fwc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#d63bd6"/><stop offset="1" stop-color="#a029a0"/></linearGradient>
+<linearGradient id="g_hw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e74c3c"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_vpac" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ff9f43"/><stop offset="1" stop-color="#df801f"/></linearGradient>
+<linearGradient id="g_mem" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#16a085"/><stop offset="1" stop-color="#0c7862"/></linearGradient>
+<linearGradient id="g_ok" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#27ae60"/><stop offset="1" stop-color="#1c8449"/></linearGradient>
+<linearGradient id="g_warn" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#eb4d4b"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_gray" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#9aa5b1"/><stop offset="1" stop-color="#7b8794"/></linearGradient>
+<linearGradient id="g_dark" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#3d566e"/><stop offset="1" stop-color="#2b3f52"/></linearGradient>
+<linearGradient id="g_sram" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#22a6b3"/><stop offset="1" stop-color="#12838f"/></linearGradient>
+<linearGradient id="g_gold" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e1b12c"/><stop offset="1" stop-color="#bd9218"/></linearGradient>
+<linearGradient id="g_slate" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#7f8fa6"/><stop offset="1" stop-color="#64748b"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#16204a" flood-opacity="0.20"/></filter>
+<filter id="shs" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#16204a" flood-opacity="0.15"/></filter>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#5a6480"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#ffffff"/></marker>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#eb4d4b"/></marker>
+<marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#e08424"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#27ae60"/></marker>
+</defs>
+<rect width="1320" height="950" fill="#f5f7fb"/>
+<text x="660.0" y="42" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="26" fill="#1f2437" text-anchor="middle" font-weight="700" opacity="1.0">TI AM62A 边缘 AI 软件栈 · 全景</text>
+<text x="660.0" y="68" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#6b7280" text-anchor="middle" font-weight="400" opacity="1.0">Mo 62A 实机 · 从应用到硅片的完整调用链</text>
+<rect x="60" y="96" width="1010" height="104" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="122" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">① 应用层</text>
+<text x="155.5" y="122" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">   用户程序 / 官方 demo</text>
+<rect x="75.0" y="132" width="316.6666666666667" height="56" rx="13" fill="url(#g_app)" opacity="1.0" filter="url(#sh)"/>
+<text x="233.33333333333334" y="158.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">edgeai-gst-apps</text>
+<text x="233.33333333333334" y="175.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">TI 官方 demo</text>
+<rect x="406.6666666666667" y="132" width="316.6666666666667" height="56" rx="13" fill="url(#g_app)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="158.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">edgeai-demo</text>
+<text x="565.0" y="175.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">自研统一启动器</text>
+<rect x="738.3333333333334" y="132" width="316.6666666666667" height="56" rx="13" fill="url(#g_app)" opacity="1.0" filter="url(#sh)"/>
+<text x="896.6666666666667" y="158.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">你的 C++ 程序</text>
+<text x="896.6666666666667" y="175.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">find_package(EdgeAI)</text>
+<rect x="60" y="214" width="1010" height="104" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="240" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">② 推理框架层</text>
+<text x="186.5" y="240" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">   三条并行的路，互相独立</text>
+<rect x="75.0" y="250" width="316.6666666666667" height="56" rx="13" fill="url(#g_fw)" opacity="1.0" filter="url(#sh)"/>
+<text x="233.33333333333334" y="276.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">ONNX Runtime 1.15</text>
+<text x="233.33333333333334" y="293.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">必须用 TI 版</text>
+<rect x="406.6666666666667" y="250" width="316.6666666666667" height="56" rx="13" fill="url(#g_fw)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="276.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">TFLite Runtime 2.12</text>
+<text x="565.0" y="293.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">.tflite</text>
+<rect x="738.3333333333334" y="250" width="316.6666666666667" height="56" rx="13" fill="url(#g_fw)" opacity="1.0" filter="url(#sh)"/>
+<text x="896.6666666666667" y="276.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">DLR 1.13</text>
+<text x="896.6666666666667" y="293.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">TVM 编译产物</text>
+<rect x="60" y="332" width="1010" height="104" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="358" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">③ TI 后端</text>
+<text x="186.5" y="358" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">   算子适配 · 决定哪些层能交给 C7x</text>
+<rect x="75.0" y="368" width="316.6666666666667" height="56" rx="13" fill="url(#g_backend)" opacity="1.0" filter="url(#sh)"/>
+<text x="233.33333333333334" y="394.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">libtidl_onnxrt_EP</text>
+<text x="233.33333333333334" y="411.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">TIDLExecutionProvider</text>
+<rect x="406.6666666666667" y="368" width="316.6666666666667" height="56" rx="13" fill="url(#g_backend)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="394.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">libtidl_tfl_delegate</text>
+<text x="565.0" y="411.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">TfLite Delegate</text>
+<rect x="738.3333333333334" y="368" width="316.6666666666667" height="56" rx="13" fill="url(#g_backend)" opacity="1.0" filter="url(#sh)"/>
+<text x="896.6666666666667" y="394.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">libdlr</text>
+<text x="896.6666666666667" y="411.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.85">DLR runtime</text>
+<rect x="60" y="450" width="1010" height="62" rx="13" fill="url(#g_rt)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="480.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="17" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">④   TIDL-RT   ·   libvx_tidl_rt.so</text>
+<text x="565.0" y="498.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">把「跑一个网络」翻译成 OpenVX 计算图</text>
+<rect x="60" y="528" width="1010" height="74" rx="13" fill="url(#g_vx)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="564.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="17" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">⑤   OpenVX / TIOVX 框架   ·   libtivision_apps.so</text>
+<text x="565.0" y="582.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">host 侧节点管理与调度 —— 同时服务推理链与 GStreamer 摄像头插件</text>
+<rect x="60" y="618" width="1010" height="62" rx="13" fill="url(#g_ipc)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="648.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="16.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">⑥   IPC 层   ·   rpmsg  +  dma_heap</text>
+<text x="565.0" y="666.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">命令走 vring 环形缓冲，数据走共享内存（零拷贝）</text>
+<rect x="60" y="696" width="1010" height="62" rx="13" fill="url(#g_fwc)" opacity="1.0" filter="url(#sh)"/>
+<text x="565.0" y="726.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="16.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">⑦   C7x 固件   ·   am62a-c71_0-fw  (11 MB)</text>
+<text x="565.0" y="744.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">TIDL 算法库  +  MMALIB 核函数  +  TIOVX target 侧</text>
+<rect x="60" y="774" width="626.2" height="76" rx="13" fill="url(#g_hw)" opacity="1.0" filter="url(#sh)"/>
+<text x="373.1" y="811.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="17.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">⑧   C7x DSP + MMA 矩阵阵列</text>
+<text x="373.1" y="829.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">唯一执行神经网络计算的单元 · 2 TOPS</text>
+<rect x="702.2" y="774" width="367.79999999999995" height="76" rx="13" fill="url(#g_vpac)" opacity="1.0" filter="url(#sh)"/>
+<text x="886.1" y="811.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="17" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">VPAC</text>
+<text x="886.1" y="829.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">ISP / MSC / LDC</text>
+<line x1="565.0" y1="200" x2="565.0" y2="214" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="318" x2="565.0" y2="332" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="436" x2="565.0" y2="450" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="512" x2="565.0" y2="526" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="590" x2="565.0" y2="604" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="680" x2="565.0" y2="694" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="565.0" y1="758" x2="565.0" y2="772" stroke="#8b93ab" stroke-width="2.6" marker-end="url(#ar)" stroke-linecap="round"/>
+<path d="M 886.1 758 L 886.1 772" fill="none" stroke="#e08424" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#aro)" stroke-dasharray="5 4"/>
+<path d="M 1070 124 C 1216 124, 1216 600, 1070 600" fill="none" stroke="#e08424" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#aro)"/>
+<rect x="1104" y="300" width="200" height="96" rx="13" fill="url(#g_vpac)" opacity="1.0" filter="url(#sh)"/>
+<text x="1204.0" y="328.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">GStreamer</text>
+<text x="1204.0" y="349.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">TIOVX 插件</text>
+<text x="1204.0" y="366.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">tiovxisp / multiscaler</text>
+<text x="1204.0" y="382.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">绕过推理框架直连</text>
+<rect x="60" y="894" width="1244" height="34" rx="9" fill="#fdecea" stroke="#f5b7b1" stroke-width="1.3"/>
+<rect x="60" y="894" width="5" height="34" rx="2.5" fill="#eb4d4b"/>
+<text x="78" y="916" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13" fill="#a93226" text-anchor="start" font-weight="700" opacity="1.0">版本铁律：⑦固件 · ⑤libtivision_apps · ④libvx_tidl_rt · ③EP 库 · 模型 artifacts —— 五者必须同版本，错配报错极具误导性</text>
+</svg>

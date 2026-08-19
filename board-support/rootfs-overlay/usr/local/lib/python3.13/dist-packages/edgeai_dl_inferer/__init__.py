@@ -101,7 +101,6 @@ try:
             """
             if enable_tidl:
                 delegate_options = {
-                    "tidl_tools_path": "null",
                     "artifacts_folder": artifacts,
                     "import": "no",
                     "core_number": core_number,
@@ -144,6 +143,13 @@ except ImportError:
 try:
     import onnxruntime as _onnxruntime
 
+    # AM62A 无 GPU；ORT 1.23 的 device discovery 读不到 PCI vendor 属性会告警。
+    # 该告警由全局 Default logger 打印，必须全局压制（sess_options 无效）。
+    try:
+        _onnxruntime.set_default_logger_severity(3)   # 3 = ERROR
+    except Exception:
+        pass
+
     class onnxrt:
         """
         Abstracts the onnxrt Run Time
@@ -160,12 +166,23 @@ try:
             """
             if enable_tidl:
                 runtime_options = {
-                    "tidl_tools_path": "null",
                     "artifacts_folder": artifacts,
                     "core_number": core_number,
                 }
                 sess_options = _onnxruntime.SessionOptions()
                 sess_options.log_severity_level=3
+                # --- TIDL 11_02_17_00 + ORT 1.23 必需（doc/TIDL_11_02_17_00_升级指南.md §4）---
+                # ① 关 ORT 图优化。编译端与推理端必须一致，否则段错误 rc=139
+                sess_options.graph_optimization_level = \
+                    _onnxruntime.GraphOptimizationLevel.ORT_DISABLE_ALL
+                # ② ORT 1.23 对 TIDL EP 张量做严格校验 -> GetElementType is not implemented
+                for _k in ("session.disable_input_validation",
+                           "session.disable_output_validation"):
+                    try:
+                        sess_options.add_session_config_entry(_k, "1")
+                    except Exception:
+                        pass
+                # ---------------------------------------------------------------
                 ep_list = ["TIDLExecutionProvider", "CPUExecutionProvider"]
                 self.interpreter = _onnxruntime.InferenceSession(
                     model_path,

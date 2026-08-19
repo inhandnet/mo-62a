@@ -1,7 +1,8 @@
-numGraphNodes=123
+numGraphNodes=184
 0:subGraphName=subgraph_0
 0:numInputs=1
 0:numOutputs=1
 0:inputIdx=0
 0:inDataNames=input.1Net_IN
 0:outDataNames=556TIDL_cast_out
+0:outDataTypes=2

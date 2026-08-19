@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1240" height="720" viewBox="0 0 1240 720">
+<defs>
+<linearGradient id="g_app" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#5b8def"/><stop offset="1" stop-color="#3f66c9"/></linearGradient>
+<linearGradient id="g_fw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#8b7bd8"/><stop offset="1" stop-color="#6a58bd"/></linearGradient>
+<linearGradient id="g_backend" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#a86bd0"/><stop offset="1" stop-color="#8442ae"/></linearGradient>
+<linearGradient id="g_rt" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#6c5ce7"/><stop offset="1" stop-color="#4834d4"/></linearGradient>
+<linearGradient id="g_vx" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#4834d4"/><stop offset="1" stop-color="#2d1f96"/></linearGradient>
+<linearGradient id="g_ipc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#f0932b"/><stop offset="1" stop-color="#cf7714"/></linearGradient>
+<linearGradient id="g_fwc" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#d63bd6"/><stop offset="1" stop-color="#a029a0"/></linearGradient>
+<linearGradient id="g_hw" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e74c3c"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_vpac" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#ff9f43"/><stop offset="1" stop-color="#df801f"/></linearGradient>
+<linearGradient id="g_mem" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#16a085"/><stop offset="1" stop-color="#0c7862"/></linearGradient>
+<linearGradient id="g_ok" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#27ae60"/><stop offset="1" stop-color="#1c8449"/></linearGradient>
+<linearGradient id="g_warn" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#eb4d4b"/><stop offset="1" stop-color="#bf3327"/></linearGradient>
+<linearGradient id="g_gray" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#9aa5b1"/><stop offset="1" stop-color="#7b8794"/></linearGradient>
+<linearGradient id="g_dark" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#3d566e"/><stop offset="1" stop-color="#2b3f52"/></linearGradient>
+<linearGradient id="g_sram" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#22a6b3"/><stop offset="1" stop-color="#12838f"/></linearGradient>
+<linearGradient id="g_gold" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#e1b12c"/><stop offset="1" stop-color="#bd9218"/></linearGradient>
+<linearGradient id="g_slate" x1="0" y1="0" x2="0.55" y2="1"><stop offset="0" stop-color="#7f8fa6"/><stop offset="1" stop-color="#64748b"/></linearGradient>
+<filter id="sh" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#16204a" flood-opacity="0.20"/></filter>
+<filter id="shs" x="-30%" y="-30%" width="160%" height="190%"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="#16204a" flood-opacity="0.15"/></filter>
+<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#5a6480"/></marker>
+<marker id="arw" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#ffffff"/></marker>
+<marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#eb4d4b"/></marker>
+<marker id="aro" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#e08424"/></marker>
+<marker id="arg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,1 L9,5 L0,9 z" fill="#27ae60"/></marker>
+</defs>
+<rect width="1240" height="720" fill="#f5f7fb"/>
+<text x="620.0" y="42" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="26" fill="#1f2437" text-anchor="middle" font-weight="700" opacity="1.0">离线模型编译流程</text>
+<text x="620.0" y="68" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#6b7280" text-anchor="middle" font-weight="400" opacity="1.0">模型不能直接部署 —— 必须先在 x86 上编译，设备端不做编译</text>
+<rect x="60" y="100" width="720" height="430" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="78" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">x86 主机（Ubuntu）</text>
+<text x="295.0" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">   edgeai-tidl-tools</text>
+<rect x="90" y="152" width="200" height="66" rx="13" fill="url(#g_app)" opacity="1.0" filter="url(#sh)"/>
+<text x="190.0" y="183.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">原始模型</text>
+<text x="190.0" y="200.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">model.onnx</text>
+<rect x="90" y="240" width="200" height="66" rx="13" fill="url(#g_gold)" opacity="1.0" filter="url(#sh)"/>
+<text x="190.0" y="271.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">校准数据</text>
+<text x="190.0" y="288.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">N 张代表性图片</text>
+<rect x="340" y="152" width="410" height="62" rx="13" fill="url(#g_backend)" opacity="1.0" filter="url(#sh)"/>
+<text x="545.0" y="190.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">TIDLCompilationProvider</text>
+<line x1="292" y1="185" x2="336" y2="185" stroke="#8b93ab" stroke-width="2.2" marker-end="url(#ar)" stroke-linecap="round"/>
+<line x1="292" y1="273" x2="336" y2="215" stroke="#8b93ab" stroke-width="2.2" marker-end="url(#ar)" stroke-linecap="round"/>
+<rect x="340" y="238" width="410" height="56" rx="13" fill="url(#g_fw)" opacity="1.0" filter="url(#sh)"/>
+<text x="545.0" y="264.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">① 算子适配性分析</text>
+<text x="545.0" y="281.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">→ 生成 allowedNode.txt</text>
+<line x1="545" y1="294" x2="545" y2="302" stroke="#8b93ab" stroke-width="1.8" marker-end="url(#ar)" stroke-linecap="round"/>
+<rect x="340" y="302" width="410" height="56" rx="13" fill="url(#g_ipc)" opacity="1.0" filter="url(#sh)"/>
+<text x="545.0" y="328.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">② int8 量化校准</text>
+<text x="545.0" y="345.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">统计各层激活值范围</text>
+<line x1="545" y1="358" x2="545" y2="366" stroke="#8b93ab" stroke-width="1.8" marker-end="url(#ar)" stroke-linecap="round"/>
+<rect x="340" y="366" width="410" height="56" rx="13" fill="url(#g_sram)" opacity="1.0" filter="url(#sh)"/>
+<text x="545.0" y="392.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">③ 内存规划</text>
+<text x="545.0" y="409.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="10.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">L2 / MSMC / DDR 分配</text>
+<rect x="90" y="340" width="200" height="172" rx="13" fill="url(#g_ok)" opacity="1.0" filter="url(#sh)"/>
+<text x="190.0" y="397.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="14" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">artifacts/</text>
+<text x="190.0" y="406.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="3" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="1.0"></text>
+<text x="190.0" y="422.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">subgraph_0_tidl_net.bin</text>
+<text x="190.0" y="437.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">subgraph_0_tidl_io_1.bin</text>
+<text x="190.0" y="453.0" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">allowedNode.txt</text>
+<text x="190.0" y="468.5" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="9.5" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.9">onnxrtMetaData.txt</text>
+<path d="M 336 430 L 300 430" fill="none" stroke="#27ae60" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arg)"/>
+<rect x="830" y="100" width="350" height="430" rx="15" fill="#ffffff" stroke="#dde3ee" stroke-width="1.5"/>
+<text x="848" y="126" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#1f2437" text-anchor="start" font-weight="700" opacity="1.0">Mo 62A 设备</text>
+<rect x="858" y="250" width="294" height="120" rx="13" fill="url(#g_hw)" opacity="1.0" filter="url(#sh)"/>
+<text x="1005.0" y="295.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="15" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="1.0">加载 artifacts</text>
+<text x="1005.0" y="312.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="11" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="0.88">TIDLExecutionProvider</text>
+<text x="1005.0" y="321.25" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="3" fill="#ffffff" text-anchor="middle" font-weight="400" opacity="1.0"></text>
+<text x="1005.0" y="339.75" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12.5" fill="#ffffff" text-anchor="middle" font-weight="700" opacity="0.95">设备端不做编译</text>
+<path d="M 294 486 L 1005 486 L 1005 378" fill="none" stroke="#27ae60" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#arg)"/>
+<text x="640" y="474" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12.5" fill="#1e8449" text-anchor="middle" font-weight="700" opacity="1.0">scp 拷贝 artifacts</text>
+<rect x="60" y="566" width="1120" height="34" rx="9" fill="#fdecea" stroke="#f5b7b1" stroke-width="1.3"/>
+<rect x="60" y="566" width="5" height="34" rx="2.5" fill="#eb4d4b"/>
+<text x="78" y="588" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="13" fill="#a93226" text-anchor="start" font-weight="700" opacity="1.0">最坑的一条：calibration_frames 默认 20。喂的帧数不够 → 量化不触发 → 不写最终产物 → 进程仍返回 0，不报任何错。</text>
+<text x="78" y="626" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">判据：编译日志里</text>
+<text x="196" y="626" font-family="DejaVu Sans Mono, Noto Sans Mono CJK SC, monospace" font-size="12" fill="#2d3748" text-anchor="start" font-weight="700" opacity="1.0">grep -c "TIDLRT_invoke failed"</text>
+<text x="420" y="626" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12.5" fill="#6b7280" text-anchor="start" font-weight="400" opacity="1.0">必须为 0。</text>
+<text x="492" y="626" font-family="Noto Sans CJK SC, DejaVu Sans, sans-serif" font-size="12.5" fill="#a93226" text-anchor="start" font-weight="700" opacity="1.0">Subgraph Compiled Successfully 不能说明产物可用。</text>
+</svg>

@@ -237,18 +237,34 @@ ORTInferer::ORTInferer(const InfererConfig &config):
     c_api_tidl_options      tidlOpts{};
     int32_t                 status;
 
+    /* TIDL requires ORT's own graph rewriting to be OFF, and the setting must
+     * match the one used when the artifacts were compiled. Anything else lets
+     * ORT reshape the graph first, which splits the TIDL subgraph (or segfaults
+     * at run time). See edgeai-tidl-tools docs/debugging.md item 6. */
     sessionOpts.SetGraphOptimizationLevel(
-            GraphOptimizationLevel::ORT_ENABLE_EXTENDED);
+            GraphOptimizationLevel::ORT_DISABLE_ALL);
 
     sessionOpts.SetLogSeverityLevel(3);
+
+    /* ONNX Runtime 1.23 validates TIDL EP tensors strictly and reports
+     * "GetElementType is not implemented"; TIDL supplies these itself. */
+    sessionOpts.AddConfigEntry("session.disable_input_validation", "1");
+    sessionOpts.AddConfigEntry("session.disable_output_validation", "1");
 
     if (m_enableTidl)
     {
         sessionOpts.SetIntraOpNumThreads(1);
-        OrtStatus *def_status = OrtSessionsOptionsSetDefault_Tidl(&tidlOpts);
-        strcpy(tidlOpts.artifacts_folder, m_artifactPath.c_str());
-        tidlOpts.core_number = m_coreNumber;
-        tidlOpts.debug_level = m_debug_level;
+
+        /* ORT 1.23 replaced the fixed-field c_api_tidl_options struct with a
+         * generic key/value list: OrtSessionsOptionsSetDefault_Tidl() and the
+         * .artifacts_folder / .core_number / .debug_level members are gone. */
+        OrtSessionOptionsInitialize_Tidl(&tidlOpts);
+        OrtSessionOptionsSet_Tidl(&tidlOpts, "artifacts_folder",
+                                  m_artifactPath.c_str());
+        OrtSessionOptionsSet_Tidl(&tidlOpts, "core_number",
+                                  std::to_string(m_coreNumber).c_str());
+        OrtSessionOptionsSet_Tidl(&tidlOpts, "debug_level",
+                                  std::to_string(m_debug_level).c_str());
         ortStatus = OrtSessionOptionsAppendExecutionProvider_Tidl(sessionOpts,
                                                                 &tidlOpts);
     }
