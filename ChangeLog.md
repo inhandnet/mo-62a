@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.1.0 — 2026-08-19
+
+### EdgeAI inference runtime
+
+#### TIDL 11_02_17_00 / ONNX Runtime 1.23 upgrade
+
+- The on-device inference runtime is upgraded as a whole: `/opt/ti/edgeai/lib`
+  now ships ONNX Runtime 1.23.0 plus the TIDL 11_02_17_00 execution-provider
+  libraries (`libtidl_onnxrt_EP` / `libtidlrt_EP` / `libtidl_tfl_delegate` /
+  `libtivision_apps` / `libvx_tidl_rt`).
+- C7x DSP firmware upgraded: `dsp_edgeai_c7x_1_release_strip.out(.signed)`
+  deployed under `/usr/lib/firmware/ti-ipc/am62axx`; `am62a-c71_0-fw` updated
+  to match.
+- The EdgeAI C/C++ SDK headers are synced to the ONNX Runtime 1.23 layout and
+  `ti_onnx_inferer` is adapted to the 1.23 TIDL key/value option interface;
+  prebuilt TI runtime libraries ship with the SDK (`edgeai-cpp/prebuilt/ti-lib`).
+- `edgeai-cpp/build.sh`: adaptive parallelism based on available memory
+  (prevents OOM under qemu cross-compilation) and support for overriding the
+  base image's stale runtime libraries with the new ones.
+- 9 models in the model zoo were recompiled with the new TIDL (all ONNX nodes
+  offloaded to C7x; all TFLite nodes delegated).
+- The base rootfs was re-packaged with the new inference runtime built in.
+- Verified on the full system: USB camera in → C7x inference → HDMI out at
+  ~46 fps; TIDL inference is ~11× faster than CPU-only, confirming execution
+  on the C7x DSP.
+
+### Documentation
+
+- New: "TIDL 11_02_17_00 Upgrade Guide" and "TIDL 11_02_17_00 FAQ".
+- New: "AM62A AI Software Stack" technical documentation (Chinese) with
+  architecture diagrams.
+
 ## v1.0.8 — 2026-07-20
 
 ### First-boot provisioning

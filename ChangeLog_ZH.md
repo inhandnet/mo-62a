@@ -1,5 +1,32 @@
 # 更新日志
 
+## v1.1.0 — 2026-08-19
+
+### EdgeAI 推理运行时
+
+#### TIDL 11_02_17_00 / ONNX Runtime 1.23 升级
+
+- 设备端推理运行时整体升级：`/opt/ti/edgeai/lib` 更新为 ONNX Runtime 1.23.0，
+  以及 TIDL 11_02_17_00 配套执行器库（`libtidl_onnxrt_EP` / `libtidlrt_EP` /
+  `libtidl_tfl_delegate` / `libtivision_apps` / `libvx_tidl_rt`）。
+- C7x DSP 固件升级：`dsp_edgeai_c7x_1_release_strip.out(.signed)` 部署到
+  `/usr/lib/firmware/ti-ipc/am62axx`，`am62a-c71_0-fw` 同步更新。
+- EdgeAI C/C++ SDK 头文件同步到 ONNX Runtime 1.23 布局，`ti_onnx_inferer`
+  适配 1.23 的 TIDL 键值选项接口；预编译 TI 运行时库随 SDK 提供
+  （`edgeai-cpp/prebuilt/ti-lib`）。
+- `edgeai-cpp/build.sh`：按可用内存自适应并行度（qemu 交叉编译防 OOM），
+  并支持用新版运行时库覆盖 base 镜像里的旧库。
+- 模型 zoo 中 9 个模型用新 TIDL 重新编译（ONNX 模型全部节点 offload C7x，
+  TFLite 模型全部节点 delegated）。
+- base rootfs 重打包，内置新版推理运行时。
+- 已在整机实测：USB 摄像头输入 → C7x 推理 → HDMI 显示约 46 fps；TIDL
+  推理耗时相比纯 CPU 快约 11 倍，确认推理在 C7x DSP 上执行。
+
+### 文档
+
+- 新增《TIDL 11_02_17_00 升级指南》与《TIDL 11_02_17_00 问题清单》。
+- 新增《AM62A AI 软件栈》技术文档（中文）及架构图。
+
 ## v1.0.8 — 2026-07-20
 
 ### 首次启动预配置
